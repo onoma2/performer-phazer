@@ -34,6 +34,7 @@ public:
     using NoteVariationRange = SignedValue<7>;
     using NoteVariationProbability = UnsignedValue<3>;
     using Condition = UnsignedValue<7>;
+    using PulseCount = UnsignedValue<3>;  // 0-7 representing 1-8 pulses
 
     static_assert(int(Types::Condition::Last) <= Condition::Max + 1, "Condition enum does not fit");
 
@@ -187,6 +188,12 @@ public:
         void setAccumulatorTrigger(bool isAccumulatorTrigger) { _data1.isAccumulatorTrigger = isAccumulatorTrigger; }
         void toggleAccumulatorTrigger() { setAccumulatorTrigger(!isAccumulatorTrigger()); }
 
+        // pulseCount
+        int pulseCount() const { return _data1.pulseCount; }
+        void setPulseCount(int pulseCount) {
+            _data1.pulseCount = PulseCount::clamp(pulseCount);
+        }
+
         //----------------------------------------
         // Methods
         //----------------------------------------
@@ -225,8 +232,9 @@ public:
             BitField<uint32_t, 2, RetriggerProbability::Bits> retriggerProbability;
             BitField<uint32_t, 5, GateOffset::Bits> gateOffset;
             BitField<uint32_t, 9, Condition::Bits> condition;
-            BitField<uint32_t, 16, 1> isAccumulatorTrigger; // Added this line
-            // 15 bits left
+            BitField<uint32_t, 16, 1> isAccumulatorTrigger;
+            BitField<uint32_t, 17, PulseCount::Bits> pulseCount;  // bits 17-19
+            // 12 bits left
         } _data1;
     };
 
