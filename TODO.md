@@ -31,7 +31,7 @@
 ### Implementation Details
 - Implemented accumulator tick logic in `triggerStep()` method when step has `isAccumulatorTrigger` set
 - Modified `evalStepNote()` function to apply accumulator value to pitch calculation
-- Created AccumulatorPage ("ACCUM") for parameter editing and AccumulatorStepsPage ("ACCST") for trigger configuration  
+- Created AccumulatorPage ("ACCUM") for parameter editing and AccumulatorStepsPage ("ACCST") for trigger configuration
 - Integrated pages with cycling mechanism (Sequence key cycles through NoteSequence → ACCUM → ACCST → NoteSequence)
 - All accumulator parameters are now functional: Enable, Direction, Order, Min/Max/Step values, etc.
 - Fixed the TestAccumulator logic error by correcting clamping behavior expectations
@@ -44,10 +44,33 @@
 
 ### Final Status
 ✅ All accumulator functionality implemented and tested
-✅ Build system integration complete  
+✅ Build system integration complete
 ✅ UI pages created and functional
 ✅ Modulation applied to pitch output in real-time
 ✅ Ready for use in simulator and hardware
+
+## Planned Feature: Move Accumulator Steps View to F4 Cycling in NoteSequencePage
+
+### Plan
+1.  **Remove ACCST from sequence cycling**: Eliminate ACCST from the Sequence key cycling (NoteSequence → ACCUM → NoteSequence instead of continuing to ACCST).
+2.  **Integrate ACCUM STP view into NOTE page**: Add a fourth view to the F4 cycling sequence in the NOTE page.
+3.  **Implement consistent UI**: Create the accumulator steps view using the same grid display pattern as gates (empty square = OFF, filled square = ON).
+4.  **Direct step control**: Allow step buttons (S1-S16) to toggle accumulator triggers directly from this view.
+5.  **Maintain parameter access**: Keep ACCUM parameter page accessible via Sequence key cycling.
+
+### Implementation Details
+- Modify NoteSequencePage to add ACCUM_STP as fourth cycling mode (after NOTE_PROB)
+- Create new visualizer to show which steps have accumulator triggers enabled
+- Update button handlers to allow step button presses to toggle accumulator trigger flags
+- Use same UI paradigm as gates page for familiar interaction
+- Preserve existing F4 cycling behavior (NOTE → NOTE_RANGE → NOTE_PROB → ACCUM_STP → cycle back to NOTE)
+- Maintain separate ACCUM page for detailed parameter editing
+
+### Expected Outcome
+- More intuitive access to accumulator trigger configuration
+- Consistent UI pattern with existing step-level editing views
+- Improved workflow for setting up accumulator triggers
+- Direct step button access matching the gates entry flow
 
 ## Pending Features
 

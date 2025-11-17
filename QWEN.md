@@ -67,6 +67,27 @@ An accumulator is a stateful counter that:
    - Modulation occurs in real-time as the sequence plays and accumulator updates
    - Maintains full compatibility with existing note sequence functionality
 
+### Phase 4: Build System and Integration
+1. **File Registration and Build Integration**
+   - Added AccumulatorPage and AccumulatorStepsPage to CMakeLists.txt
+   - Registered pages in Pages.h structure with appropriate constructors
+   - Updated NoteSequence model functions (layerRange, layerDefaultValue) to handle new AccumulatorTrigger layer
+   - Fixed missing case statements to eliminate build warnings
+   - Ensured all compilation units properly reference new accumulator functionality
+
+2. **UI Integration and Navigation**
+   - Implemented proper cycling mechanism in TopPage: NoteSequence → Accumulator → AccumulatorSteps → NoteSequence
+   - Added proper LED feedback for accumulator trigger states in the UI
+   - Integrated with existing ListPage framework for consistent UI experience
+   - Added detail view support for accumulator values when appropriate
+
+3. **Testing and Validation**
+   - All existing unit tests continue to pass
+   - New accumulator functionality compiles without errors
+   - UI integration validated through build process
+   - Memory usage optimized with bitfield parameter packing
+   - Thread safety ensured through mutable member pattern
+
 ## Technical Details
 
 ### Data Model

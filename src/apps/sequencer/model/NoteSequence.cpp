@@ -26,6 +26,8 @@ Types::LayerRange NoteSequence::layerRange(Layer layer) {
     CASE(NoteVariationRange)
     CASE(NoteVariationProbability)
     CASE(Condition)
+    case Layer::AccumulatorTrigger:
+        return { 0, 1 };
     case Layer::Last:
         break;
     }
@@ -66,6 +68,8 @@ int NoteSequence::layerDefaultValue(Layer layer)
         return step.noteVariationProbability();
     case Layer::Condition:
         return int(step.condition());
+    case Layer::AccumulatorTrigger:
+        return step.isAccumulatorTrigger() ? 1 : 0;
     case Layer::Last:
         break;
     }
@@ -101,6 +105,8 @@ int NoteSequence::Step::layerValue(Layer layer) const {
         return noteVariationProbability();
     case Layer::Condition:
         return int(condition());
+    case Layer::AccumulatorTrigger:
+        return isAccumulatorTrigger() ? 1 : 0;
     case Layer::Last:
         break;
     }
@@ -148,6 +154,9 @@ void NoteSequence::Step::setLayerValue(Layer layer, int value) {
         break;
     case Layer::Condition:
         setCondition(Types::Condition(value));
+        break;
+    case Layer::AccumulatorTrigger:
+        setAccumulatorTrigger(value != 0);
         break;
     case Layer::Last:
         break;

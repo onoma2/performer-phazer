@@ -51,6 +51,7 @@ public:
         NoteVariationRange,
         NoteVariationProbability,
         Condition,
+        AccumulatorTrigger,
         Last
     };
 
@@ -69,6 +70,7 @@ public:
         case Layer::NoteVariationRange:         return "NOTE RANGE";
         case Layer::NoteVariationProbability:   return "NOTE PROB";
         case Layer::Condition:                  return "CONDITION";
+        case Layer::AccumulatorTrigger:         return "ACCUM";
         case Layer::Last:                       break;
         }
         return nullptr;
