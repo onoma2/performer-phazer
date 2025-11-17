@@ -94,7 +94,7 @@ The sequencer application follows a Model-Engine-UI separation:
 - `Project.h`: Musical project data (tracks, sequences, patterns)
 - `Settings.h`: Global system settings
 - `NoteSequence.h`: Note sequence with multiple editable layers:
-  - Gate-related: Gate, GateProbability, GateOffset, Slide
+  - Gate-related: Gate, GateProbability, GateOffset, Slide, GateMode
   - Retrigger: Retrigger, RetriggerProbability, PulseCount
   - Length: Length, LengthVariationRange, LengthVariationProbability
   - Note: Note, NoteVariationRange, NoteVariationProbability
@@ -348,6 +348,113 @@ Pulse count is a per-step parameter that determines how many clock pulses a step
 - `src/apps/sequencer/engine/NoteTrackEngine.h/cpp` - Engine timing logic
 - `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp` - UI integration
 - `src/tests/unit/sequencer/TestPulseCount.cpp` - Unit tests
+
+## Gate Mode Feature
+
+The PEW|FORMER firmware includes a gate mode feature that controls how gates are fired during pulse count repetitions. This provides fine-grained control over gate timing patterns when combined with the pulse count feature.
+
+### Overview
+
+Gate mode is a per-step parameter that determines the gate firing behavior when a step repeats for multiple pulses. It allows creative rhythmic patterns by controlling which pulses within a step produce gates.
+
+### Core Parameters
+
+- **Gate Mode**: Per-step value from 0-3 (representing 4 different modes)
+  - **A (ALL, 0)**: Fires gates on every pulse (default, backward compatible)
+  - **1 (FIRST, 1)**: Single gate on first pulse only, silent for remaining pulses
+  - **H (HOLD, 2)**: One long gate held high for entire step duration
+  - **1L (FIRSTLAST, 3)**: Gates on first and last pulse only
+
+### UI Integration
+
+**Accessing Gate Mode Layer:**
+1. Navigate to STEPS page (track editing view)
+2. Press Gate button (F1) to cycle through layers:
+   - First press: GATE (gate on/off)
+   - Second press: GATE PROB (gate probability)
+   - Third press: GATE OFFSET (gate timing offset)
+   - Fourth press: SLIDE (slide/portamento)
+   - Fifth press: **GATE MODE** ← Feature layer
+   - Sixth press: cycles back to GATE
+
+**Editing Gate Mode:**
+1. Select steps using S1-S16 buttons
+2. Turn encoder to adjust gate mode (0-3)
+3. Detail overlay shows mode abbreviation when adjusting
+4. Visual display shows compact abbreviation above each step:
+   - A = gates on every pulse
+   - 1 = gate on first pulse only
+   - H = one long continuous gate
+   - 1L = gates on first and last pulse
+
+### Implementation Architecture
+
+**Model Layer** (`src/apps/sequencer/model/`):
+- `NoteSequence.h`: Added `gateMode` field to Step class
+  - 2-bit bitfield in `_data1` union (bits 20-21)
+  - Type: `using GateMode = UnsignedValue<2>;`
+  - Automatic clamping (0-3)
+  - GateModeType enum: All=0, First=1, Hold=2, FirstLast=3
+  - Integrated with Layer enum for UI access
+  - Serialization automatic via `_data1.raw`
+  - 10 bits remaining in `_data1` for future features
+
+**Engine Layer** (`src/apps/sequencer/engine/`):
+- `NoteTrackEngine.cpp`: Gate firing logic in `triggerStep()`
+  - Switch statement controls gate generation based on mode
+  - Uses `_pulseCounter` to determine current pulse (1 to pulseCount+1)
+  - ALL mode: `shouldFireGate = true` (every pulse)
+  - FIRST mode: `shouldFireGate = (_pulseCounter == 1)` (first only)
+  - HOLD mode: Single gate on first pulse with extended length `divisor * (pulseCount + 1)`
+  - FIRSTLAST mode: `shouldFireGate = (_pulseCounter == 1 || _pulseCounter == pulseCount + 1)`
+  - Works with both Aligned and Free play modes
+
+**UI Layer** (`src/apps/sequencer/ui/pages/`):
+- `NoteSequenceEditPage.cpp`: Full UI integration
+  - Added to Gate button (F1) cycling mechanism
+  - Encoder support for value adjustment (0-3 with clamping)
+  - Visual display showing compact abbreviations (A/1/H/1L)
+  - Detail overlay showing mode abbreviation when adjusting
+
+### Use Cases
+
+- **Accent patterns**: Use FIRST mode to create accents on downbeats while step repeats
+- **Long notes**: Use HOLD mode to sustain notes across multiple pulses
+- **Rhythmic variations**: Use FIRSTLAST mode to create "bouncing" rhythms
+- **Silent repeats**: Combine FIRST mode with high pulse counts for rhythmic gaps
+- **Dynamic patterns**: Mix different gate modes across steps for complex gate patterns
+
+### Compatibility
+
+- ✅ Works with all play modes (Aligned, Free)
+- ✅ Integrates seamlessly with pulse count feature
+- ✅ Compatible with retrigger feature
+- ✅ Works with gate offset and gate probability
+- ✅ Compatible with slide/portamento
+- ✅ Works with fill modes
+- ✅ Backward compatible (default mode 0 = ALL maintains existing behavior)
+- ✅ Serialization supported (saved with projects)
+
+### Testing Status
+
+✅ **Fully tested and verified:**
+- All unit tests pass (6 test cases covering model layer)
+- Engine logic verified in simulator with all 4 modes
+- UI integration complete and functional
+- Two critical bugs discovered and fixed during testing:
+  - Pulse counter timing bug (triggerStep called before counter reset)
+  - Step index lookup bug (stale _currentStep instead of _sequenceState.step())
+- Compatible with existing features
+- Production ready
+
+### Key Files
+
+- `src/apps/sequencer/model/NoteSequence.h/cpp` - Model layer implementation
+- `src/apps/sequencer/engine/NoteTrackEngine.cpp` - Engine gate firing logic
+- `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp` - UI integration
+- `src/tests/unit/sequencer/TestGateMode.cpp` - Unit tests
+- `GATE_MODE_TDD_PLAN.md` - Complete technical specification
+- `GATE_MODE_ENGINE_DESIGN.md` - Engine implementation design
 
 ## Simulator Interface
 
