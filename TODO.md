@@ -689,6 +689,487 @@ All phases complete:
 
 ### To brainstorm
 
+## Active Tasks
+
+### 🐛 BUG FIX: Accumulator State Not Saved to Project File (TDD Implementation)
+
+#### Bug Description
+**Issue**: Accumulator parameters (enabled, mode, direction, order, min/max/step values) are not persisted when saving projects to SD card.
+
+**Root Cause Analysis**:
+- File: `src/apps/sequencer/model/NoteSequence.cpp`
+- `NoteSequence::write()` (line 309-319): Does NOT call `_accumulator.write(writer)`
+- `NoteSequence::read()` (line 321-335): Does NOT call `_accumulator.read(reader)`
+- `Accumulator` class has no serialization methods
+
+**Impact**: Users lose all accumulator settings when saving/loading projects on hardware.
+
+**Expected Behavior**: Accumulator state should be saved/loaded with project files, maintaining all parameter values across sessions.
+
+---
+
+#### TDD Fix Plan: Phase-by-Phase Approach
+
+### Phase 1: Accumulator Serialization - Model Layer ⏳ (PENDING)
+
+**Goal**: Add write()/read() methods to Accumulator class with version handling
+
+#### Step 1.1: Write Serialization Test (RED)
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Create test: `src/tests/unit/sequencer/TestAccumulatorSerialization.cpp`
+2. Write Test 1.1: Verify accumulator writes all parameters
+   - Set accumulator with non-default values
+   - Serialize to buffer
+   - Verify buffer contains expected data
+3. Write Test 1.2: Verify accumulator reads all parameters
+   - Create buffer with known values
+   - Deserialize to accumulator
+   - Verify all parameters match expected values
+4. Write Test 1.3: Verify round-trip consistency
+   - Set accumulator with random values
+   - Serialize → Deserialize
+   - Verify all values identical
+5. Write Test 1.4: Verify default values for missing data
+   - Read from empty/short buffer
+   - Verify accumulator uses safe defaults
+6. Register test in `src/tests/unit/sequencer/CMakeLists.txt`
+
+**Expected Result**: Tests fail to compile (missing write/read methods)
+
+---
+
+#### Step 1.2: Verify Tests Fail (RED Verification)
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Build TestAccumulatorSerialization
+2. Verify compilation errors for missing methods:
+   - `Accumulator::write(VersionedSerializedWriter&)`
+   - `Accumulator::read(VersionedSerializedReader&)`
+3. Document error messages
+
+**Expected Result**: Compilation errors confirm proper RED state
+
+---
+
+#### Step 1.3: Implement Accumulator::write() and read() (GREEN)
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Add to `Accumulator.h`:
+   ```cpp
+   void write(VersionedSerializedWriter &writer) const;
+   void read(VersionedSerializedReader &reader);
+   ```
+
+2. Implement in `Accumulator.cpp`:
+   ```cpp
+   void Accumulator::write(VersionedSerializedWriter &writer) const {
+       // Write bitfield parameters as single byte
+       uint8_t flags = (_mode << 0) | (_polarity << 2) |
+                       (_direction << 3) | (_order << 5) |
+                       (_enabled << 7);
+       writer.write(flags);
+
+       // Write value parameters
+       writer.write(_minValue);
+       writer.write(_maxValue);
+       writer.write(_stepValue);
+       writer.write(_currentValue);
+       writer.write(_pendulumDirection);
+   }
+
+   void Accumulator::read(VersionedSerializedReader &reader) {
+       // Read bitfield flags
+       uint8_t flags;
+       reader.read(flags);
+       _mode = (flags >> 0) & 0x03;
+       _polarity = (flags >> 2) & 0x01;
+       _direction = (flags >> 3) & 0x03;
+       _order = (flags >> 5) & 0x03;
+       _enabled = (flags >> 7) & 0x01;
+
+       // Read value parameters
+       reader.read(_minValue);
+       reader.read(_maxValue);
+       reader.read(_stepValue);
+       reader.read(_currentValue);
+       reader.read(_pendulumDirection);
+   }
+   ```
+
+3. Build and run TestAccumulatorSerialization
+4. Verify all 4 tests pass
+
+**Expected Result**: All Phase 1 tests pass (GREEN state)
+
+---
+
+#### Step 1.4: Refactor If Needed
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Review code for clarity
+2. Consider extracting bitfield packing/unpacking helpers
+3. Verify no code duplication
+4. Confirm naming follows project conventions
+
+**Expected Result**: Clean, maintainable serialization code
+
+---
+
+#### Step 1.5: Commit Phase 1
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Verify all Phase 1 tests passing
+2. Commit: "Phase 1: Add Accumulator serialization (write/read methods)"
+3. Update TODO.md marking Phase 1 complete
+
+**Expected Result**: Phase 1 committed, ready for Phase 2
+
+---
+
+### Phase 2: NoteSequence Integration - Version Handling ⏳ (PENDING)
+
+**Goal**: Integrate accumulator serialization into NoteSequence with version compatibility
+
+#### Step 2.1: Add Project Version (RED)
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Edit `src/apps/sequencer/model/ProjectVersion.h`
+2. Add new version before `Last`:
+   ```cpp
+   // added NoteSequence::Accumulator serialization
+   Version33 = 33,
+   ```
+3. Update automatic version tracking (Latest = Last - 1)
+
+**Expected Result**: New version constant available
+
+---
+
+#### Step 2.2: Write NoteSequence Integration Test (RED)
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Add to existing `TestNoteSequence.cpp` (or create if missing):
+2. Write Test 2.1: Verify NoteSequence writes accumulator
+   - Create NoteSequence with custom accumulator settings
+   - Serialize to buffer
+   - Verify accumulator data present in buffer
+3. Write Test 2.2: Verify NoteSequence reads accumulator (Version33+)
+   - Create buffer with Version33 data including accumulator
+   - Deserialize to NoteSequence
+   - Verify accumulator parameters match
+4. Write Test 2.3: Verify backward compatibility (Version32 and earlier)
+   - Create buffer with Version32 data (no accumulator)
+   - Deserialize to NoteSequence
+   - Verify accumulator uses default values (enabled=false)
+   - Verify no read errors occur
+
+**Expected Result**: Tests fail (NoteSequence not calling accumulator.write/read)
+
+---
+
+#### Step 2.3: Integrate into NoteSequence::write() (GREEN)
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Edit `src/apps/sequencer/model/NoteSequence.cpp`
+2. Modify `NoteSequence::write()` method (line 309):
+   ```cpp
+   void NoteSequence::write(VersionedSerializedWriter &writer) const {
+       writer.write(_scale.base);
+       writer.write(_rootNote.base);
+       writer.write(_divisor.base);
+       writer.write(_resetMeasure);
+       writer.write(_runMode.base);
+       writer.write(_firstStep.base);
+       writer.write(_lastStep.base);
+
+       writeArray(writer, _steps);
+
+       // NEW: Write accumulator state (Version33+)
+       _accumulator.write(writer);
+   }
+   ```
+
+**Expected Result**: NoteSequence now writes accumulator data
+
+---
+
+#### Step 2.4: Integrate into NoteSequence::read() with Version Check (GREEN)
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Modify `NoteSequence::read()` method (line 321):
+   ```cpp
+   void NoteSequence::read(VersionedSerializedReader &reader) {
+       reader.read(_scale.base);
+       reader.read(_rootNote.base);
+       if (reader.dataVersion() < ProjectVersion::Version10) {
+           reader.readAs<uint8_t>(_divisor.base);
+       } else {
+           reader.read(_divisor.base);
+       }
+       reader.read(_resetMeasure);
+       reader.read(_runMode.base);
+       reader.read(_firstStep.base);
+       reader.read(_lastStep.base);
+
+       readArray(reader, _steps);
+
+       // NEW: Read accumulator state (Version33+)
+       if (reader.dataVersion() >= ProjectVersion::Version33) {
+           _accumulator.read(reader);
+       } else {
+           // Backward compatibility: use default accumulator
+           _accumulator = Accumulator();
+       }
+   }
+   ```
+
+2. Build and run tests
+3. Verify all Phase 2 tests pass
+
+**Expected Result**:
+- Version33+ files: Accumulator loaded correctly
+- Version32- files: Accumulator defaults, no errors
+
+---
+
+#### Step 2.5: Commit Phase 2
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Verify all tests passing
+2. Commit: "Phase 2: Integrate accumulator serialization into NoteSequence"
+3. Update TODO.md marking Phase 2 complete
+
+**Expected Result**: Phase 2 committed, ready for Phase 3
+
+---
+
+### Phase 3: Simulator Testing ⏳ (PENDING)
+
+**Goal**: Verify accumulator persistence in simulator end-to-end
+
+#### Step 3.1: Manual Simulator Test - Save/Load Verification
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Build simulator: `cd build/sim/debug && make -j`
+2. Run simulator: `./src/apps/sequencer/sequencer`
+3. Test sequence:
+   - Navigate to ACCUM page
+   - Set custom accumulator parameters:
+     - Enable: ON
+     - Direction: DOWN
+     - Order: PENDULUM
+     - Min: -10
+     - Max: 15
+     - Step: 3
+   - Save project to file
+   - Clear project (create new)
+   - Load saved project
+   - Navigate to ACCUM page
+   - **VERIFY**: All accumulator parameters match saved values
+
+**Expected Result**: Accumulator state persists across save/load
+
+---
+
+#### Step 3.2: Verify Backward Compatibility
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Find existing project file saved with Version32 (before fix)
+2. Load old project in simulator
+3. Navigate to ACCUM page
+4. **VERIFY**: Accumulator shows default values (enabled=OFF)
+5. **VERIFY**: No errors or crashes occur
+6. **VERIFY**: Rest of project loads correctly
+
+**Expected Result**: Old projects load without errors, accumulator defaults
+
+---
+
+#### Step 3.3: Commit Phase 3
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Document test results
+2. Commit: "Phase 3: Verify accumulator serialization in simulator"
+3. Update TODO.md marking Phase 3 complete
+
+**Expected Result**: Phase 3 complete, ready for hardware testing
+
+---
+
+### Phase 4: Hardware Testing ⏳ (PENDING)
+
+**Goal**: Verify fix on actual STM32 hardware
+
+#### Step 4.1: Build and Flash Hardware
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Build hardware firmware: `cd build/stm32/release && make -j sequencer`
+2. Create UPDATE.DAT: (automatic during build)
+3. Copy UPDATE.DAT to SD card
+4. Boot hardware with SD card
+5. Verify firmware update completes
+
+**Expected Result**: Updated firmware running on hardware
+
+---
+
+#### Step 4.2: Hardware Save/Load Test
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. On hardware, navigate to ACCUM page
+2. Set custom accumulator parameters
+3. Save project to SD card
+4. Power cycle hardware
+5. Load saved project
+6. Navigate to ACCUM page
+7. **VERIFY**: All accumulator parameters match saved values
+
+**Expected Result**: Accumulator state persists on hardware
+
+---
+
+#### Step 4.3: Hardware Backward Compatibility Test
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Use SD card with old project files (Version32)
+2. Load old project on hardware
+3. Navigate to ACCUM page
+4. **VERIFY**: Accumulator defaults, no crashes
+5. **VERIFY**: Rest of project functions normally
+
+**Expected Result**: Old projects load correctly on hardware
+
+---
+
+#### Step 4.4: Commit Phase 4
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Document hardware test results
+2. Commit: "Phase 4: Verify accumulator serialization on hardware"
+3. Update TODO.md marking Phase 4 complete
+
+**Expected Result**: Hardware testing complete
+
+---
+
+### Phase 5: Documentation and Release ⏳ (PENDING)
+
+**Goal**: Update documentation and mark bug as resolved
+
+#### Step 5.1: Update CHANGELOG.md
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Edit `CHANGELOG.md`
+2. Add to "Bug Fixes" section:
+   ```markdown
+   - Fixed accumulator parameters not being saved to project files
+   - Added Version33 project format with accumulator serialization
+   - Maintained backward compatibility with older project files
+   ```
+
+**Expected Result**: CHANGELOG updated with bug fix
+
+---
+
+#### Step 5.2: Update TODO.md - Mark Bug Resolved
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Move bug from "Active Tasks" to "Completed" section
+2. Document final status and file changes
+3. Remove from "Known Issues"
+
+**Expected Result**: TODO.md reflects resolved bug
+
+---
+
+#### Step 5.3: Final Commit and Push
+**Status**: ⏳ PENDING
+
+**Actions**:
+1. Final commit: "BUG FIX: Accumulator state now persists in project files (Version33)"
+2. Push to branch: `claude/stm-eurorack-cv-oled-01BX54cUuKHJrHRTHbUeC4TG`
+3. Update documentation with verification status
+
+**Expected Result**: Bug fix complete and pushed
+
+---
+
+### Implementation Checklist Summary
+
+#### Phase 1: Accumulator Serialization (4 tests) ⏳ PENDING
+- [ ] Step 1.1: Write serialization tests (RED)
+- [ ] Step 1.2: Verify tests fail (RED verification)
+- [ ] Step 1.3: Implement write/read methods (GREEN)
+- [ ] Step 1.4: Refactor if needed
+- [ ] Step 1.5: Commit Phase 1
+
+#### Phase 2: NoteSequence Integration (3 tests) ⏳ PENDING
+- [ ] Step 2.1: Add ProjectVersion::Version33
+- [ ] Step 2.2: Write integration tests (RED)
+- [ ] Step 2.3: Integrate into write() (GREEN)
+- [ ] Step 2.4: Integrate into read() with version check (GREEN)
+- [ ] Step 2.5: Commit Phase 2
+
+#### Phase 3: Simulator Testing ⏳ PENDING
+- [ ] Step 3.1: Manual save/load verification
+- [ ] Step 3.2: Verify backward compatibility
+- [ ] Step 3.3: Commit Phase 3
+
+#### Phase 4: Hardware Testing ⏳ PENDING
+- [ ] Step 4.1: Build and flash hardware
+- [ ] Step 4.2: Hardware save/load test
+- [ ] Step 4.3: Hardware backward compatibility test
+- [ ] Step 4.4: Commit Phase 4
+
+#### Phase 5: Documentation ⏳ PENDING
+- [ ] Step 5.1: Update CHANGELOG.md
+- [ ] Step 5.2: Update TODO.md - mark resolved
+- [ ] Step 5.3: Final commit and push
+
+### Expected File Changes
+
+**Files to Modify:**
+- `src/apps/sequencer/model/Accumulator.h` - Add write/read declarations
+- `src/apps/sequencer/model/Accumulator.cpp` - Implement write/read methods
+- `src/apps/sequencer/model/NoteSequence.cpp` - Call accumulator write/read
+- `src/apps/sequencer/model/ProjectVersion.h` - Add Version33
+- `src/tests/unit/sequencer/TestAccumulatorSerialization.cpp` - NEW test file
+- `src/tests/unit/sequencer/CMakeLists.txt` - Register new test
+- `TODO.md` - Track progress and mark complete
+- `CHANGELOG.md` - Document bug fix
+
+**Estimated Serialization Size:**
+- Bitfield flags: 1 byte
+- _minValue: 2 bytes (int16_t)
+- _maxValue: 2 bytes (int16_t)
+- _stepValue: 1 byte (uint8_t)
+- _currentValue: 2 bytes (int16_t)
+- _pendulumDirection: 1 byte (int8_t)
+- **Total: 9 bytes per accumulator**
+- **Per project: 9 bytes × 8 tracks = 72 bytes**
+
+---
+
 ## Known Issues
 
 ### Accumulator Implementation Bug - Branch Conflict
