@@ -140,8 +140,8 @@ TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
         switch (_noteTrack.playMode()) {
         case Types::PlayMode::Aligned:
             if (relativeTick % divisor == 0) {
-                // Pulse count logic: Get current step's pulse count
-                int currentStepIndex = _currentStep >= 0 ? _currentStep : sequence.firstStep();
+                // Pulse count logic: Get current step's pulse count from sequence state
+                int currentStepIndex = _sequenceState.step();
                 int stepPulseCount = sequence.step(currentStepIndex).pulseCount();
 
                 // Increment pulse counter
@@ -166,8 +166,8 @@ TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
                 _freeRelativeTick = 0;
             }
             if (relativeTick == 0) {
-                // Pulse count logic: Get current step's pulse count
-                int currentStepIndex = _currentStep >= 0 ? _currentStep : sequence.firstStep();
+                // Pulse count logic: Get current step's pulse count from sequence state
+                int currentStepIndex = _sequenceState.step();
                 int stepPulseCount = sequence.step(currentStepIndex).pulseCount();
 
                 // Increment pulse counter
