@@ -236,13 +236,32 @@ Steps repeat for (pulseCount + 1) clock pulses before advancing:
 - Interaction with retrigger feature
 - Clock sync behavior
 
-### Phase 4: UI Implementation (Pending)
-- Add to button cycling in NoteSequenceEditPage
-- Visual feedback for pulse count layer
+### Phase 4: UI Implementation ✅ (COMPLETE)
+**Status**: ✅ UI fully integrated! Pulse count now accessible from hardware interface.
 
-### Phase 5: Acceptance Tests (Pending)
-- Hardware verification
-- Performance testing
+**Implementation Complete:**
+- ✅ Added PulseCount to Retrigger button cycling in NoteSequenceEditPage
+  - Cycle: Retrigger → RetriggerProbability → PulseCount → Retrigger
+- ✅ Mapped PulseCount to function key 1 (Retrigger button)
+- ✅ Added encoder support for adjusting pulse count
+- ✅ Added visual display showing pulse count as number (1-8)
+
+**How to Use:**
+1. In STEPS page, press Retrigger button (F2) twice to reach "PULSE COUNT" layer
+2. Select steps with S1-S16 buttons
+3. Turn encoder to set pulse count (displays 1-8 for normal to maximum)
+4. Steps will repeat for that many pulses before advancing
+
+**Files Modified:**
+- `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp` - UI integration
+
+### Phase 5: Testing & Verification ⏳ (Ready)
+**Next Steps:**
+- Build and test in simulator
+- Verify step timing with various pulse counts
+- Test interaction with retrigger feature
+- Verify clock sync behavior
+- Test on hardware
 
 ### Reference Documentation
 - `PULSE_COUNT_IMPLEMENTATION.md` - Technical specification
