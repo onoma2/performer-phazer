@@ -136,4 +136,49 @@ CASE("pulse count integrates with Layer system") {
     expectEqual(step.layerValue(NoteSequence::Layer::PulseCount), 7, "layerValue should clamp to 7");
 }
 
+// Test 1.5: Serialization - Pulse Count Persists Through Save/Load
+CASE("pulse count persists through serialization") {
+    // Create a step with specific pulse count
+    NoteSequence::Step originalStep;
+    originalStep.setPulseCount(5);
+
+    // Also set other fields to verify no interference during serialization
+    originalStep.setRetrigger(2);
+    originalStep.setNote(12);
+    originalStep.setGate(true);
+
+    // Serialize the step
+    uint8_t buffer[256];
+    VersionedSerializedWriter writer(buffer, sizeof(buffer), ProjectVersion::Version);
+    originalStep.write(writer);
+
+    // Deserialize into a new step
+    NoteSequence::Step loadedStep;
+    VersionedSerializedReader reader(buffer, writer.writeSize(), ProjectVersion::Version);
+    loadedStep.read(reader);
+
+    // Verify pulse count was preserved
+    expectEqual(loadedStep.pulseCount(), 5, "pulse count should be preserved through serialization");
+
+    // Verify other fields were also preserved
+    expectEqual(loadedStep.retrigger(), 2, "retrigger should be preserved");
+    expectEqual(loadedStep.note(), 12, "note should be preserved");
+    expectTrue(loadedStep.gate(), "gate should be preserved");
+}
+
+// Test 1.6: Clear/Reset - Pulse Count Resets to Default
+CASE("pulse count resets to 0 on clear") {
+    NoteSequence::Step step;
+
+    // Set pulse count to non-default value
+    step.setPulseCount(6);
+    expectEqual(step.pulseCount(), 6, "pulse count should be 6 before clear");
+
+    // Clear the step
+    step.clear();
+
+    // Verify pulse count was reset to 0
+    expectEqual(step.pulseCount(), 0, "pulse count should be 0 after clear");
+}
+
 }
