@@ -720,6 +720,21 @@ void NoteSequenceEditPage::drawDetail(Canvas &canvas, const NoteSequence::Step &
         canvas.setFont(Font::Small);
         canvas.drawTextCentered(64 + 32, 16, 64, 32, str);
         break;
+    case Layer::GateMode: {
+        const char* modeName;
+        switch (step.gateMode()) {
+        case 0: modeName = "ALL"; break;
+        case 1: modeName = "FIRST"; break;
+        case 2: modeName = "HOLD"; break;
+        case 3: modeName = "F-L"; break;
+        default: modeName = "ALL"; break;
+        }
+        str.reset();
+        str("%s", modeName);
+        canvas.setFont(Font::Small);
+        canvas.drawTextCentered(64 + 32, 16, 64, 32, str);
+        break;
+    }
     case Layer::Length:
         SequencePainter::drawLength(
             canvas,
