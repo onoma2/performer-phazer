@@ -19,18 +19,18 @@ CASE("infrastructure") {
 CASE("step stores and retrieves gate mode") {
     NoteSequence::Step step;
 
-    // Default value should be 0 (MULTI)
-    expectEqual(step.gateMode(), 0, "default gate mode should be 0 (MULTI)");
+    // Default value should be 0 (All)
+    expectEqual(step.gateMode(), 0, "default gate mode should be 0 (All)");
 
     // Test setting various values
     step.setGateMode(1);
-    expectEqual(step.gateMode(), 1, "should store gate mode 1 (SINGLE)");
+    expectEqual(step.gateMode(), 1, "should store gate mode 1 (First)");
 
     step.setGateMode(2);
-    expectEqual(step.gateMode(), 2, "should store gate mode 2 (HOLD)");
+    expectEqual(step.gateMode(), 2, "should store gate mode 2 (Hold)");
 
     step.setGateMode(3);
-    expectEqual(step.gateMode(), 3, "should store gate mode 3 (FIRST_LAST)");
+    expectEqual(step.gateMode(), 3, "should store gate mode 3 (FirstLast)");
 }
 
 // Test 1.2: Value Clamping
@@ -110,7 +110,7 @@ CASE("gate mode integrates with Layer system") {
 
     // Test 4: layerDefaultValue
     int defaultValue = NoteSequence::layerDefaultValue(NoteSequence::Layer::GateMode);
-    expectEqual(defaultValue, 0, "default should be 0 (MULTI)");
+    expectEqual(defaultValue, 0, "default should be 0 (All)");
 
     // Test 5: layerValue/setLayerValue
     NoteSequence::Step step;

@@ -37,6 +37,14 @@ public:
     using PulseCount = UnsignedValue<3>;  // 0-7 representing 1-8 pulses
     using GateMode = UnsignedValue<2>;    // 0-3 representing 4 modes
 
+    enum class GateModeType {
+        All = 0,        // Fires gates on every pulse (default)
+        First = 1,      // Single gate on first pulse only
+        Hold = 2,       // One long gate for entire duration
+        FirstLast = 3,  // Gates on first and last pulse only
+        Last
+    };
+
     static_assert(int(Types::Condition::Last) <= Condition::Max + 1, "Condition enum does not fit");
 
     enum class Layer {
