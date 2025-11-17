@@ -301,6 +301,418 @@ All phases complete:
 - `PULSE_COUNT_IMPLEMENTATION.md` - Technical specification
 - `PULSE-COUNT-TODO.md` - Complete TDD plan
 
+## 🔄 IN PROGRESS: Gate Mode Feature (TDD Implementation)
+
+### Overview
+Gate Mode is a per-step parameter that controls how gates are fired during pulse count repetitions. Works in conjunction with pulse count to provide fine-grained control over gate timing patterns.
+
+**4 Gate Mode Types:**
+- **MULTI (0)**: Fires gates on every pulse (default, backward compatible)
+- **SINGLE (1)**: Single gate on first pulse only, silent for remaining pulses
+- **HOLD (2)**: One long gate held high for entire duration
+- **FIRST_LAST (3)**: Gates on first and last pulse only
+
+**UI Display Abbreviations:**
+- MULTI → "ALL"
+- SINGLE → "FIRST"
+- HOLD → "HOLD"
+- FIRST_LAST → "F-L"
+
+### TDD Methodology: Strict RED-GREEN-REFACTOR Cycle
+
+---
+
+## 📝 Phase 1: Model Layer - Test-Driven Implementation
+
+### Step 1.1: Write ALL Phase 1 Tests (RED Phase)
+**Status**: ⏳ NEXT STEP
+
+**Action Plan:**
+1. Create `src/tests/unit/sequencer/TestGateMode.cpp` with ALL 6 test cases
+2. Register test in `src/tests/unit/sequencer/CMakeLists.txt`
+3. Write complete test suite WITHOUT implementing any functionality:
+   - Test 1.1: Basic Storage (gateMode() / setGateMode())
+   - Test 1.2: Value Clamping (negative → 0, >3 → 3)
+   - Test 1.3: Bitfield Packing (no interference with other fields)
+   - Test 1.4: Layer Integration (Layer::GateMode exists, layerName(), layerRange(), etc.)
+   - Test 1.5: Serialization (gate mode preserved in copy)
+   - Test 1.6: Clear/Reset (gate mode resets to 0)
+
+**Expected Result:** Tests written but will NOT compile (methods don't exist yet)
+
+**Reference:** See `GATE_MODE_TDD_PLAN.md` Tests 1.1-1.6 for complete test code
+
+---
+
+### Step 1.2: Verify Tests Fail (RED Phase Verification)
+**Status**: ⏳ Pending Step 1.1
+
+**Action Plan:**
+1. Run cmake and attempt to build TestGateMode
+2. Verify compilation errors (expected):
+   - `gateMode()` method does not exist
+   - `setGateMode()` method does not exist
+   - `Layer::GateMode` enum value does not exist
+3. Document error messages
+4. Confirm we're in proper RED state
+
+**Expected Result:** Build fails with clear error messages about missing methods
+
+---
+
+### Step 1.3: Implement Minimal Code to Pass Tests (GREEN Phase)
+**Status**: ⏳ Pending Step 1.2
+
+**Action Plan:**
+1. Add to `NoteSequence.h`:
+   ```cpp
+   using GateMode = UnsignedValue<2>;  // 0-3 representing 4 modes
+
+   enum class GateModeType {
+       Multi = 0,
+       Single = 1,
+       Hold = 2,
+       FirstLast = 3,
+       Last
+   };
+   ```
+
+2. Add `GateMode` to `Layer` enum (after PulseCount)
+
+3. Add accessor methods to `Step` class:
+   ```cpp
+   int gateMode() const { return _data1.gateMode; }
+   void setGateMode(int gateMode) {
+       _data1.gateMode = GateMode::clamp(gateMode);
+   }
+   ```
+
+4. Add bitfield to `_data1` union:
+   ```cpp
+   BitField<uint32_t, 20, GateMode::Bits> gateMode;  // bits 20-21
+   // 10 bits left
+   ```
+
+5. Add case to `layerName()`:
+   ```cpp
+   case Layer::GateMode: return "GATE MODE";
+   ```
+
+6. Add to `NoteSequence.cpp`:
+   - `layerRange()`: `CASE(GateMode)` returns {0, 3}
+   - `layerDefaultValue()`: return 0 for GateMode
+   - `Step::layerValue()`: return gateMode() for GateMode
+   - `Step::setLayerValue()`: call setGateMode(value) for GateMode
+
+**Expected Result:** All 6 tests pass (GREEN state achieved)
+
+---
+
+### Step 1.4: Refactor If Needed
+**Status**: ⏳ Pending Step 1.3
+
+**Action Plan:**
+1. Review code for clarity and maintainability
+2. Check for any code duplication
+3. Verify bitfield packing is optimal
+4. Ensure naming is consistent with project conventions
+
+**Expected Result:** Clean, maintainable code with all tests still passing
+
+---
+
+### Step 1.5: Commit Phase 1 (Model Layer Complete)
+**Status**: ⏳ Pending Step 1.4
+
+**Action Plan:**
+1. Verify all Phase 1 tests pass: `cd build/sim/debug && make TestGateMode && ./src/tests/unit/sequencer/TestGateMode`
+2. Commit with message: "Implement Phase 1 (Model Layer): Gate mode storage and layer integration"
+3. Update this TODO.md marking Phase 1 complete
+
+**Expected Result:** Phase 1 complete, ready for Phase 2 (Engine Layer)
+
+---
+
+## 🔧 Phase 2: Engine Layer - Gate Generation Logic
+
+### Step 2.1: Understand Current Gate Generation
+**Status**: ⏳ Pending Phase 1 completion
+
+**Action Plan:**
+1. Read `NoteTrackEngine.cpp` `triggerStep()` method
+2. Identify where gates are queued (`_gateQueue.pushReplace()`)
+3. Understand current pulse count integration
+4. Map out where gate mode logic should be inserted
+
+**Expected Result:** Clear understanding of gate generation flow
+
+---
+
+### Step 2.2: Design Gate Mode Logic
+**Status**: ⏳ Pending Step 2.1
+
+**Action Plan:**
+1. Design switch statement for 4 gate modes:
+   - MULTI (0): Current behavior (gate per pulse)
+   - SINGLE (1): Only fire gate when `_pulseCounter == 0`
+   - HOLD (2): Fire long gate on first pulse spanning all pulses
+   - FIRST_LAST (3): Fire gate when `_pulseCounter == 0 || _pulseCounter == step.pulseCount()`
+
+2. Write pseudocode for implementation
+
+3. Identify edge cases:
+   - pulseCount = 0 (single pulse)
+   - Interaction with gate offset
+   - Interaction with gate length
+   - Interaction with retrigger
+
+**Expected Result:** Clear implementation plan with edge cases documented
+
+---
+
+### Step 2.3: Implement Gate Mode Logic in triggerStep()
+**Status**: ⏳ Pending Step 2.2
+
+**Action Plan:**
+1. Modify `NoteTrackEngine::triggerStep()` to check `step.gateMode()`
+2. Implement switch statement with 4 cases
+3. For HOLD mode: Calculate extended gate length based on pulse count
+4. For other modes: Control whether gate is fired based on pulse counter
+5. Maintain backward compatibility (gateMode=0 behaves like before)
+
+**Expected Result:** Engine generates gates according to gate mode setting
+
+---
+
+### Step 2.4: Manual Testing in Simulator
+**Status**: ⏳ Pending Step 2.3
+
+**Action Plan:**
+1. Build simulator: `cd build/sim/debug && make -j`
+2. Test each gate mode with pulseCount=4:
+   - MULTI: Should hear 4 separate gates
+   - SINGLE: Should hear 1 gate, step lasts 4 pulses
+   - HOLD: Should hear 1 long gate (4 pulses duration)
+   - FIRST_LAST: Should hear 2 gates (first and last)
+3. Verify with external MIDI monitor or audio output
+4. Document any issues found
+
+**Expected Result:** All 4 gate modes produce correct gate patterns
+
+---
+
+### Step 2.5: Commit Phase 2 (Engine Layer Complete)
+**Status**: ⏳ Pending Step 2.4
+
+**Action Plan:**
+1. Verify all gate modes working in simulator
+2. Commit with message: "Implement Phase 2 (Engine Layer): Gate mode generation logic"
+3. Update this TODO.md marking Phase 2 complete
+
+**Expected Result:** Phase 2 complete, ready for Phase 3 (UI Integration)
+
+---
+
+## 🎨 Phase 3: UI Integration
+
+### Step 3.1: Add GateMode to Button Cycling
+**Status**: ⏳ Pending Phase 2 completion
+
+**Action Plan:**
+1. Modify `NoteSequenceEditPage::switchLayer()` to add GateMode to Gate button cycle
+2. Update cycle: Gate → GateProbability → GateOffset → Slide → **GateMode** → Gate
+3. Add GateMode case to `activeFunctionKey()` returning Function::Gate
+4. Test button cycling in simulator
+
+**Expected Result:** Can cycle to GateMode layer using Gate button (F1)
+
+---
+
+### Step 3.2: Add Visual Display
+**Status**: ⏳ Pending Step 3.1
+
+**Action Plan:**
+1. Add GateMode case to `draw()` function displaying abbreviations:
+   - 0 → "ALL"
+   - 1 → "FIRST"
+   - 2 → "HOLD"
+   - 3 → "F-L"
+2. Use canvas.drawText() centered on step
+3. Test visual feedback in simulator
+
+**Expected Result:** Gate mode abbreviations display on steps
+
+---
+
+### Step 3.3: Add Encoder Support
+**Status**: ⏳ Pending Step 3.2
+
+**Action Plan:**
+1. Add GateMode case to `encoder()` function
+2. Enable value adjustment via encoder (0-3 range)
+3. Test encoder control in simulator
+
+**Expected Result:** Can adjust gate mode with encoder
+
+---
+
+### Step 3.4: Add Detail Overlay
+**Status**: ⏳ Pending Step 3.3
+
+**Action Plan:**
+1. Add GateMode case to `drawDetail()` function
+2. Display full mode names when adjusting:
+   - "MULTI" or "ALL"
+   - "SINGLE" or "FIRST"
+   - "HOLD"
+   - "FIRST-LAST" or "F-L"
+3. Use Small font, centered display
+4. Test detail overlay in simulator
+
+**Expected Result:** Detail overlay shows full mode name when adjusting
+
+---
+
+### Step 3.5: Manual UI Testing
+**Status**: ⏳ Pending Step 3.4
+
+**Action Plan:**
+1. Test complete UI workflow:
+   - Press Gate button (F1) multiple times to reach GateMode layer
+   - Select different steps with S1-S16
+   - Adjust gate mode with encoder
+   - Verify visual feedback (abbreviations)
+   - Verify detail overlay appears
+2. Test with different pulse counts
+3. Verify all 4 modes work correctly
+
+**Expected Result:** Complete UI integration working smoothly
+
+---
+
+### Step 3.6: Commit Phase 3 (UI Integration Complete)
+**Status**: ⏳ Pending Step 3.5
+
+**Action Plan:**
+1. Verify all UI features working in simulator
+2. Commit with message: "Implement Phase 3 (UI Integration): Gate mode user interface"
+3. Update this TODO.md marking Phase 3 complete
+
+**Expected Result:** Phase 3 complete, ready for Phase 4 (Documentation)
+
+---
+
+## 📚 Phase 4: Documentation and Final Testing
+
+### Step 4.1: Update CHANGELOG.md
+**Status**: ⏳ Pending Phase 3 completion
+
+**Action Plan:**
+1. Add comprehensive gate mode entry to "## Unreleased" section
+2. Document all 4 modes with descriptions
+3. Note UI access method (Gate button cycling)
+4. List all modified files
+
+**Expected Result:** CHANGELOG.md documents gate mode feature
+
+---
+
+### Step 4.2: Update CLAUDE.md
+**Status**: ⏳ Pending Step 4.1
+
+**Action Plan:**
+1. Add "Gate Mode Feature" section after "Pulse Count Feature"
+2. Document:
+   - Feature overview
+   - 4 gate mode types with behavior descriptions
+   - UI integration details
+   - Implementation architecture
+   - Key files
+3. Include usage examples
+
+**Expected Result:** CLAUDE.md has complete gate mode documentation
+
+---
+
+### Step 4.3: Update TODO.md (Mark Complete)
+**Status**: ⏳ Pending Step 4.2
+
+**Action Plan:**
+1. Move this entire section to "## Completed" section
+2. Add final summary with:
+   - All phases marked complete
+   - Files modified
+   - Test results
+   - Production ready status
+
+**Expected Result:** TODO.md reflects completion status
+
+---
+
+### Step 4.4: Final Verification
+**Status**: ⏳ Pending Step 4.3
+
+**Action Plan:**
+1. Run all unit tests: `cd build/sim/debug && make test`
+2. Build simulator and verify: `make -j && ./src/apps/sequencer/sequencer`
+3. Test all 4 gate modes with various pulse counts
+4. Verify no regressions in existing features
+5. Build for hardware: `cd build/stm32/release && make -j sequencer`
+
+**Expected Result:** All tests pass, feature works correctly, no regressions
+
+---
+
+### Step 4.5: Final Commit and Documentation
+**Status**: ⏳ Pending Step 4.4
+
+**Action Plan:**
+1. Commit documentation updates: "Complete documentation for gate mode feature"
+2. Push to branch: `git push -u origin claude/update-claude-md-01MBRcamUUgYCT8VRvTYPJVJ`
+3. Mark feature as PRODUCTION READY in TODO.md
+
+**Expected Result:** Gate mode feature complete and documented
+
+---
+
+## 📋 Implementation Checklist Summary
+
+### Phase 1: Model Layer (6 tests)
+- [ ] Step 1.1: Write all 6 tests (RED)
+- [ ] Step 1.2: Verify tests fail (RED verification)
+- [ ] Step 1.3: Implement minimal code (GREEN)
+- [ ] Step 1.4: Refactor if needed
+- [ ] Step 1.5: Commit Phase 1
+
+### Phase 2: Engine Layer (4 gate modes)
+- [ ] Step 2.1: Understand current gate generation
+- [ ] Step 2.2: Design gate mode logic
+- [ ] Step 2.3: Implement in triggerStep()
+- [ ] Step 2.4: Manual testing in simulator
+- [ ] Step 2.5: Commit Phase 2
+
+### Phase 3: UI Integration
+- [ ] Step 3.1: Add to button cycling
+- [ ] Step 3.2: Add visual display
+- [ ] Step 3.3: Add encoder support
+- [ ] Step 3.4: Add detail overlay
+- [ ] Step 3.5: Manual UI testing
+- [ ] Step 3.6: Commit Phase 3
+
+### Phase 4: Documentation
+- [ ] Step 4.1: Update CHANGELOG.md
+- [ ] Step 4.2: Update CLAUDE.md
+- [ ] Step 4.3: Update TODO.md
+- [ ] Step 4.4: Final verification
+- [ ] Step 4.5: Final commit and push
+
+### Reference Documents
+- `GATE_MODE_TDD_PLAN.md` - Complete technical specification with test code
+- Follow same TDD methodology as pulse count feature
+- Maintain strict RED-GREEN-REFACTOR discipline
+
+---
+
 ## Pending Features
 
 ### To brainstorm

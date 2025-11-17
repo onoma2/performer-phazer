@@ -319,10 +319,10 @@ case 2: // HOLD
 
 2. **Visual display:**
    - Show mode as text abbreviation:
-     - 0 → "MULT"
-     - 1 → "SNGL"
+     - 0 → "ALL" (MULTI)
+     - 1 → "FIRST" (SINGLE)
      - 2 → "HOLD"
-     - 3 → "F-L"
+     - 3 → "F-L" (FIRST_LAST)
 
 3. **Detail overlay:**
    - Show full mode name when adjusting
