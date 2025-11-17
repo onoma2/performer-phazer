@@ -1292,6 +1292,29 @@ uint8_t _ratchetTriggerMode : 3; // 3 bits (UNUSED - can repurpose)
 
 ---
 
+### ✅ IMPLEMENTATION COMPLETE (2025-11-17)
+
+**Status**: Fully implemented and tested
+
+**Commits:**
+- `f041a6c` - Engine: Implement accumulator trigger mode logic
+- `8216350` - UI: Add TriggerMode parameter to ACCUM page
+- `ff6e1ac` - Fix: RETRIGGER mode now works with retrigger=1
+- `97deac0` - Fix: RETRIGGER mode now ticks N times for N retriggers
+
+**Verification:**
+- ✅ All 15 unit tests pass (TestAccumulator.cpp)
+- ✅ All 4 serialization tests pass (TestAccumulatorSerialization.cpp)
+- ✅ Simulator testing complete: STEP, GATE, RTRIG modes work correctly
+- ✅ Documentation updated: CLAUDE.md, CHANGELOG.md, Queue-BasedAccumTicks.md
+
+**Known Behavior:**
+- RTRIG mode ticks N times immediately at step start (not spread over time)
+- This is an architectural limitation, see `Queue-BasedAccumTicks.md` for future enhancement plan
+- Gates fire spread over time (you hear ratchets), but accumulator increments are upfront
+
+---
+
 ## Pending Features
 
 ### To brainstorm
