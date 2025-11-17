@@ -61,4 +61,40 @@ CASE("pulse count clamps out-of-range values") {
     }
 }
 
+// Test 1.3: Bitfield Packing - No Interference with Other Fields
+CASE("pulse count bitfield does not interfere with other fields") {
+    NoteSequence::Step step;
+
+    // Test 1: Set other fields first, then pulse count
+    step.setRetrigger(2);
+    step.setRetriggerProbability(5);
+    step.setCondition(Types::Condition::Fill);
+    step.setAccumulatorTrigger(true);
+    step.setPulseCount(4);
+
+    expectEqual(step.retrigger(), 2, "retrigger should be unchanged");
+    expectEqual(step.retriggerProbability(), 5, "retriggerProbability should be unchanged");
+    expectEqual(static_cast<int>(step.condition()), static_cast<int>(Types::Condition::Fill), "condition should be unchanged");
+    expectTrue(step.isAccumulatorTrigger(), "accumulatorTrigger should be unchanged");
+    expectEqual(step.pulseCount(), 4, "pulseCount should be stored");
+
+    // Test 2: Set pulse count first, then other fields
+    step.setPulseCount(6);
+    step.setRetrigger(3);
+    step.setRetriggerProbability(4);
+
+    expectEqual(step.pulseCount(), 6, "pulseCount should be unchanged after setting other fields");
+
+    // Test 3: All fields to max (bitfield independence)
+    step.setPulseCount(7);
+    step.setRetrigger(3);
+    step.setRetriggerProbability(7);
+    step.setAccumulatorTrigger(true);
+
+    expectEqual(step.pulseCount(), 7, "pulseCount should be 7");
+    expectEqual(step.retrigger(), 3, "retrigger should be 3");
+    expectEqual(step.retriggerProbability(), 7, "retriggerProbability should be 7");
+    expectTrue(step.isAccumulatorTrigger(), "accumulatorTrigger should be true");
+}
+
 }
