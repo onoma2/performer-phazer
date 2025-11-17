@@ -181,6 +181,21 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
             canvas.drawText(x + (stepWidth - canvas.textWidth(str) + 1) / 2, y + 20, str);
             break;
         }
+        case Layer::GateMode: {
+            // Display gate mode as abbreviation
+            canvas.setColor(Color::Bright);
+            const char* modeStr;
+            switch (step.gateMode()) {
+            case 0: modeStr = "ALL"; break;
+            case 1: modeStr = "FIRST"; break;
+            case 2: modeStr = "HOLD"; break;
+            case 3: modeStr = "F-L"; break;
+            default: modeStr = "ALL"; break;
+            }
+            FixedStringBuilder<8> str("%s", modeStr);
+            canvas.drawText(x + (stepWidth - canvas.textWidth(str) + 1) / 2, y + 20, str);
+            break;
+        }
         case Layer::Length:
             SequencePainter::drawLength(
                 canvas,
