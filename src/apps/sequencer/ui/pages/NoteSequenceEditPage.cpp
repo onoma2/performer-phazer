@@ -462,6 +462,9 @@ void NoteSequenceEditPage::encoder(EncoderEvent &event) {
             case Layer::PulseCount:
                 step.setPulseCount(step.pulseCount() + event.value());
                 break;
+            case Layer::GateMode:
+                step.setGateMode(step.gateMode() + event.value());
+                break;
             case Layer::Condition:
                 step.setCondition(ModelUtils::adjustedEnum(step.condition(), event.value()));
                 break;
