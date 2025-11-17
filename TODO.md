@@ -182,6 +182,14 @@
 ## Pending Features
 
 ### To brainstorm
+
+## Known Issues
+
+### Accumulator Implementation Bug - Branch Conflict
+- **Issue**: Accumulator behavior not as expected - may be turning on if ANY step enabled, rather than EACH enabled step moving the accumulator counter
+- **Status**: Appears to be a conflict from another branch
+- **Analysis**: Current implementation in master should correctly call accumulator.tick() for each step that has isAccumulatorTrigger enabled, so this may be related to a merge conflict or changes in another branch
+- **Investigation**: Need to verify behavior against the expected functionality where each enabled step advances the accumulator counter independently
 ## Notes
 
 - **Simulator-first development**: Always test new features in simulator before hardware
