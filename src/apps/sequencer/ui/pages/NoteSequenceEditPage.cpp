@@ -515,7 +515,12 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             setLayer(Layer::Length);
             break;
         case Function::Note:
-            setLayer(Layer::Note);
+            // SHIFT + NOTE: Reset accumulator counter
+            {
+                auto &sequence = _project.selectedNoteSequence();
+                const_cast<Accumulator&>(sequence.accumulator()).reset();
+                showMessage("ACCUM RESET");
+            }
             break;
         case Function::Condition:
             setLayer(Layer::Condition);
