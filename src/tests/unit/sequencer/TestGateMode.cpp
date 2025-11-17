@@ -61,4 +61,36 @@ CASE("gate mode clamps out-of-range values") {
     }
 }
 
+// Test 1.3: Bitfield Packing - No Interference with Other Fields
+CASE("gate mode bitfield does not interfere with other fields") {
+    NoteSequence::Step step;
+
+    // Set other fields including pulse count (adjacent bits 17-19)
+    step.setPulseCount(5);
+    step.setRetrigger(2);
+    step.setGateMode(2);
+
+    // Verify independence
+    expectEqual(step.pulseCount(), 5, "pulseCount should be unchanged");
+    expectEqual(step.retrigger(), 2, "retrigger should be unchanged");
+    expectEqual(step.gateMode(), 2, "gateMode should be stored");
+
+    // Test all fields at max values
+    step.setGateMode(3);
+    step.setPulseCount(7);
+    step.setRetrigger(3);
+    step.setAccumulatorTrigger(true);
+
+    expectEqual(step.gateMode(), 3, "gateMode should be 3");
+    expectEqual(step.pulseCount(), 7, "pulseCount should be 7");
+    expectEqual(step.retrigger(), 3, "retrigger should be 3");
+    expectEqual(step.isAccumulatorTrigger(), true, "accumulator trigger should be true");
+
+    // Change gateMode and verify other fields unchanged
+    step.setGateMode(0);
+    expectEqual(step.gateMode(), 0, "gateMode should be 0");
+    expectEqual(step.pulseCount(), 7, "pulseCount should still be 7");
+    expectEqual(step.retrigger(), 3, "retrigger should still be 3");
+}
+
 }
