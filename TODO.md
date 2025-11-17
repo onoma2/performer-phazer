@@ -1348,84 +1348,108 @@ uint8_t _ratchetTriggerMode : 3; // 3 bits (UNUSED - can repurpose)
 
 ---
 
-### TDD Implementation Plan - Option 3: Sequence ID Approach
+### TDD Implementation Plan - Option 3: Sequence ID Approach (Single Queue)
 
-#### Phase 1: Model Layer - Gate Structure Extension (2-3 days)
+**Architecture Decision**: Extend existing `Gate` struct instead of creating separate queue
+- **Pros**: Simpler (one queue), ticks/gates naturally synchronized
+- **Cons**: Memory overhead (12 bytes → 16 bytes per gate), queue capacity concerns
+- **Safety**: Uses sequence ID (not pointer) to avoid dangling pointer crashes
 
-**Goal**: Extend Gate struct to include accumulator tick metadata without using pointers
+---
 
-##### Step 1.1: Define AccumulatorTickEvent Struct (RED → GREEN → REFACTOR)
+#### Phase 1: Model Layer - Extend Gate Struct (2-3 days)
+
+**Goal**: Add accumulator tick metadata to existing Gate struct without using pointers
+
+##### Step 1.1: Gate Struct Stores `shouldTickAccumulator` Flag (RED → GREEN → REFACTOR)
 
 **RED - Write Failing Test:**
 
-File: `src/tests/unit/sequencer/TestAccumulatorTickQueue.cpp` (NEW)
+File: `src/tests/unit/sequencer/TestGateQueue.cpp` (NEW)
 
 ```cpp
 #include "catch.hpp"
 #include "apps/sequencer/engine/NoteTrackEngine.h"
 
-TEST_CASE("AccumulatorTickEvent stores sequence ID") {
-    NoteTrackEngine::AccumulatorTickEvent event;
-    event.tick = 100;
-    event.sequenceId = 0;  // Main sequence
+TEST_CASE("Gate struct stores shouldTickAccumulator flag") {
+    NoteTrackEngine::Gate gate;
+    gate.tick = 100;
+    gate.gate = true;
+    gate.shouldTickAccumulator = true;
 
-    REQUIRE(event.tick == 100);
-    REQUIRE(event.sequenceId == 0);
+    REQUIRE(gate.tick == 100);
+    REQUIRE(gate.gate == true);
+    REQUIRE(gate.shouldTickAccumulator == true);
 }
 
-TEST_CASE("AccumulatorTickEvent distinguishes main and fill sequences") {
-    NoteTrackEngine::AccumulatorTickEvent mainEvent;
-    mainEvent.sequenceId = 0;  // Main
+TEST_CASE("Gate struct defaults shouldTickAccumulator to false") {
+    NoteTrackEngine::Gate gate;
+    gate.tick = 100;
+    gate.gate = true;
+    // Don't explicitly set shouldTickAccumulator
 
-    NoteTrackEngine::AccumulatorTickEvent fillEvent;
-    fillEvent.sequenceId = 1;  // Fill
-
-    REQUIRE(mainEvent.sequenceId != fillEvent.sequenceId);
+    REQUIRE(gate.shouldTickAccumulator == false);  // Default
 }
 ```
 
 **GREEN - Implement:**
 
-File: `src/apps/sequencer/engine/NoteTrackEngine.h`
+File: `src/apps/sequencer/engine/NoteTrackEngine.h` (around line 82)
 
 ```cpp
-// Add near Gate struct definition (around line 82)
-struct AccumulatorTickEvent {
-    uint32_t tick;          // When to tick accumulator
-    uint8_t sequenceId;     // 0=main, 1=fill
+struct Gate {
+    uint32_t tick;
+    bool gate;
+    bool shouldTickAccumulator;  // NEW: Should this gate tick accumulator?
 
-    bool operator<(const AccumulatorTickEvent &other) const {
-        return tick < other.tick;
-    }
-};
-
-struct AccumulatorTickEventCompare {
-    bool operator()(const AccumulatorTickEvent &a, const AccumulatorTickEvent &b) const {
-        return a.tick < b.tick;
-    }
+    // Constructor with default
+    Gate() : tick(0), gate(false), shouldTickAccumulator(false) {}
+    Gate(uint32_t t, bool g) : tick(t), gate(g), shouldTickAccumulator(false) {}
+    Gate(uint32_t t, bool g, bool tickAccum)
+        : tick(t), gate(g), shouldTickAccumulator(tickAccum) {}
 };
 ```
 
-**REFACTOR**: Document struct, add comments
+**REFACTOR**:
+- Document field purpose
+- Ensure memory alignment is reasonable (struct size: 12 bytes with padding)
 
 **Verification**:
 ```bash
 cd build/sim/debug
-make -j TestAccumulatorTickQueue
-./src/tests/unit/TestAccumulatorTickQueue
+make -j TestGateQueue
+./src/tests/unit/TestGateQueue
 ```
 
 ---
 
-##### Step 1.2: Add AccumulatorTickQueue to NoteTrackEngine (RED → GREEN → REFACTOR)
+##### Step 1.2: Gate Struct Stores `sequenceId` (RED → GREEN → REFACTOR)
 
 **RED - Write Failing Test:**
 
+File: `src/tests/unit/sequencer/TestGateQueue.cpp`
+
 ```cpp
-TEST_CASE("NoteTrackEngine has accumulator tick queue") {
-    // This will be tested via integration tests later
-    // For now, verify compilation and initialization
-    REQUIRE(true);  // Placeholder
+TEST_CASE("Gate struct stores sequenceId") {
+    NoteTrackEngine::Gate gate;
+    gate.tick = 100;
+    gate.gate = true;
+    gate.shouldTickAccumulator = true;
+    gate.sequenceId = 1;  // Fill sequence
+
+    REQUIRE(gate.sequenceId == 1);
+}
+
+TEST_CASE("Gate struct distinguishes main and fill sequences") {
+    NoteTrackEngine::Gate mainGate;
+    mainGate.sequenceId = NoteTrackEngine::MainSequenceId;
+
+    NoteTrackEngine::Gate fillGate;
+    fillGate.sequenceId = NoteTrackEngine::FillSequenceId;
+
+    REQUIRE(mainGate.sequenceId == 0);
+    REQUIRE(fillGate.sequenceId == 1);
+    REQUIRE(mainGate.sequenceId != fillGate.sequenceId);
 }
 ```
 
@@ -1434,41 +1458,73 @@ TEST_CASE("NoteTrackEngine has accumulator tick queue") {
 File: `src/apps/sequencer/engine/NoteTrackEngine.h`
 
 ```cpp
-// Add near _gateQueue member variable (around line 93)
-SortedQueue<AccumulatorTickEvent, 16, AccumulatorTickEventCompare> _accumulatorTickQueue;
+class NoteTrackEngine : public TrackEngine {
+public:
+    // Sequence ID constants
+    static constexpr uint8_t MainSequenceId = 0;
+    static constexpr uint8_t FillSequenceId = 1;
+
+    struct Gate {
+        uint32_t tick;
+        bool gate;
+        bool shouldTickAccumulator;  // From Step 1.1
+        uint8_t sequenceId;           // NEW: 0=main, 1=fill
+
+        // Updated constructors
+        Gate() : tick(0), gate(false), shouldTickAccumulator(false), sequenceId(0) {}
+        Gate(uint32_t t, bool g)
+            : tick(t), gate(g), shouldTickAccumulator(false), sequenceId(0) {}
+        Gate(uint32_t t, bool g, bool tickAccum, uint8_t seqId)
+            : tick(t), gate(g), shouldTickAccumulator(tickAccum), sequenceId(seqId) {}
+    };
+    // ... rest of class
+};
 ```
 
-**REFACTOR**: Add comment explaining queue purpose
+**REFACTOR**:
+- Ensure struct packing is efficient (current: 4 + 1 + 1 + 1 + 1 padding = 8 bytes? Check actual size)
+- Add static_assert to verify size expectations
+- Document sequence ID constants
+
+**Memory Analysis**:
+```cpp
+// Add to implementation or test file
+static_assert(sizeof(NoteTrackEngine::Gate) <= 16,
+              "Gate struct should not exceed 16 bytes");
+```
 
 **Verification**:
-- Build compiles
+- All tests pass
+- Check actual struct size: `sizeof(Gate)`
 - No regression in existing tests
 
 ---
 
-#### Phase 2: Engine Layer - Schedule Ticks in triggerStep() (3-4 days)
+#### Phase 2: Engine Layer - Schedule Gates with Tick Metadata (3-4 days)
 
-**Goal**: Schedule accumulator ticks alongside gate events in retrigger loop
+**Goal**: Set `shouldTickAccumulator` flag on gates when scheduling retriggers
 
 ##### Step 2.1: Analyze Current triggerStep() Logic
 
 **Actions**:
 1. Read `src/apps/sequencer/engine/NoteTrackEngine.cpp` lines 408-437 (RTRIG implementation)
 2. Identify where retrigger loop schedules gates
-3. Plan insertion point for accumulator tick scheduling
+3. Plan how to set metadata flags when pushing to `_gateQueue`
 
 **Key Findings**:
 - Line 410-421: Current RTRIG mode ticks all at once (REMOVE this)
-- Line 423-436: Retrigger gate scheduling loop (ADD tick scheduling here)
+- Line 423-436: Retrigger gate scheduling loop (MODIFY gate creation here)
 - Gates scheduled with future timestamps using `tick + gateOffset + retriggerOffset`
+- Current gate creation: `_gateQueue.pushReplace({ tick, gateValue })`
+- New gate creation: `_gateQueue.pushReplace({ tick, gateValue, shouldTickAccum, seqId })`
 
 ---
 
-##### Step 2.2: Schedule Accumulator Ticks in Retrigger Loop (RED → GREEN → REFACTOR)
+##### Step 2.2: Schedule Gates with `shouldTickAccumulator = true` (RED → GREEN → REFACTOR)
 
 **RED - Write Failing Test:**
 
-File: `src/tests/integration/sequencer/TestNoteTrackEngineRetrigger.cpp` (NEW)
+File: `src/tests/unit/sequencer/TestNoteTrackEngine.cpp`
 
 ```cpp
 #include "catch.hpp"
@@ -1476,30 +1532,44 @@ File: `src/tests/integration/sequencer/TestNoteTrackEngineRetrigger.cpp` (NEW)
 #include "apps/sequencer/model/NoteSequence.h"
 #include "apps/sequencer/model/NoteTrack.h"
 
-TEST_CASE("RTRIG mode schedules accumulator ticks in queue") {
-    // Setup
+// Test helper: Expose gate queue for inspection
+class NoteTrackEngineTestAccess : public NoteTrackEngine {
+public:
+    NoteTrackEngineTestAccess(/* ... */) : NoteTrackEngine(/* ... */) {}
+
+    const SortedQueue<Gate, 16, GateCompare>& getGateQueue() const {
+        return _gateQueue;
+    }
+};
+
+TEST_CASE("triggerStep schedules gates with shouldTickAccumulator = true") {
+    // Setup: Configure step with accumulator trigger and retrig=3
     NoteTrack track;
     NoteSequence sequence;
     sequence.accumulator().setEnabled(true);
     sequence.accumulator().setTriggerMode(Accumulator::Retrigger);
-    sequence.step(0).setRetrigger(3);  // 3 retriggers
+    sequence.step(0).setRetrigger(3);
     sequence.step(0).setAccumulatorTrigger(true);
+    sequence.step(0).setGate(true);
 
-    NoteTrackEngine engine(track, /* ... */);
+    NoteTrackEngineTestAccess engine(track, &sequence, /* ... */);
 
-    // Trigger step
-    engine.triggerStep(/* ... */);
+    // Act: Trigger step
+    engine.triggerStep(0, /* tick */ 0, /* ... */);
 
-    // Verify: Accumulator tick queue should have 3 events scheduled
-    REQUIRE(engine.accumulatorTickQueueSize() == 3);  // Need to add accessor
+    // Assert: Inspect gate queue
+    const auto& gateQueue = engine.getGateQueue();
+    int gatesWithTickFlag = 0;
+
+    // Count gates with shouldTickAccumulator = true
+    // (Need to iterate queue or peek - implementation dependent)
+    // For now, conceptual assertion:
+    // REQUIRE(gatesWithTickFlag == 3);  // 3 gate-on events should tick accumulator
 }
 
-TEST_CASE("RTRIG mode ticks fire at correct timestamps") {
-    // Setup with divisor=48, retrig=3
-    // Expected ticks at: tick+0, tick+16, tick+32
-
-    // Verify tick timestamps match gate firing timestamps
-    REQUIRE(true);  // Implement after queue scheduling works
+TEST_CASE("triggerStep does NOT set shouldTickAccumulator when disabled") {
+    // Setup: Same as above but accumulator disabled
+    // Assert: Gates have shouldTickAccumulator = false
 }
 ```
 
@@ -1524,82 +1594,157 @@ if (step.isAccumulatorTrigger()) {
 }
 */
 
-// AFTER: Schedule ticks in queue alongside gates
+// AFTER: Set metadata flags on gate events
 if (stepRetrigger > 1) {
     uint32_t retriggerLength = divisor / stepRetrigger;
     uint32_t retriggerOffset = 0;
-    int retriggerIndex = 0;
 
-    // Check if we should schedule accumulator ticks
-    bool shouldScheduleAccumTicks = (
+    // Determine if gates should tick accumulator
+    bool shouldTickAccum = (
         step.isAccumulatorTrigger() &&
         sequence.accumulator().enabled() &&
         sequence.accumulator().triggerMode() == Accumulator::Retrigger
     );
 
+    uint8_t seqId = useFillSequence ? FillSequenceId : MainSequenceId;
+
     while (stepRetrigger-- > 0 && retriggerOffset <= stepLength) {
-        // Schedule gates (existing logic)
+        // NEW: Create gate with metadata (GATE ON)
         _gateQueue.pushReplace({
             Groove::applySwing(tick + gateOffset + retriggerOffset, swing()),
-            true
+            true,            // gate = true (ON)
+            shouldTickAccum, // Tick accumulator on this gate
+            seqId            // Which sequence
         });
+
+        // GATE OFF (no accumulator tick on gate-off)
         _gateQueue.pushReplace({
             Groove::applySwing(tick + gateOffset + retriggerOffset + retriggerLength / 2, swing()),
-            false
+            false,  // gate = false (OFF)
+            false,  // Don't tick accumulator on gate-off
+            seqId
         });
 
-        // NEW: Schedule accumulator tick at same timestamp as gate ON
-        if (shouldScheduleAccumTicks) {
-            _accumulatorTickQueue.push({
-                Groove::applySwing(tick + gateOffset + retriggerOffset, swing()),
-                useFillSequence ? uint8_t(1) : uint8_t(0)  // Sequence ID
-            });
-        }
-
         retriggerOffset += retriggerLength;
-        retriggerIndex++;
     }
 }
 ```
 
-**REFACTOR**: Extract to helper method if needed
+**REFACTOR**:
+- Encapsulate flag-setting logic in clear conditional block
+- Consider helper method: `shouldTickAccumulatorOnGate(step, sequence)`
+- Ensure all existing gate creation sites use new constructor (backward compatibility)
 
 **Verification**:
 ```bash
 cd build/sim/debug
-make -j TestNoteTrackEngineRetrigger
-./src/tests/integration/TestNoteTrackEngineRetrigger
+make -j TestNoteTrackEngine
+./src/tests/unit/TestNoteTrackEngine
 ```
 
 ---
 
-#### Phase 3: Engine Layer - Process Ticks in tick() (2-3 days)
-
-**Goal**: Process scheduled accumulator ticks when their timestamp arrives
-
-##### Step 3.1: Process AccumulatorTickQueue in tick() (RED → GREEN → REFACTOR)
+##### Step 2.3: Schedule Gates with Correct `sequenceId` (RED → GREEN → REFACTOR)
 
 **RED - Write Failing Test:**
 
-```cpp
-TEST_CASE("Accumulator ticks fire when timestamp reached") {
-    // Setup: Schedule 3 ticks at tick 0, 16, 32
-    // Advance clock to tick 0 → verify 1 tick
-    // Advance clock to tick 16 → verify 2nd tick
-    // Advance clock to tick 32 → verify 3rd tick
+File: `src/tests/unit/sequencer/TestNoteTrackEngine.cpp`
 
-    NoteSequence sequence;
+```cpp
+TEST_CASE("triggerStep schedules gates with correct sequenceId") {
+    // Setup: Main sequence
+    NoteSequence mainSeq;
+    NoteTrackEngineTestAccess engine(track, &mainSeq, nullptr /* fillSeq */, /* ... */);
+
+    // Trigger step
+    engine.triggerStep(/* ... */);
+
+    // Assert: Gates should have sequenceId = MainSequenceId (0)
+    // const auto& gateQueue = engine.getGateQueue();
+    // REQUIRE(allGatesHaveSequenceId(gateQueue, MainSequenceId));
+}
+
+TEST_CASE("triggerStep uses FillSequenceId when fill active") {
+    // Setup: Fill sequence active
+    NoteSequence mainSeq, fillSeq;
+    NoteTrackEngineTestAccess engine(track, &mainSeq, &fillSeq, /* ... */);
+
+    // Trigger step with fill active
+    engine.triggerStep(/* ... with fill mode */);
+
+    // Assert: Gates should have sequenceId = FillSequenceId (1)
+}
+```
+
+**GREEN - Implement:**
+
+The implementation from Step 2.2 already sets `seqId` correctly:
+```cpp
+uint8_t seqId = useFillSequence ? FillSequenceId : MainSequenceId;
+```
+
+Verify all gate creation sites use this pattern.
+
+**REFACTOR**:
+- Ensure consistency across all gate scheduling (retrigger and normal)
+- Document sequence ID usage in comments
+
+---
+
+#### Phase 3: Engine Layer - Process Gates and Tick Accumulator (2-3 days)
+
+**Goal**: Check `shouldTickAccumulator` flag when processing gates and tick accumulator
+
+##### Step 3.1: Tick Accumulator on Tagged Gate Events (RED → GREEN → REFACTOR)
+
+**RED - Write Failing Test:**
+
+File: `src/tests/integration/sequencer/TestEngineGating.cpp` (NEW)
+
+```cpp
+#include "catch.hpp"
+#include "apps/sequencer/engine/Engine.h"
+#include "apps/sequencer/model/NoteSequence.h"
+
+// Mock or spy to track accumulator tick() calls
+class AccumulatorTickSpy {
+public:
+    int tickCount = 0;
+    void recordTick() { tickCount++; }
+};
+
+TEST_CASE("Engine ticks correct accumulator on tagged gate event") {
+    // Setup: Full Engine instance with real model
+    Model model;
+    NoteSequence& sequence = model.project().track(0).noteTrack().sequence(0);
     sequence.accumulator().setEnabled(true);
     sequence.accumulator().setDirection(Accumulator::Up);
     sequence.accumulator().setMin(0);
     sequence.accumulator().setMax(10);
     sequence.accumulator().setStep(1);
 
-    // Initial value should be 0
-    REQUIRE(sequence.accumulator().value() == 0);
+    Engine engine(model, /* ... */);
 
-    // After 3 ticks should be 3
-    // (This will be verified via integration test)
+    // Manually push gate with shouldTickAccumulator = true, sequenceId = 0
+    engine._noteTrackEngines[0]._gateQueue.push({
+        /* tick */ 100,
+        /* gate */ true,
+        /* shouldTickAccum */ true,
+        /* seqId */ NoteTrackEngine::MainSequenceId
+    });
+
+    int valueBefore = sequence.accumulator().value();
+
+    // Run engine to tick 100
+    engine.update(/* advance to tick 100 */);
+
+    // Assert: Accumulator ticked exactly once
+    REQUIRE(sequence.accumulator().value() == valueBefore + 1);
+}
+
+TEST_CASE("Engine does NOT tick accumulator on normal gates") {
+    // Similar setup but shouldTickAccumulator = false
+    // Assert: Accumulator value unchanged
 }
 ```
 
@@ -1607,19 +1752,27 @@ TEST_CASE("Accumulator ticks fire when timestamp reached") {
 
 File: `src/apps/sequencer/engine/NoteTrackEngine.cpp`
 
-Modify `tick()` method around line 220 (after gate processing):
+Modify `tick()` method around line 210-219 (gate processing):
 
 ```cpp
-// Process gate queue (existing logic, around line 210-219)
+// Process gate queue (MODIFY existing logic)
 while (!_gateQueue.empty() && tick >= _gateQueue.front().tick) {
-    // ... existing gate processing ...
+    auto event = _gateQueue.front();
     _gateQueue.pop();
-}
 
-// NEW: Process accumulator tick queue
-while (!_accumulatorTickQueue.empty() && tick >= _accumulatorTickQueue.front().tick) {
-    auto event = _accumulatorTickQueue.front();
-    _accumulatorTickQueue.pop();
+    // Existing gate output logic
+    if (!_monitorOverrideActive) {
+        result |= TickResult::GateUpdate;
+        _activity = event.gate;
+        _gateOutput = (!mute() || fill()) && _activity;
+        midiOutputEngine.sendGate(_track.trackIndex(), _gateOutput);
+    }
+
+    // NEW: Tick accumulator if flagged
+    if (event.shouldTickAccumulator) {
+        tickAccumulatorForGateEvent(event);
+    }
+}
 
     // Lookup sequence by ID (0=main, 1=fill)
     NoteSequence* targetSeq = nullptr;
