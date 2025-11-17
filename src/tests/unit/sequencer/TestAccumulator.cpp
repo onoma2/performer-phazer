@@ -28,11 +28,15 @@ CASE("tick_disabled") {
 
 CASE("tick_down_enabled") {
     Accumulator accumulator;
+    // Configure before reset so currentValue stays at constructor default (0)
+    accumulator.setMinValue(-10); // Set minValue to allow negative values
+    accumulator.setMaxValue(10);
     accumulator.setDirection(Accumulator::Direction::Down);
     accumulator.setEnabled(true);
-    accumulator.setOrder(Accumulator::Order::Hold); // Use Hold to allow negative values
-    accumulator.tick(); // Consume delayed first tick
-    accumulator.tick();
+    accumulator.setOrder(Accumulator::Order::Hold); // Use Hold for clamping behavior
+
+    accumulator.tick(); // Consume delayed first tick (stays at 0)
+    accumulator.tick(); // 0 -> -1
     expectEqual(static_cast<int>(accumulator.currentValue()), -1, "currentValue should be -1 after one tick down");
 }
 
