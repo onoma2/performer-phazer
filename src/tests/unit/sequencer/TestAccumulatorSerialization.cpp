@@ -97,6 +97,7 @@ CASE("roundtrip_consistency") {
     originalAccumulator.setPolarity(Accumulator::Polarity::Bipolar);
     originalAccumulator.setDirection(Accumulator::Direction::Down);
     originalAccumulator.setOrder(Accumulator::Order::Hold);
+    originalAccumulator.setTriggerMode(Accumulator::Gate);
     originalAccumulator.setMinValue(-20);
     originalAccumulator.setMaxValue(30);
     originalAccumulator.setStepValue(5);
@@ -127,6 +128,7 @@ CASE("roundtrip_consistency") {
     expectEqual(int(restoredAccumulator.polarity()), int(originalAccumulator.polarity()), "polarity should match");
     expectEqual(int(restoredAccumulator.direction()), int(originalAccumulator.direction()), "direction should match");
     expectEqual(int(restoredAccumulator.order()), int(originalAccumulator.order()), "order should match");
+    expectEqual(int(restoredAccumulator.triggerMode()), int(originalAccumulator.triggerMode()), "triggerMode should match");
     expectEqual(int(restoredAccumulator.minValue()), int(originalAccumulator.minValue()), "minValue should match");
     expectEqual(int(restoredAccumulator.maxValue()), int(originalAccumulator.maxValue()), "maxValue should match");
     expectEqual(int(restoredAccumulator.stepValue()), int(originalAccumulator.stepValue()), "stepValue should match");

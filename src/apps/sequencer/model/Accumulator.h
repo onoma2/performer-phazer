@@ -13,6 +13,7 @@ public:
     enum Polarity { Unipolar, Bipolar };
     enum Direction { Up, Down, Freeze };
     enum Order { Wrap, Pendulum, Random, Hold };
+    enum TriggerMode { Step, Gate, Retrigger };
 
     enum RatchetTriggerMode {
         First,
@@ -41,8 +42,10 @@ public:
     Polarity polarity() const { return static_cast<Polarity>(_polarity); }
     Direction direction() const { return static_cast<Direction>(_direction); }
     Order order() const { return static_cast<Order>(_order); }
+    TriggerMode triggerMode() const { return static_cast<TriggerMode>(_triggerMode); }
     void setMode(Mode mode) { _mode = mode; }
     void setPolarity(Polarity polarity) { _polarity = polarity; }
+    void setTriggerMode(TriggerMode mode) { _triggerMode = mode; }
 
     // Serialization
     void write(VersionedSerializedWriter &writer) const;
@@ -60,6 +63,7 @@ private:
     uint8_t _order : 2;
     uint8_t _enabled : 1;
     uint8_t _ratchetTriggerMode : 3;
+    uint8_t _triggerMode : 2;
 
     mutable int16_t _currentValue;  // Mark as mutable to allow modification through const references
     mutable int8_t _pendulumDirection; // For Pendulum mode: 1 for up, -1 for down

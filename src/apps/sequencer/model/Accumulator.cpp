@@ -11,6 +11,7 @@ Accumulator::Accumulator() :
     _order(Wrap),
     _enabled(false),
     _ratchetTriggerMode(First),
+    _triggerMode(Step),
     _currentValue(0),
     _minValue(0),
     _maxValue(7),
@@ -127,7 +128,10 @@ void Accumulator::write(VersionedSerializedWriter &writer) const {
     writer.write(_stepValue);
     writer.write(_currentValue);
     writer.write(_pendulumDirection);
-    writer.write(static_cast<uint8_t>(_hasStarted ? 1 : 0));
+
+    // Pack hasStarted and triggerMode into single byte
+    uint8_t flags2 = (_hasStarted ? 1 : 0) | (_triggerMode << 1);
+    writer.write(flags2);
 }
 
 void Accumulator::read(VersionedSerializedReader &reader) {
@@ -147,7 +151,9 @@ void Accumulator::read(VersionedSerializedReader &reader) {
     reader.read(_currentValue);
     reader.read(_pendulumDirection);
 
-    uint8_t hasStartedValue;
-    reader.read(hasStartedValue);
-    _hasStarted = (hasStartedValue != 0);
+    // Unpack hasStarted and triggerMode from single byte
+    uint8_t flags2;
+    reader.read(flags2);
+    _hasStarted = (flags2 & 0x01) != 0;
+    _triggerMode = (flags2 >> 1) & 0x03;
 }

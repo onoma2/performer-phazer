@@ -213,4 +213,9 @@ CASE("delayed_first_tick") {
     expectEqual(static_cast<int>(accumulator.currentValue()), 6, "currentValue should be 6 after third tick");
 }
 
+CASE("default_trigger_mode_is_step") {
+    Accumulator accumulator;
+    expectEqual(static_cast<int>(accumulator.triggerMode()), static_cast<int>(Accumulator::Step), "default triggerMode should be Step");
+}
+
 } // UNIT_TEST("Accumulator")
