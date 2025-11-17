@@ -325,111 +325,69 @@ Gate Mode is a per-step parameter that controls how gates are fired during pulse
 ## 📝 Phase 1: Model Layer - Test-Driven Implementation
 
 ### Step 1.1: Write ALL Phase 1 Tests (RED Phase)
-**Status**: ⏳ NEXT STEP
+**Status**: ✅ COMPLETE
 
-**Action Plan:**
-1. Create `src/tests/unit/sequencer/TestGateMode.cpp` with ALL 6 test cases
-2. Register test in `src/tests/unit/sequencer/CMakeLists.txt`
-3. Write complete test suite WITHOUT implementing any functionality:
-   - Test 1.1: Basic Storage (gateMode() / setGateMode())
-   - Test 1.2: Value Clamping (negative → 0, >3 → 3)
-   - Test 1.3: Bitfield Packing (no interference with other fields)
-   - Test 1.4: Layer Integration (Layer::GateMode exists, layerName(), layerRange(), etc.)
-   - Test 1.5: Serialization (gate mode preserved in copy)
-   - Test 1.6: Clear/Reset (gate mode resets to 0)
+**Completed Actions:**
+1. ✅ Created `src/tests/unit/sequencer/TestGateMode.cpp` with ALL 6 test cases
+2. ✅ Registered test in `src/tests/unit/sequencer/CMakeLists.txt`
+3. ✅ Wrote complete test suite (Tests 1.1-1.6)
 
-**Expected Result:** Tests written but will NOT compile (methods don't exist yet)
-
-**Reference:** See `GATE_MODE_TDD_PLAN.md` Tests 1.1-1.6 for complete test code
+**Result:** Tests initially failed to compile (proper RED state achieved)
 
 ---
 
 ### Step 1.2: Verify Tests Fail (RED Phase Verification)
-**Status**: ⏳ Pending Step 1.1
+**Status**: ✅ COMPLETE
 
-**Action Plan:**
-1. Run cmake and attempt to build TestGateMode
-2. Verify compilation errors (expected):
-   - `gateMode()` method does not exist
-   - `setGateMode()` method does not exist
-   - `Layer::GateMode` enum value does not exist
-3. Document error messages
-4. Confirm we're in proper RED state
+**Completed Actions:**
+1. ✅ Built TestGateMode and verified compilation errors
+2. ✅ Confirmed missing methods: `gateMode()`, `setGateMode()`, `Layer::GateMode`
+3. ✅ Documented error messages
+4. ✅ Confirmed proper RED state
 
-**Expected Result:** Build fails with clear error messages about missing methods
+**Result:** Compilation failed as expected (RED verified)
 
 ---
 
 ### Step 1.3: Implement Minimal Code to Pass Tests (GREEN Phase)
-**Status**: ⏳ Pending Step 1.2
+**Status**: ✅ COMPLETE
 
-**Action Plan:**
-1. Add to `NoteSequence.h`:
-   ```cpp
-   using GateMode = UnsignedValue<2>;  // 0-3 representing 4 modes
+**Completed Actions:**
+1. ✅ Added `GateMode = UnsignedValue<2>` type definition
+2. ✅ Added `GateModeType` enum (All, First, Hold, FirstLast)
+3. ✅ Added `GateMode` to `Layer` enum
+4. ✅ Added `gateMode()` and `setGateMode()` accessor methods
+5. ✅ Added bitfield to `_data1` union (bits 20-21)
+6. ✅ Added `layerName()` case returning "GATE MODE"
+7. ✅ Added `layerRange()`, `layerDefaultValue()`, `layerValue()`, `setLayerValue()` cases
 
-   enum class GateModeType {
-       Multi = 0,
-       Single = 1,
-       Hold = 2,
-       FirstLast = 3,
-       Last
-   };
-   ```
-
-2. Add `GateMode` to `Layer` enum (after PulseCount)
-
-3. Add accessor methods to `Step` class:
-   ```cpp
-   int gateMode() const { return _data1.gateMode; }
-   void setGateMode(int gateMode) {
-       _data1.gateMode = GateMode::clamp(gateMode);
-   }
-   ```
-
-4. Add bitfield to `_data1` union:
-   ```cpp
-   BitField<uint32_t, 20, GateMode::Bits> gateMode;  // bits 20-21
-   // 10 bits left
-   ```
-
-5. Add case to `layerName()`:
-   ```cpp
-   case Layer::GateMode: return "GATE MODE";
-   ```
-
-6. Add to `NoteSequence.cpp`:
-   - `layerRange()`: `CASE(GateMode)` returns {0, 3}
-   - `layerDefaultValue()`: return 0 for GateMode
-   - `Step::layerValue()`: return gateMode() for GateMode
-   - `Step::setLayerValue()`: call setGateMode(value) for GateMode
-
-**Expected Result:** All 6 tests pass (GREEN state achieved)
+**Result:** All 6 tests pass (GREEN state achieved)
 
 ---
 
 ### Step 1.4: Refactor If Needed
-**Status**: ⏳ Pending Step 1.3
+**Status**: ✅ COMPLETE
 
-**Action Plan:**
-1. Review code for clarity and maintainability
-2. Check for any code duplication
-3. Verify bitfield packing is optimal
-4. Ensure naming is consistent with project conventions
+**Completed Actions:**
+1. ✅ Reviewed code for clarity and maintainability
+2. ✅ Verified no code duplication
+3. ✅ Confirmed bitfield packing is optimal (10 bits remaining)
+4. ✅ Verified naming consistent with project conventions
+5. ✅ Renamed modes to match UI: ALL, FIRST, HOLD, FIRSTLAST
 
-**Expected Result:** Clean, maintainable code with all tests still passing
+**Result:** Clean, maintainable code with all tests passing
 
 ---
 
 ### Step 1.5: Commit Phase 1 (Model Layer Complete)
-**Status**: ⏳ Pending Step 1.4
+**Status**: ✅ COMPLETE
 
-**Action Plan:**
-1. Verify all Phase 1 tests pass: `cd build/sim/debug && make TestGateMode && ./src/tests/unit/sequencer/TestGateMode`
-2. Commit with message: "Implement Phase 1 (Model Layer): Gate mode storage and layer integration"
-3. Update this TODO.md marking Phase 1 complete
+**Completed Actions:**
+1. ✅ All Phase 1 tests passing (6 tests + infrastructure)
+2. ✅ Multiple commits following TDD RED-GREEN-REFACTOR cycle
+3. ✅ Ready to update TODO.md and move to Phase 2
 
-**Expected Result:** Phase 1 complete, ready for Phase 2 (Engine Layer)
+**Result:** Phase 1 complete, ready for Phase 2 (Engine Layer)
 
 ---
 
@@ -677,12 +635,12 @@ Gate Mode is a per-step parameter that controls how gates are fired during pulse
 
 ## 📋 Implementation Checklist Summary
 
-### Phase 1: Model Layer (6 tests)
-- [ ] Step 1.1: Write all 6 tests (RED)
-- [ ] Step 1.2: Verify tests fail (RED verification)
-- [ ] Step 1.3: Implement minimal code (GREEN)
-- [ ] Step 1.4: Refactor if needed
-- [ ] Step 1.5: Commit Phase 1
+### Phase 1: Model Layer (6 tests) ✅ COMPLETE
+- [x] Step 1.1: Write all 6 tests (RED)
+- [x] Step 1.2: Verify tests fail (RED verification)
+- [x] Step 1.3: Implement minimal code (GREEN)
+- [x] Step 1.4: Refactor if needed
+- [x] Step 1.5: Commit Phase 1
 
 ### Phase 2: Engine Layer (4 gate modes)
 - [ ] Step 2.1: Understand current gate generation
