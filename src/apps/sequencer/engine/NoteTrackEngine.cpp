@@ -147,6 +147,10 @@ TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
                 // Increment pulse counter
                 _pulseCounter++;
 
+                // Fire the current step BEFORE advancing
+                recordStep(tick, divisor);
+                triggerStep(tick, divisor);
+
                 // Only advance to next step when all pulses for current step are complete
                 bool shouldAdvanceStep = (_pulseCounter > stepPulseCount);
 
@@ -154,9 +158,6 @@ TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
                     _pulseCounter = 0;
                     _sequenceState.advanceAligned(relativeTick / divisor, sequence.runMode(), sequence.firstStep(), sequence.lastStep(), rng);
                 }
-
-                recordStep(tick, divisor);
-                triggerStep(tick, divisor);
             }
             break;
         case Types::PlayMode::Free:
@@ -172,6 +173,10 @@ TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
                 // Increment pulse counter
                 _pulseCounter++;
 
+                // Fire the current step BEFORE advancing
+                recordStep(tick, divisor);
+                triggerStep(tick, divisor);
+
                 // Only advance to next step when all pulses for current step are complete
                 bool shouldAdvanceStep = (_pulseCounter > stepPulseCount);
 
@@ -179,9 +184,6 @@ TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
                     _pulseCounter = 0;
                     _sequenceState.advanceFree(sequence.runMode(), sequence.firstStep(), sequence.lastStep(), rng);
                 }
-
-                recordStep(tick, divisor);
-                triggerStep(tick, divisor);
             }
             break;
         case Types::PlayMode::Last:
