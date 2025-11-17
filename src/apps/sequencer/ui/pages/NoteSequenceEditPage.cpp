@@ -509,9 +509,6 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             setLayer(Layer::Slide);
             break;
         case Layer::Slide:
-            setLayer(Layer::AccumulatorTrigger);
-            break;
-        case Layer::AccumulatorTrigger:
             setLayer(Layer::Gate);
             break;
         default:
@@ -550,6 +547,12 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
         case Layer::NoteVariationRange:
             setLayer(Layer::NoteVariationProbability);
             break;
+        case Layer::NoteVariationProbability:
+            setLayer(Layer::AccumulatorTrigger);
+            break;
+        case Layer::AccumulatorTrigger:
+            setLayer(Layer::Note);
+            break;
         default:
             setLayer(Layer::Note);
             break;
@@ -582,7 +585,7 @@ int NoteSequenceEditPage::activeFunctionKey() {
     case Layer::Condition:
         return 4;
     case Layer::AccumulatorTrigger:
-        return 0; // Same as Gate since it's part of the Gate cycling
+        return 3; // Same as Note button
     case Layer::Last:
         break;
     }

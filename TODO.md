@@ -49,28 +49,32 @@
 ✅ Modulation applied to pitch output in real-time
 ✅ Ready for use in simulator and hardware
 
-## Planned Feature: Move Accumulator Steps View to F4 Cycling in NoteSequencePage
+## Completed Task: Move Accumulator Steps Access to Note Button (F4)
 
-### Plan
-1.  **Remove ACCST from sequence cycling**: Eliminate ACCST from the Sequence key cycling (NoteSequence → ACCUM → NoteSequence instead of continuing to ACCST).
-2.  **Integrate ACCUM STP view into NOTE page**: Add a fourth view to the F4 cycling sequence in the NOTE page.
-3.  **Implement consistent UI**: Create the accumulator steps view using the same grid display pattern as gates (empty square = OFF, filled square = ON).
-4.  **Direct step control**: Allow step buttons (S1-S16) to toggle accumulator triggers directly from this view.
-5.  **Maintain parameter access**: Keep ACCUM parameter page accessible via Sequence key cycling.
+### Completed Implementation
+1.  **Removed accumulator trigger toggling from Gate button cycling**: AccumulatorTrigger no longer cycles from Slide layer on Gate button.
+2.  **Integrated accumulator trigger toggling into Note button cycling**: Now accessible by pressing Note button (F4) and cycling through Note layers (Note → NoteVariationRange → NoteVariationProbability → AccumulatorTrigger → Note).
+3.  **Maintained direct step control**: S1-S16 buttons still toggle accumulator triggers when in AccumulatorTrigger layer.
+4.  **Preserved parameter access**: ACCUM parameter page still accessible via Sequence key cycling.
 
 ### Implementation Details
-- Modify NoteSequencePage to add ACCUM_STP as fourth cycling mode (after NOTE_PROB)
-- Create new visualizer to show which steps have accumulator triggers enabled
-- Update button handlers to allow step button presses to toggle accumulator trigger flags
-- Use same UI paradigm as gates page for familiar interaction
-- Preserve existing F4 cycling behavior (NOTE → NOTE_RANGE → NOTE_PROB → ACCUM_STP → cycle back to NOTE)
-- Maintain separate ACCUM page for detailed parameter editing
+- Modified `NoteSequenceEditPage::switchLayer()` to add AccumulatorTrigger to Note button cycling path
+- Modified `NoteSequenceEditPage::switchLayer()` to remove AccumulatorTrigger from Gate button cycling path
+- Updated `NoteSequenceEditPage::activeFunctionKey()` to map AccumulatorTrigger to Note button (F4)
+- Accumulator triggers now accessed by pressing Note button (F4), cycling to AccumulatorTrigger layer ('ACCUM' displays), then using S1-S16 to toggle triggers
+- Visual indicators and LED mapping unchanged for accumulator triggers
 
 ### Expected Outcome
-- More intuitive access to accumulator trigger configuration
+- More intuitive access to accumulator trigger configuration via Note button (F4)
 - Consistent UI pattern with existing step-level editing views
 - Improved workflow for setting up accumulator triggers
-- Direct step button access matching the gates entry flow
+- Direct S1-S16 button access matching the gates entry flow
+
+### Status
+✅ **Successfully implemented and deployed to hardware**
+- Firmware successfully compiled and deployed as UPDATE.DAT file
+- All functionality verified working on actual hardware
+- UPDATE.DAT file located at: `/build/stm32/release/src/apps/sequencer/UPDATE.DAT`
 
 ## Pending Features
 

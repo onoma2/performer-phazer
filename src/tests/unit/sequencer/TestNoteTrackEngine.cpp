@@ -15,11 +15,23 @@
 #include "drivers/Adc.h"
 #include "drivers/Dac.h"
 #include "drivers/Dio.h"
+#include "drivers/ShiftRegister.h"
 #include "drivers/GateOutput.h"
 #include "drivers/Midi.h"
 #include "drivers/UsbMidi.h"
 
 // Minimal dummy implementations for Engine dependencies
+class DummyShiftRegister : public ShiftRegister {
+public:
+    DummyShiftRegister() : ShiftRegister() {}
+    void init() {}
+    void setOutput(int index, bool value) {}
+    bool update() { return false; }
+    void write(uint8_t channel, uint32_t data) {}
+    bool hasChanged() { return false; }
+    uint32_t read() { return 0; }
+};
+
 class DummyClockTimer : public ClockTimer {
 public:
     void init() {}
@@ -53,6 +65,8 @@ public:
 
 class DummyGateOutput : public GateOutput {
 public:
+    DummyGateOutput(ShiftRegister &shiftRegister) : GateOutput(shiftRegister) {}
+
     void init() {}
     void write(int channel, bool value) {}
     uint8_t gates() const { return 0; }
@@ -97,11 +111,12 @@ CASE("accumulator_integration") {
     Model model;
 
     // Instantiate dummy dependencies for Engine
+    DummyShiftRegister shiftRegister;
     DummyClockTimer clockTimer;
     DummyAdc adc;
     DummyDac dac;
     DummyDio dio;
-    DummyGateOutput gateOutput;
+    DummyGateOutput gateOutput(shiftRegister);
     DummyMidi midi;
     DummyUsbMidi usbMidi;
 

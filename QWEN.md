@@ -55,7 +55,12 @@ An accumulator is a stateful counter that:
    - Provides 16-step toggle interface for accumulator activation
    - Maps to STP1-STP16 step indicators for intuitive control
 
-3. **TopPage Integration** (`src/apps/sequencer/ui/pages/TopPage.*`)
+3. **NoteSequenceEditPage Integration** (`src/apps/sequencer/ui/pages/NoteSequenceEditPage.*`)
+   - Updated layer cycling to move accumulator trigger toggling from Gate button (F1) to Note button (F3)
+   - Pressing Note button now cycles: Note → NoteVariationRange → NoteVariationProbability → AccumulatorTrigger → Note
+   - Allows toggling accumulator triggers for each step using S1-S16 buttons when in AccumulatorTrigger layer
+
+4. **TopPage Integration** (`src/apps/sequencer/ui/pages/TopPage.*`)
    - Modified sequence page cycling to allow cycling through different sequence views
    - Pressing Sequence key now cycles: NoteSequence → Accumulator → AccumulatorSteps → NoteSequence
    - Maintains state to track current sequence view
@@ -127,7 +132,8 @@ The `NoteTrackEngine::triggerStep()` method now checks each step for:
 
 ### UI Architecture
 - **ACCUM page**: Parameter editing with list-based interface
-- **ACCST page**: Step-by-step trigger mapping  
+- **ACCST page**: Step-by-step trigger mapping
+- **Note button access**: Moved accumulator trigger toggling from Gate button (F1) to Note button (F3)
 - Cycling via sequence key mechanism in TopPage
 - Integrated with existing ListPage system
 
@@ -144,6 +150,15 @@ The `NoteTrackEngine::triggerStep()` method now checks each step for:
 - State persists across pattern changes
 - Multi-track accumulator behavior works correctly
 - Successful build of the project with all changes integrated
+
+### Hardware Testing
+✅ **Successfully tested and verified on actual hardware**
+- Firmware successfully compiled and deployed as UPDATE.DAT file
+- All accumulator functionality working correctly on hardware
+- Step toggling via Note button (F4) working as expected
+- Parameter editing via ACCUM page working as expected
+- Modulation of pitch through accumulator working in real-time
+- Full compatibility with existing sequencer features maintained
 
 ## Known Issues
 
@@ -162,9 +177,10 @@ The `NoteTrackEngine::triggerStep()` method now checks each step for:
 ### Basic Pitch Modulation
 1. Enable accumulator in ACCUM page
 2. Set direction to UP, order to WRAP
-3. Configure MIN=-7, MAX=7, STEP=1  
-4. Enable accumulator triggers on desired steps in ACCST page
-5. Listen to pitch progression as sequence plays
+3. Configure MIN=-7, MAX=7, STEP=1
+4. Press Note button (F3) and cycle to AccumulatorTrigger layer ('ACCUM' will show in active function)
+5. Enable accumulator triggers on desired steps using S1-S16 buttons
+6. Listen to pitch progression as sequence plays
 
 ### Complex Modulation Patterns
 1. Use PENDULUM order for bidirectional movement

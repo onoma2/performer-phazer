@@ -93,9 +93,9 @@ This phase focuses on creating a comprehensive user interface for all accumulato
 
 ### 2.2. Register Pages and Implement Cycling
 
-- This part of the plan remains the same as before:
-    - Register `AccumulatorPage` and `AccumulatorStepsPage` in `Pages.h`.
-    - Implement the page cycling logic in `TopPage.h` and `TopPage.cpp` to cycle through `noteSequence`, `accumulatorPage`, and `accumulatorStepsPage` when the `NOTE` button is pressed repeatedly.
+- Register `AccumulatorPage` and `AccumulatorStepsPage` in `Pages.h`.
+- Implement the page cycling logic in `TopPage.h` and `TopPage.cpp` to cycle through `noteSequence`, `accumulatorPage`, and `accumulatorStepsPage` when the `SEQUENCE` button is pressed repeatedly.
+- The `ACCST` page functionality for toggling accumulator triggers per step is accessed by pressing the `NOTE` button (F3) and cycling to the AccumulatorTrigger layer, then using S1-S16 buttons to toggle triggers for each step.
 
 ## Phase 3: Persistence
 
