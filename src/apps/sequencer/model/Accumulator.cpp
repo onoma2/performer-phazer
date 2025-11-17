@@ -12,10 +12,10 @@ Accumulator::Accumulator() :
     _enabled(false),
     _ratchetTriggerMode(First),
     _triggerMode(Step),
-    _currentValue(0),
     _minValue(0),
     _maxValue(7),
     _stepValue(1),
+    _currentValue(_minValue),  // Initialize to minValue for consistency
     _ratchetTriggerParam(0),
     _pendulumDirection(1),
     _hasStarted(false)

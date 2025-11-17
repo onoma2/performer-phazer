@@ -30,6 +30,7 @@ CASE("tick_down_enabled") {
     Accumulator accumulator;
     accumulator.setDirection(Accumulator::Direction::Down);
     accumulator.setEnabled(true);
+    accumulator.setOrder(Accumulator::Order::Hold); // Use Hold to allow negative values
     accumulator.tick(); // Consume delayed first tick
     accumulator.tick();
     expectEqual(static_cast<int>(accumulator.currentValue()), -1, "currentValue should be -1 after one tick down");
@@ -187,9 +188,10 @@ CASE("reset_accumulator") {
     accumulator.setDirection(Accumulator::Direction::Up);
     accumulator.setEnabled(true);
     accumulator.setStepValue(2);
+    accumulator.reset(); // Sync currentValue to new minValue after setup
 
     // Tick a few times to change currentValue
-    accumulator.tick(); // Consume delayed first tick
+    accumulator.tick(); // Consume delayed first tick (reset clears _hasStarted)
     accumulator.tick(); // 5 -> 7
     accumulator.tick(); // 7 -> 9
     accumulator.tick(); // 9 -> 11
