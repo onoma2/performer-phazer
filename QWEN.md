@@ -236,13 +236,7 @@ The `NoteTrackEngine::triggerStep()` method now checks each step for:
 - `src/apps/sequencer/ui/pages/TopPage.cpp` - Page cycling integration
 - `src/apps/sequencer/ui/model/AccumulatorListModel.h` - UI model for accumulator parameter editing
 
-## Known Issues - RESOLVED
-
-### Previously Existing Issue: UI Encoder Control
-- **Issue**: Direction and Order parameters on ACCUM page didn't respond to encoder changes
-- **Root Cause**: `AccumulatorListModel::edit()` method wasn't properly handling indexed values
-- **Resolution**: Updated `edit()` method to detect indexed parameters and cycle through values using `setIndexed()`
-- **Status**: ✅ **RESOLVED** - Encoder now works for Direction (Up/Down/Freeze) and Order (Wrap/Pendulum/Random/Hold)
+## Known Issues
 
 ### Pre-existing Test Infrastructure Issue
 - `TestNoteTrackEngine` exhibits segmentation fault in specific test configurations
