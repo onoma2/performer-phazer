@@ -357,19 +357,47 @@ void NoteTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
     }
 
     if (stepGate) {
-        uint32_t stepLength = (divisor * evalStepLength(step, _noteTrack.lengthBias())) / NoteSequence::Length::Range;
-        int stepRetrigger = evalStepRetrigger(step, _noteTrack.retriggerProbabilityBias());
-        if (stepRetrigger > 1) {
-            uint32_t retriggerLength = divisor / stepRetrigger;
-            uint32_t retriggerOffset = 0;
-            while (stepRetrigger-- > 0 && retriggerOffset <= stepLength) {
-                _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset, swing()), true });
-                _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset + retriggerLength / 2, swing()), false });
-                retriggerOffset += retriggerLength;
+        // Gate mode logic: Determine if gate should fire on this pulse
+        bool shouldFireGate = false;
+        int gateMode = step.gateMode();
+        int pulseCount = step.pulseCount();
+
+        switch (gateMode) {
+        case 0: // ALL - Fire gates on every pulse (default, backward compatible)
+            shouldFireGate = true;
+            break;
+        case 1: // FIRST - Fire gate only on first pulse
+            shouldFireGate = (_pulseCounter == 1);
+            break;
+        case 2: // HOLD - Fire ONE long gate on first pulse
+            shouldFireGate = (_pulseCounter == 1);
+            break;
+        case 3: // FIRSTLAST - Fire gates on first and last pulse
+            shouldFireGate = (_pulseCounter == 1) || (_pulseCounter == (pulseCount + 1));
+            break;
+        }
+
+        if (shouldFireGate) {
+            uint32_t stepLength = (divisor * evalStepLength(step, _noteTrack.lengthBias())) / NoteSequence::Length::Range;
+
+            // HOLD mode: extend gate length to cover all pulses
+            if (gateMode == 2) {
+                stepLength = divisor * (pulseCount + 1);
             }
-        } else {
-            _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset, swing()), true });
-            _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + stepLength, swing()), false });
+
+            int stepRetrigger = evalStepRetrigger(step, _noteTrack.retriggerProbabilityBias());
+            if (stepRetrigger > 1) {
+                uint32_t retriggerLength = divisor / stepRetrigger;
+                uint32_t retriggerOffset = 0;
+                while (stepRetrigger-- > 0 && retriggerOffset <= stepLength) {
+                    _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset, swing()), true });
+                    _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset + retriggerLength / 2, swing()), false });
+                    retriggerOffset += retriggerLength;
+                }
+            } else {
+                _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset, swing()), true });
+                _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + stepLength, swing()), false });
+            }
         }
     }
 
