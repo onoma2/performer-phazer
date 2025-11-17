@@ -350,10 +350,11 @@ void NoteTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
     _currentStep = SequenceUtils::rotateStep(_sequenceState.step(), sequence.firstStep(), sequence.lastStep(), rotate);
     const auto &step = evalSequence.step(_currentStep);
 
-    // Check if this step should trigger the accumulator
+    // STEP mode: Tick accumulator once per step
     if (step.isAccumulatorTrigger()) {
         const auto &targetSequence = useFillSequence ? *_fillSequence : sequence; // Use the same sequence as evalSequence
-        if (targetSequence.accumulator().enabled()) {
+        if (targetSequence.accumulator().enabled() &&
+            targetSequence.accumulator().triggerMode() == Accumulator::Step) {
             // Tick the accumulator - using mutable allows modification through const ref
             const_cast<Accumulator&>(targetSequence.accumulator()).tick();
         }
@@ -388,6 +389,15 @@ void NoteTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
         }
 
         if (shouldFireGate) {
+            // GATE mode: Tick accumulator per gate pulse
+            if (step.isAccumulatorTrigger()) {
+                const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+                if (targetSequence.accumulator().enabled() &&
+                    targetSequence.accumulator().triggerMode() == Accumulator::Gate) {
+                    const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+                }
+            }
+
             uint32_t stepLength = (divisor * evalStepLength(step, _noteTrack.lengthBias())) / NoteSequence::Length::Range;
 
             // HOLD mode: extend gate length to cover all pulses
@@ -400,6 +410,15 @@ void NoteTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
                 uint32_t retriggerLength = divisor / stepRetrigger;
                 uint32_t retriggerOffset = 0;
                 while (stepRetrigger-- > 0 && retriggerOffset <= stepLength) {
+                    // RETRIGGER mode: Tick accumulator per ratchet/retrigger subdivision
+                    if (step.isAccumulatorTrigger()) {
+                        const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+                        if (targetSequence.accumulator().enabled() &&
+                            targetSequence.accumulator().triggerMode() == Accumulator::Retrigger) {
+                            const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+                        }
+                    }
+
                     _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset, swing()), true });
                     _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset + retriggerLength / 2, swing()), false });
                     retriggerOffset += retriggerLength;
