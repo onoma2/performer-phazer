@@ -55,6 +55,7 @@ public:
         Condition,
         AccumulatorTrigger,
         PulseCount,
+        GateMode,
         Last
     };
 
@@ -75,6 +76,7 @@ public:
         case Layer::Condition:                  return "CONDITION";
         case Layer::AccumulatorTrigger:         return "ACCUM";
         case Layer::PulseCount:                 return "PULSE COUNT";
+        case Layer::GateMode:                   return "GATE MODE";
         case Layer::Last:                       break;
         }
         return nullptr;
