@@ -1,7 +1,17 @@
 # Option C: Queue-Based Accumulator Ticks - Detailed Plan & Risk Analysis
 
+**Related Documentation:**
+- **RTRIG-Timing-Research.md** - Technical investigation into gate queue architecture and why ticks can't spread over time
+- **QWEN.md** - Complete accumulator feature documentation with RTRIG timing summary
+
 ## Overview
 Schedule accumulator ticks in a queue alongside gates, so ticks happen when each retrigger actually fires (spread over time) rather than all at once when the step starts.
+
+**Why This Is Needed:**
+- Currently, RTRIG mode fires all N ticks immediately at step start (burst mode)
+- Retrigger gates fire spread over time (you hear 3 distinct ratchets)
+- But accumulator increments happen upfront, all at once
+- See RTRIG-Timing-Research.md for detailed architecture investigation
 
 ---
 
@@ -384,7 +394,15 @@ struct GateEvent {
 - Retriggers fire correctly (gates spread over time), but accumulator ticks happen upfront
 - This is a known architectural limitation, not a bug
 
+**Investigation Complete:**
+- Gate queue architecture investigated (see RTRIG-Timing-Research.md)
+- Root cause identified: Gate struct is minimal (tick + bool) with no accumulator context
+- Four potential workarounds evaluated with risk assessment
+- All queue-based approaches have pointer invalidation risks
+
 **Decision:**
+- **Recommendation**: Accept current behavior (burst mode)
 - Documented in this file for future consideration
 - Current behavior is acceptable for MVP
 - Queue-based approach requires significant investigation and refactoring
+- See RTRIG-Timing-Research.md for complete technical analysis

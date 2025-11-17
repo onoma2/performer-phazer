@@ -1306,12 +1306,15 @@ uint8_t _ratchetTriggerMode : 3; // 3 bits (UNUSED - can repurpose)
 - ✅ All 15 unit tests pass (TestAccumulator.cpp)
 - ✅ All 4 serialization tests pass (TestAccumulatorSerialization.cpp)
 - ✅ Simulator testing complete: STEP, GATE, RTRIG modes work correctly
-- ✅ Documentation updated: CLAUDE.md, CHANGELOG.md, Queue-BasedAccumTicks.md
+- ✅ Documentation updated: CLAUDE.md, CHANGELOG.md, QWEN.md, RTRIG-Timing-Research.md, Queue-BasedAccumTicks.md
 
 **Known Behavior:**
 - RTRIG mode ticks N times immediately at step start (not spread over time)
-- This is an architectural limitation, see `Queue-BasedAccumTicks.md` for future enhancement plan
+- This is an architectural limitation due to minimal gate queue structure
 - Gates fire spread over time (you hear ratchets), but accumulator increments are upfront
+- See `RTRIG-Timing-Research.md` for technical investigation and workaround analysis
+- See `Queue-BasedAccumTicks.md` for detailed implementation plan if future enhancement needed
+- Recommendation: Accept current behavior (pointer invalidation risks in queue-based approaches)
 
 ---
 

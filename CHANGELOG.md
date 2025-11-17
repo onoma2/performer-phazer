@@ -40,7 +40,10 @@
   - TriggerMode enum with 2-bit bitfield for memory efficiency
   - Packed with _hasStarted in single byte for optimized serialization
   - Full integration with STEP/GATE/RTRIG logic in NoteTrackEngine
-  - Comprehensive documentation in Queue-BasedAccumTicks.md for future timing enhancement
+  - **Known behavior**: RTRIG mode ticks fire immediately at step start (burst mode) due to gate queue architecture
+    - See RTRIG-Timing-Research.md for technical investigation and workaround analysis
+    - See Queue-BasedAccumTicks.md for detailed implementation plan if future enhancement needed
+    - Recommendation: Accept current behavior (pointer invalidation risks in queue-based approaches)
   - All unit tests updated and passing (15 test cases in TestAccumulator)
 
 ### Changed

@@ -218,7 +218,9 @@ The trigger mode parameter controls WHEN the accumulator increments during step 
 - **Known behavior**: All N ticks fire immediately when step starts (not spread over time)
   - Retrigger gates fire spread over time (you hear ratchets)
   - But accumulator increments happen upfront, all at once
-  - This is an architectural limitation, see `Queue-BasedAccumTicks.md` for potential future enhancement
+  - This is an architectural limitation
+  - See `RTRIG-Timing-Research.md` for technical investigation and workaround analysis
+  - See `Queue-BasedAccumTicks.md` for detailed implementation plan if future enhancement needed
 - Useful for step-based bursts of accumulation
 
 **Delayed First Tick:**
@@ -296,8 +298,9 @@ Planned enhancements documented in `QWEN.md`:
 **RTRIG Mode Timing Enhancement:**
 - Currently: All N ticks fire immediately at step start
 - Potential: Queue-based ticks spread over time (one per retrigger as it fires)
-- See `Queue-BasedAccumTicks.md` for detailed plan and risk analysis
-- Status: Documented for future consideration (high effort, high risk)
+- See `RTRIG-Timing-Research.md` for gate queue architecture investigation and workaround analysis
+- See `Queue-BasedAccumTicks.md` for detailed implementation plan and risk analysis
+- Status: Investigated and documented - recommendation is to accept current behavior (high effort, high risk, pointer invalidation concerns)
 
 ### Key Files
 
