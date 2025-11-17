@@ -1,7 +1,12 @@
-#include "catch.hpp"
-#include "model/NoteSequence.h"
+#include "UnitTest.h"
 
-// Placeholder test to verify test infrastructure is working
-TEST_CASE("PulseCount test infrastructure", "[pulse-count]") {
-    REQUIRE(true);
+#include "apps/sequencer/model/NoteSequence.h"
+
+UNIT_TEST("PulseCount") {
+
+CASE("infrastructure") {
+    // Placeholder test to verify test infrastructure is working
+    expectTrue(true, "test infrastructure working");
+}
+
 }
