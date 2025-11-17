@@ -303,6 +303,15 @@ void NoteTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
     _currentStep = SequenceUtils::rotateStep(_sequenceState.step(), sequence.firstStep(), sequence.lastStep(), rotate);
     const auto &step = evalSequence.step(_currentStep);
 
+    // Check if this step should trigger the accumulator
+    if (step.isAccumulatorTrigger()) {
+        const auto &targetSequence = useFillSequence ? *_fillSequence : sequence; // Use the same sequence as evalSequence
+        if (targetSequence.accumulator().enabled()) {
+            // Tick the accumulator - using mutable allows modification through const ref
+            const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+        }
+    }
+
     uint32_t gateOffset = (divisor * step.gateOffset()) / (NoteSequence::GateOffset::Max + 1);
 
     bool stepGate = evalStepGate(step, _noteTrack.gateProbabilityBias()) || useFillGates;

@@ -170,6 +170,7 @@ void NoteSequence::Step::clear() {
     setNoteVariationRange(0);
     setNoteVariationProbability(NoteVariationProbability::Max);
     setCondition(Types::Condition::Off);
+    setAccumulatorTrigger(false); // Added this line
 }
 
 void NoteSequence::Step::write(VersionedSerializedWriter &writer) const {
