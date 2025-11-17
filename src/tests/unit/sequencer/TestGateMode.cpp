@@ -93,4 +93,30 @@ CASE("gate mode bitfield does not interfere with other fields") {
     expectEqual(step.retrigger(), 3, "retrigger should still be 3");
 }
 
+// Test 1.4: Layer Integration
+CASE("gate mode integrates with Layer system") {
+    // Test 1: GateMode layer exists
+    auto layer = NoteSequence::Layer::GateMode;
+    expectTrue(layer < NoteSequence::Layer::Last, "GateMode should be valid layer");
+
+    // Test 2: layerName
+    const char* name = NoteSequence::layerName(NoteSequence::Layer::GateMode);
+    expectEqual(std::string(name), std::string("GATE MODE"), "layer name");
+
+    // Test 3: layerRange
+    auto range = NoteSequence::layerRange(NoteSequence::Layer::GateMode);
+    expectEqual(range.min, 0, "min should be 0");
+    expectEqual(range.max, 3, "max should be 3");
+
+    // Test 4: layerDefaultValue
+    int defaultValue = NoteSequence::layerDefaultValue(NoteSequence::Layer::GateMode);
+    expectEqual(defaultValue, 0, "default should be 0 (MULTI)");
+
+    // Test 5: layerValue/setLayerValue
+    NoteSequence::Step step;
+    step.setLayerValue(NoteSequence::Layer::GateMode, 2);
+    expectEqual(step.gateMode(), 2, "setLayerValue should work");
+    expectEqual(step.layerValue(NoteSequence::Layer::GateMode), 2, "layerValue should work");
+}
+
 }
