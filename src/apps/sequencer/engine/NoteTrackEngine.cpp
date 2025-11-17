@@ -407,18 +407,22 @@ void NoteTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
 
             int stepRetrigger = evalStepRetrigger(step, _noteTrack.retriggerProbabilityBias());
             if (stepRetrigger > 1) {
-                uint32_t retriggerLength = divisor / stepRetrigger;
-                uint32_t retriggerOffset = 0;
-                while (stepRetrigger-- > 0 && retriggerOffset <= stepLength) {
-                    // RETRIGGER mode: Tick accumulator per ratchet/retrigger subdivision
-                    if (step.isAccumulatorTrigger()) {
-                        const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
-                        if (targetSequence.accumulator().enabled() &&
-                            targetSequence.accumulator().triggerMode() == Accumulator::Retrigger) {
+                // RETRIGGER mode: Tick accumulator for each retrigger subdivision (not limited by stepLength)
+                if (step.isAccumulatorTrigger()) {
+                    const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+                    if (targetSequence.accumulator().enabled() &&
+                        targetSequence.accumulator().triggerMode() == Accumulator::Retrigger) {
+                        // Tick N times for N retriggers, regardless of gate length
+                        int tickCount = stepRetrigger;
+                        for (int i = 0; i < tickCount; ++i) {
                             const_cast<Accumulator&>(targetSequence.accumulator()).tick();
                         }
                     }
+                }
 
+                uint32_t retriggerLength = divisor / stepRetrigger;
+                uint32_t retriggerOffset = 0;
+                while (stepRetrigger-- > 0 && retriggerOffset <= stepLength) {
                     _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset, swing()), true });
                     _gateQueue.pushReplace({ Groove::applySwing(tick + gateOffset + retriggerOffset + retriggerLength / 2, swing()), false });
                     retriggerOffset += retriggerLength;
