@@ -1,5 +1,7 @@
 #include "Accumulator.h"
 #include "core/utils/Random.h"
+#include "core/io/VersionedSerializedWriter.h"
+#include "core/io/VersionedSerializedReader.h"
 #include <algorithm> // For std::min and std::max
 
 Accumulator::Accumulator() :
@@ -97,4 +99,37 @@ void Accumulator::tickWithHold() const {
             const_cast<Accumulator*>(this)->_currentValue = _minValue;
         }
     }
+}
+
+void Accumulator::write(VersionedSerializedWriter &writer) const {
+    // Write bitfield parameters as single byte
+    uint8_t flags = (_mode << 0) | (_polarity << 2) |
+                    (_direction << 3) | (_order << 5) |
+                    (_enabled << 7);
+    writer.write(flags);
+
+    // Write value parameters
+    writer.write(_minValue);
+    writer.write(_maxValue);
+    writer.write(_stepValue);
+    writer.write(_currentValue);
+    writer.write(_pendulumDirection);
+}
+
+void Accumulator::read(VersionedSerializedReader &reader) {
+    // Read bitfield flags
+    uint8_t flags;
+    reader.read(flags);
+    _mode = (flags >> 0) & 0x03;
+    _polarity = (flags >> 2) & 0x01;
+    _direction = (flags >> 3) & 0x03;
+    _order = (flags >> 5) & 0x03;
+    _enabled = (flags >> 7) & 0x01;
+
+    // Read value parameters
+    reader.read(_minValue);
+    reader.read(_maxValue);
+    reader.read(_stepValue);
+    reader.read(_currentValue);
+    reader.read(_pendulumDirection);
 }

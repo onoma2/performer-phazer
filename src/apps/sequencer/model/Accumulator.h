@@ -4,6 +4,9 @@
 #include <algorithm> // For std::min and std::max
 #include "core/utils/Random.h"
 
+class VersionedSerializedWriter;
+class VersionedSerializedReader;
+
 class Accumulator {
 public:
     enum Mode { Stage, Track };
@@ -39,6 +42,10 @@ public:
     Order order() const { return static_cast<Order>(_order); }
     void setMode(Mode mode) { _mode = mode; }
     void setPolarity(Polarity polarity) { _polarity = polarity; }
+
+    // Serialization
+    void write(VersionedSerializedWriter &writer) const;
+    void read(VersionedSerializedReader &reader);
 
 private:
     void tickWithWrap() const;
