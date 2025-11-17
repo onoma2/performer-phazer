@@ -2,6 +2,8 @@
 
 #include "apps/sequencer/model/NoteSequence.h"
 
+#include <string>
+
 UNIT_TEST("PulseCount") {
 
 CASE("infrastructure") {
@@ -95,6 +97,43 @@ CASE("pulse count bitfield does not interfere with other fields") {
     expectEqual(step.retrigger(), 3, "retrigger should be 3");
     expectEqual(step.retriggerProbability(), 7, "retriggerProbability should be 7");
     expectTrue(step.isAccumulatorTrigger(), "accumulatorTrigger should be true");
+}
+
+// Test 1.4: Layer Integration
+CASE("pulse count integrates with Layer system") {
+    // Test 1: PulseCount layer exists in enum
+    auto pulseCountLayer = NoteSequence::Layer::PulseCount;
+    expectTrue(pulseCountLayer < NoteSequence::Layer::Last, "PulseCount should be a valid layer");
+
+    // Test 2: layerName returns correct name
+    const char* name = NoteSequence::layerName(NoteSequence::Layer::PulseCount);
+    expectTrue(name != nullptr, "layerName should return non-null");
+    expectEqual(std::string(name), std::string("PULSE COUNT"), "layer name should be 'PULSE COUNT'");
+
+    // Test 3: layerRange returns {0, 7}
+    auto range = NoteSequence::layerRange(NoteSequence::Layer::PulseCount);
+    expectEqual(range.min, 0, "layer range min should be 0");
+    expectEqual(range.max, 7, "layer range max should be 7");
+
+    // Test 4: layerDefaultValue returns 0
+    int defaultValue = NoteSequence::layerDefaultValue(NoteSequence::Layer::PulseCount);
+    expectEqual(defaultValue, 0, "layer default value should be 0");
+
+    // Test 5: Step::layerValue and setLayerValue work correctly
+    NoteSequence::Step step;
+
+    // Get value through layer interface
+    int value = step.layerValue(NoteSequence::Layer::PulseCount);
+    expectEqual(value, 0, "layerValue should return 0 initially");
+
+    // Set value through layer interface
+    step.setLayerValue(NoteSequence::Layer::PulseCount, 5);
+    expectEqual(step.pulseCount(), 5, "setPulseCount via layerValue should work");
+    expectEqual(step.layerValue(NoteSequence::Layer::PulseCount), 5, "layerValue should return 5");
+
+    // Test clamping through layer interface
+    step.setLayerValue(NoteSequence::Layer::PulseCount, 100);
+    expectEqual(step.layerValue(NoteSequence::Layer::PulseCount), 7, "layerValue should clamp to 7");
 }
 
 }
