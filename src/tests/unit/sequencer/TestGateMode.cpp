@@ -119,4 +119,32 @@ CASE("gate mode integrates with Layer system") {
     expectEqual(step.layerValue(NoteSequence::Layer::GateMode), 2, "layerValue should work");
 }
 
+// Test 1.5: Serialization - Gate Mode is Part of Serialized Data
+CASE("gate mode is included in step data") {
+    NoteSequence::Step step1;
+    step1.setGateMode(0);
+
+    NoteSequence::Step step2;
+    step2.setGateMode(2);
+
+    // Verify different modes are different
+    expectTrue(step1.gateMode() != step2.gateMode(), "different modes");
+
+    // Verify copying preserves gate mode
+    NoteSequence::Step stepCopy = step2;
+    expectEqual(stepCopy.gateMode(), 2, "gate mode preserved when copying");
+}
+
+// Test 1.6: Clear/Reset - Gate Mode Resets to Default
+CASE("gate mode resets to 0 on clear") {
+    NoteSequence::Step step;
+
+    step.setGateMode(3);
+    expectEqual(step.gateMode(), 3, "gate mode should be 3");
+
+    step.clear();
+
+    expectEqual(step.gateMode(), 0, "gate mode should reset to 0 (All)");
+}
+
 }
