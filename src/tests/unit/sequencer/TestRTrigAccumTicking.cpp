@@ -139,17 +139,17 @@ CASE("accumulator value changes when ticked (Phase 3 behavior)") {
     sequence.accumulator().reset();
 
     // Initial value should be min
-    expectEqual(sequence.accumulator().currentValue(), 0, "initial value should be 0");
+    expectEqual((int)sequence.accumulator().currentValue(), 0, "initial value should be 0");
 
     // Simulate what happens in tick() when gate fires with shouldTickAccumulator=true
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().currentValue(), 1, "value should be 1 after first tick");
+    expectEqual((int)sequence.accumulator().currentValue(), 1, "value should be 1 after first tick");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().currentValue(), 2, "value should be 2 after second tick");
+    expectEqual((int)sequence.accumulator().currentValue(), 2, "value should be 2 after second tick");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().currentValue(), 3, "value should be 3 after third tick");
+    expectEqual((int)sequence.accumulator().currentValue(), 3, "value should be 3 after third tick");
 }
 
 CASE("accumulator wraps correctly in Wrap order mode") {
@@ -164,16 +164,16 @@ CASE("accumulator wraps correctly in Wrap order mode") {
     sequence.accumulator().setStepValue(1);
     sequence.accumulator().reset();
 
-    expectEqual(sequence.accumulator().currentValue(), 0, "initial value should be 0");
+    expectEqual((int)sequence.accumulator().currentValue(), 0, "initial value should be 0");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().currentValue(), 1, "value should be 1");
+    expectEqual((int)sequence.accumulator().currentValue(), 1, "value should be 1");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().currentValue(), 2, "value should be 2 (at max)");
+    expectEqual((int)sequence.accumulator().currentValue(), 2, "value should be 2 (at max)");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().currentValue(), 0, "value should wrap to 0");
+    expectEqual((int)sequence.accumulator().currentValue(), 0, "value should wrap to 0");
 }
 
 #if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
