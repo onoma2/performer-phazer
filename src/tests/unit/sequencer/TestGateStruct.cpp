@@ -53,7 +53,7 @@ CASE("experimental shouldTickAccumulator field") {
     expectEqual(gate.tick, 100u, "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
     expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
-    expectEqual(gate.sequenceId, 0u, "sequenceId should be 0");
+    expectEqual((unsigned int)gate.sequenceId, 0u, "sequenceId should be 0");
 }
 
 CASE("experimental shouldTickAccumulator defaults to false") {
@@ -61,7 +61,7 @@ CASE("experimental shouldTickAccumulator defaults to false") {
 
     // With 2-arg constructor, experimental fields should default
     expectEqual(gate.shouldTickAccumulator, false, "shouldTickAccumulator should default to false");
-    expectEqual(gate.sequenceId, 0u, "sequenceId should default to 0");
+    expectEqual((unsigned int)gate.sequenceId, 0u, "sequenceId should default to 0");
 }
 
 CASE("experimental sequenceId field") {
@@ -77,8 +77,8 @@ CASE("experimental sequenceId field") {
     fillGate.shouldTickAccumulator = true;
     fillGate.sequenceId = 1;  // FillSequenceId
 
-    expectEqual(mainGate.sequenceId, 0u, "main gate sequenceId should be 0");
-    expectEqual(fillGate.sequenceId, 1u, "fill gate sequenceId should be 1");
+    expectEqual((unsigned int)mainGate.sequenceId, 0u, "main gate sequenceId should be 0");
+    expectEqual((unsigned int)fillGate.sequenceId, 1u, "fill gate sequenceId should be 1");
     expectTrue(mainGate.sequenceId != fillGate.sequenceId, "main and fill sequenceIds should differ");
 }
 
@@ -88,12 +88,12 @@ CASE("experimental 4-arg constructor") {
     expectEqual(gate.tick, 100u, "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
     expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
-    expectEqual(gate.sequenceId, 1u, "sequenceId should be 1");
+    expectEqual((unsigned int)gate.sequenceId, 1u, "sequenceId should be 1");
 }
 
 CASE("experimental sequence ID constants") {
-    expectEqual(NoteTrackEngine::MainSequenceId, 0u, "MainSequenceId should be 0");
-    expectEqual(NoteTrackEngine::FillSequenceId, 1u, "FillSequenceId should be 1");
+    expectEqual((unsigned int)NoteTrackEngine::MainSequenceId, 0u, "MainSequenceId should be 0");
+    expectEqual((unsigned int)NoteTrackEngine::FillSequenceId, 1u, "FillSequenceId should be 1");
     expectTrue(NoteTrackEngine::MainSequenceId != NoteTrackEngine::FillSequenceId,
                "MainSequenceId and FillSequenceId should differ");
 }
