@@ -52,19 +52,26 @@ touch src/tests/unit/sequencer/TestHarmonyEngine.cpp
 File: `src/tests/unit/sequencer/TestHarmonyEngine.cpp`
 
 ```cpp
-#include "catch.hpp"
-#include "model/HarmonyEngine.h"
+#include "UnitTest.h"
 
-TEST_CASE("HarmonyEngine Default Construction", "[harmony]") {
+#include "apps/sequencer/model/HarmonyEngine.h"
+
+UNIT_TEST("HarmonyEngine") {
+
+CASE("default_construction") {
     HarmonyEngine engine;
 
-    REQUIRE(engine.mode() == HarmonyEngine::Ionian);
-    REQUIRE(engine.diatonicMode() == true);
-    REQUIRE(engine.inversion() == 0);
-    REQUIRE(engine.voicing() == HarmonyEngine::Close);
-    REQUIRE(engine.transpose() == 0);
+    expectEqual(static_cast<int>(engine.mode()), static_cast<int>(HarmonyEngine::Ionian), "default mode should be Ionian");
+    expectTrue(engine.diatonicMode(), "default diatonicMode should be true");
+    expectEqual(static_cast<int>(engine.inversion()), 0, "default inversion should be 0");
+    expectEqual(static_cast<int>(engine.voicing()), static_cast<int>(HarmonyEngine::Close), "default voicing should be Close");
+    expectEqual(static_cast<int>(engine.transpose()), 0, "default transpose should be 0");
 }
+
+} // UNIT_TEST("HarmonyEngine")
 ```
+
+**Note**: The project uses a custom `UnitTest.h` framework, not Catch2. Use `UNIT_TEST()`, `CASE()`, `expectEqual()`, and `expectTrue()` macros.
 
 **Step 1.3: Implement HarmonyEngine Header (GREEN)**
 
@@ -196,10 +203,10 @@ make -j TestHarmonyEngine
 
 **Step 2.1: Write Scale Interval Test (RED)**
 
-Add to `TestHarmonyEngine.cpp`:
+Add new `CASE()` inside the `UNIT_TEST("HarmonyEngine")` block in `TestHarmonyEngine.cpp`:
 
 ```cpp
-TEST_CASE("HarmonyEngine Ionian Scale Intervals", "[harmony]") {
+CASE("ionian_scale_intervals") {
     HarmonyEngine engine;
     engine.setMode(HarmonyEngine::Ionian);
 
@@ -207,7 +214,7 @@ TEST_CASE("HarmonyEngine Ionian Scale Intervals", "[harmony]") {
     const int16_t expected[7] = {0, 2, 4, 5, 7, 9, 11};
 
     for (int degree = 0; degree < 7; degree++) {
-        REQUIRE(engine.getScaleInterval(degree) == expected[degree]);
+        expectEqual(engine.getScaleInterval(degree), expected[degree], "Ionian scale interval mismatch");
     }
 }
 ```
@@ -242,20 +249,22 @@ int16_t HarmonyEngine::getScaleInterval(uint8_t degree) const {
 
 **Step 3.1: Write Diatonic Quality Test (RED)**
 
+Add new `CASE()` inside the `UNIT_TEST("HarmonyEngine")` block:
+
 ```cpp
-TEST_CASE("HarmonyEngine Ionian Diatonic Chord Qualities", "[harmony]") {
+CASE("ionian_diatonic_chord_qualities") {
     HarmonyEngine engine;
     engine.setMode(HarmonyEngine::Ionian);
     engine.setDiatonicMode(true);
 
     // Ionian: I∆7, ii-7, iii-7, IV∆7, V7, vi-7, viiø
-    REQUIRE(engine.getDiatonicQuality(0) == HarmonyEngine::Major7);   // I
-    REQUIRE(engine.getDiatonicQuality(1) == HarmonyEngine::Minor7);   // ii
-    REQUIRE(engine.getDiatonicQuality(2) == HarmonyEngine::Minor7);   // iii
-    REQUIRE(engine.getDiatonicQuality(3) == HarmonyEngine::Major7);   // IV
-    REQUIRE(engine.getDiatonicQuality(4) == HarmonyEngine::Dominant7); // V
-    REQUIRE(engine.getDiatonicQuality(5) == HarmonyEngine::Minor7);   // vi
-    REQUIRE(engine.getDiatonicQuality(6) == HarmonyEngine::HalfDim7); // vii
+    expectEqual(static_cast<int>(engine.getDiatonicQuality(0)), static_cast<int>(HarmonyEngine::Major7), "I should be Major7");
+    expectEqual(static_cast<int>(engine.getDiatonicQuality(1)), static_cast<int>(HarmonyEngine::Minor7), "ii should be Minor7");
+    expectEqual(static_cast<int>(engine.getDiatonicQuality(2)), static_cast<int>(HarmonyEngine::Minor7), "iii should be Minor7");
+    expectEqual(static_cast<int>(engine.getDiatonicQuality(3)), static_cast<int>(HarmonyEngine::Major7), "IV should be Major7");
+    expectEqual(static_cast<int>(engine.getDiatonicQuality(4)), static_cast<int>(HarmonyEngine::Dominant7), "V should be Dominant7");
+    expectEqual(static_cast<int>(engine.getDiatonicQuality(5)), static_cast<int>(HarmonyEngine::Minor7), "vi should be Minor7");
+    expectEqual(static_cast<int>(engine.getDiatonicQuality(6)), static_cast<int>(HarmonyEngine::HalfDim7), "vii should be HalfDim7");
 }
 ```
 
@@ -301,23 +310,25 @@ HarmonyEngine::ChordQuality HarmonyEngine::getDiatonicQuality(uint8_t scaleDegre
 
 **Step 4.1: Write Chord Interval Test (RED)**
 
+Add new `CASE()` inside the `UNIT_TEST("HarmonyEngine")` block:
+
 ```cpp
-TEST_CASE("HarmonyEngine Chord Intervals", "[harmony]") {
+CASE("chord_intervals") {
     HarmonyEngine engine;
 
     // Major7: 0-4-7-11
     auto maj7Intervals = engine.getChordIntervals(HarmonyEngine::Major7);
-    REQUIRE(maj7Intervals[0] == 0);
-    REQUIRE(maj7Intervals[1] == 4);
-    REQUIRE(maj7Intervals[2] == 7);
-    REQUIRE(maj7Intervals[3] == 11);
+    expectEqual(static_cast<int>(maj7Intervals[0]), 0, "Major7 root interval");
+    expectEqual(static_cast<int>(maj7Intervals[1]), 4, "Major7 third interval");
+    expectEqual(static_cast<int>(maj7Intervals[2]), 7, "Major7 fifth interval");
+    expectEqual(static_cast<int>(maj7Intervals[3]), 11, "Major7 seventh interval");
 
     // Minor7: 0-3-7-10
     auto min7Intervals = engine.getChordIntervals(HarmonyEngine::Minor7);
-    REQUIRE(min7Intervals[0] == 0);
-    REQUIRE(min7Intervals[1] == 3);
-    REQUIRE(min7Intervals[2] == 7);
-    REQUIRE(min7Intervals[3] == 10);
+    expectEqual(static_cast<int>(min7Intervals[0]), 0, "Minor7 root interval");
+    expectEqual(static_cast<int>(min7Intervals[1]), 3, "Minor7 third interval");
+    expectEqual(static_cast<int>(min7Intervals[2]), 7, "Minor7 fifth interval");
+    expectEqual(static_cast<int>(min7Intervals[3]), 10, "Minor7 seventh interval");
 }
 ```
 
@@ -355,24 +366,26 @@ HarmonyEngine::ChordIntervals HarmonyEngine::getChordIntervals(ChordQuality qual
 
 **Step 4.3: Write Basic Harmonization Test (RED)**
 
+Add new `CASE()` inside the `UNIT_TEST("HarmonyEngine")` block:
+
 ```cpp
-TEST_CASE("HarmonyEngine Basic Harmonization", "[harmony]") {
+CASE("basic_harmonization") {
     HarmonyEngine engine;
     engine.setMode(HarmonyEngine::Ionian);
 
     // C Major 7 (I in C): C-E-G-B = 60-64-67-71
     auto cChord = engine.harmonize(60, 0);
-    REQUIRE(cChord.root == 60);
-    REQUIRE(cChord.third == 64);
-    REQUIRE(cChord.fifth == 67);
-    REQUIRE(cChord.seventh == 71);
+    expectEqual(static_cast<int>(cChord.root), 60, "C Major7 root");
+    expectEqual(static_cast<int>(cChord.third), 64, "C Major7 third");
+    expectEqual(static_cast<int>(cChord.fifth), 67, "C Major7 fifth");
+    expectEqual(static_cast<int>(cChord.seventh), 71, "C Major7 seventh");
 
     // D minor 7 (ii in C): D-F-A-C = 62-65-69-72
     auto dChord = engine.harmonize(62, 1);
-    REQUIRE(dChord.root == 62);
-    REQUIRE(dChord.third == 65);
-    REQUIRE(dChord.fifth == 69);
-    REQUIRE(dChord.seventh == 72);
+    expectEqual(static_cast<int>(dChord.root), 62, "D minor7 root");
+    expectEqual(static_cast<int>(dChord.third), 65, "D minor7 third");
+    expectEqual(static_cast<int>(dChord.fifth), 69, "D minor7 fifth");
+    expectEqual(static_cast<int>(dChord.seventh), 72, "D minor7 seventh");
 }
 ```
 
@@ -541,23 +554,27 @@ void NoteSequence::read(VersionedSerializedReader &reader) {
 
 **Step 5.7: Write Tests**
 
-File: `src/tests/unit/sequencer/TestNoteSequence.cpp`
+Add new test to `src/tests/unit/sequencer/TestNoteSequence.cpp` (this file should already exist):
 
 ```cpp
-TEST_CASE("NoteSequence Harmony Track Position Constraints", "[notesequence]") {
+UNIT_TEST("NoteSequence Harmony Constraints") {
+
+CASE("harmony_track_position_constraints") {
     NoteSequence seq1(0); // Track 1
-    REQUIRE(seq1.canBeHarmonyMaster() == true);
+    expectTrue(seq1.canBeHarmonyMaster(), "Track 1 should be able to be HarmonyMaster");
 
     seq1.setHarmonyRole(NoteSequence::HarmonyMaster);
-    REQUIRE(seq1.harmonyRole() == NoteSequence::HarmonyMaster);
+    expectEqual(static_cast<int>(seq1.harmonyRole()), static_cast<int>(NoteSequence::HarmonyMaster), "Track 1 should be HarmonyMaster");
 
     NoteSequence seq2(1); // Track 2
-    REQUIRE(seq2.canBeHarmonyMaster() == false);
+    expectFalse(seq2.canBeHarmonyMaster(), "Track 2 should NOT be able to be HarmonyMaster");
 
     seq2.setHarmonyRole(NoteSequence::HarmonyMaster);
-    REQUIRE(seq2.harmonyRole() != NoteSequence::HarmonyMaster); // Auto-reverted
-    REQUIRE(seq2.harmonyRole() == NoteSequence::HarmonyFollower3rd); // Auto-assigned
+    expectTrue(static_cast<int>(seq2.harmonyRole()) != static_cast<int>(NoteSequence::HarmonyMaster), "Track 2 should auto-revert from HarmonyMaster");
+    expectEqual(static_cast<int>(seq2.harmonyRole()), static_cast<int>(NoteSequence::HarmonyFollower3rd), "Track 2 should auto-assign to HarmonyFollower3rd");
 }
+
+} // UNIT_TEST("NoteSequence Harmony Constraints")
 ```
 
 ---
