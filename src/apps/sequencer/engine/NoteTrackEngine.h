@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config.h"
 #include "TrackEngine.h"
 #include "SequenceState.h"
 #include "SortedQueue.h"
@@ -9,6 +10,28 @@
 
 class NoteTrackEngine : public TrackEngine {
 public:
+#if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
+    // Sequence ID constants for experimental spread-ticks feature
+    static constexpr uint8_t MainSequenceId = 0;
+    static constexpr uint8_t FillSequenceId = 1;
+#endif
+
+    // Gate struct - must be public for testing
+    struct Gate {
+        uint32_t tick;
+        bool gate;
+#if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
+        bool shouldTickAccumulator;  // Should this gate tick accumulator when fired?
+        uint8_t sequenceId;           // Which sequence's accumulator (0=main, 1=fill)
+#endif
+    };
+
+    struct GateCompare {
+        bool operator()(const Gate &a, const Gate &b) {
+            return a.tick < b.tick;
+        }
+    };
+
     NoteTrackEngine(Engine &engine, const Model &model, Track &track, const TrackEngine *linkedTrackEngine) :
         TrackEngine(engine, model, track, linkedTrackEngine),
         _noteTrack(track.noteTrack())
@@ -78,17 +101,6 @@ private:
     float _cvOutput;
     float _cvOutputTarget;
     bool _slideActive;
-
-    struct Gate {
-        uint32_t tick;
-        bool gate;
-    };
-
-    struct GateCompare {
-        bool operator()(const Gate &a, const Gate &b) {
-            return a.tick < b.tick;
-        }
-    };
 
     SortedQueue<Gate, 16, GateCompare> _gateQueue;
 
