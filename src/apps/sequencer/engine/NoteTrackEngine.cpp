@@ -222,7 +222,7 @@ TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
         // SPREAD MODE (flag=1): Tick accumulator when gate fires
         if (event.shouldTickAccumulator) {
             // Lookup sequence by ID (0=main, 1=fill)
-            NoteSequence* targetSeq = nullptr;
+            const NoteSequence* targetSeq = nullptr;
             if (event.sequenceId == NoteTrackEngine::MainSequenceId && _sequence) {
                 targetSeq = _sequence;
             } else if (event.sequenceId == NoteTrackEngine::FillSequenceId && _fillSequence) {
