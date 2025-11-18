@@ -1318,6 +1318,525 @@ uint8_t _ratchetTriggerMode : 3; // 3 bits (UNUSED - can repurpose)
 
 ---
 
+## 🐛 BUG FIXES: Accumulator Trigger Modes (CRITICAL)
+
+**Bug Report**: See `BUG-REPORT-ACCUMULATOR-TRIGGER-MODES.md`
+**Status**: 🔴 CRITICAL - Found on hardware testing 2025-11-18
+**Priority**: P0 - Must fix before any release
+
+### Bug #1: STEP and GATE Trigger Modes Not Working
+
+**Issue**: Accumulator increments on every gate pulse regardless of TRIG mode setting. All three modes (STEP, GATE, RTRIG) behave identically.
+
+**Expected vs Actual**:
+- STEP mode: Should tick once per step → Actually ticks on every pulse
+- GATE mode: Should tick per gate fired → Actually ticks on every pulse
+- RTRIG mode: Works correctly (ticks on each retrigger)
+
+---
+
+### TDD Fix Plan - Bug #1: Trigger Mode Logic
+
+#### Phase 1: Reproduce Bug in Tests (RED - Write Failing Tests)
+
+**Goal**: Create integration tests that expose the bug
+
+##### Test 1.1: STEP Mode Integration Test (RED)
+
+**File**: `src/tests/integration/sequencer/TestAccumulatorTriggerModes.cpp` (NEW)
+
+```cpp
+#include "catch.hpp"
+#include "apps/sequencer/engine/NoteTrackEngine.h"
+#include "apps/sequencer/model/NoteSequence.h"
+#include "apps/sequencer/model/NoteTrack.h"
+
+TEST_CASE("STEP mode ticks once per step with pulseCount=3") {
+    // Setup: Step with pulseCount=3 (4 pulses total)
+    NoteTrack track;
+    NoteSequence sequence;
+
+    // Configure accumulator for STEP mode
+    sequence.accumulator().setEnabled(true);
+    sequence.accumulator().setTriggerMode(Accumulator::Step);
+    sequence.accumulator().setDirection(Accumulator::Up);
+    sequence.accumulator().setMin(0);
+    sequence.accumulator().setMax(100);
+    sequence.accumulator().setStep(1);
+
+    // Configure step
+    sequence.step(0).setGate(true);
+    sequence.step(0).setPulseCount(3);  // 4 pulses total (0-3)
+    sequence.step(0).setAccumulatorTrigger(true);
+
+    // Create engine and trigger step 4 times (simulating pulse counter)
+    NoteTrackEngine engine(track, &sequence, /* ... */);
+
+    int valueBefore = sequence.accumulator().value();  // Should be 0
+
+    // Simulate 4 pulses for the same step
+    for (int pulse = 1; pulse <= 4; pulse++) {
+        engine.triggerStep(/* tick */, /* divisor */, /* ... */);
+    }
+
+    int valueAfter = sequence.accumulator().value();
+
+    // EXPECTED: Increment by 1 (once per step, not once per pulse)
+    REQUIRE(valueAfter == valueBefore + 1);  // This will FAIL (bug)
+
+    // ACTUAL (buggy): valueAfter == valueBefore + 4 (ticks on every pulse)
+}
+
+TEST_CASE("STEP mode ignores pulse count variations") {
+    // Test with pulseCount=0 (1 pulse) - should tick once
+    // Test with pulseCount=7 (8 pulses) - should tick once
+    // Verify STEP mode truly independent of pulse count
+}
+```
+
+##### Test 1.2: GATE Mode Integration Test (RED)
+
+```cpp
+TEST_CASE("GATE mode ticks per gate fired with gateMode=FIRST") {
+    // Setup: pulseCount=3, gateMode=FIRST
+    NoteSequence sequence;
+    sequence.accumulator().setTriggerMode(Accumulator::Gate);
+    sequence.step(0).setPulseCount(3);  // 4 pulses
+    sequence.step(0).setGateMode(NoteSequence::First);  // Gate fires once (first pulse only)
+
+    // Simulate 4 pulses
+    // EXPECTED: Increment by 1 (gate fires only on first pulse)
+    // ACTUAL (buggy): Increment by 4 (ticks on every pulse)
+
+    REQUIRE(sequence.accumulator().value() == 1);  // Will FAIL
+}
+
+TEST_CASE("GATE mode ticks per gate fired with gateMode=ALL") {
+    // Setup: pulseCount=3, gateMode=ALL
+    // Gates fire on all 4 pulses
+    // EXPECTED: Increment by 4
+    // This should PASS even with bug (coincidentally correct)
+
+    REQUIRE(sequence.accumulator().value() == 4);  // Should PASS
+}
+
+TEST_CASE("GATE mode respects gate mode FIRSTLAST") {
+    // Setup: pulseCount=3, gateMode=FIRSTLAST
+    // Gates fire on first and last pulse (2 gates)
+    // EXPECTED: Increment by 2
+    // ACTUAL (buggy): Increment by 4
+
+    REQUIRE(sequence.accumulator().value() == 2);  // Will FAIL
+}
+```
+
+##### Test 1.3: Verify RTRIG Mode Still Works (GREEN)
+
+```cpp
+TEST_CASE("RTRIG mode works correctly") {
+    // Setup: retrig=3
+    // EXPECTED: Increment by 3 (all at once at step start)
+    // This should PASS (RTRIG mode is working)
+
+    REQUIRE(sequence.accumulator().value() == 3);  // Should PASS
+}
+```
+
+**Verification**: All tests should FAIL except RTRIG test
+```bash
+cd build/sim/debug
+make -j TestAccumulatorTriggerModes
+./src/tests/integration/TestAccumulatorTriggerModes
+# Expected: 4+ failures
+```
+
+---
+
+#### Phase 2: Investigate Root Cause (Analysis)
+
+**Goal**: Find where the trigger mode logic is broken
+
+##### Step 2.1: Code Review of triggerStep()
+
+**File**: `src/apps/sequencer/engine/NoteTrackEngine.cpp`
+
+**Lines to investigate**:
+- Line ~353: STEP mode logic
+- Line ~392: GATE mode logic
+- Line ~410: RTRIG mode logic
+
+**Questions to answer**:
+1. Is trigger mode being checked at all?
+2. Are all three conditions evaluating to true?
+3. Is the mode enum comparison correct?
+4. Is fill sequence logic interfering?
+5. Is `triggerStep()` being called multiple times per step?
+
+##### Step 2.2: Add Debug Logging (Temporary)
+
+```cpp
+// In triggerStep() - add at top
+#ifdef DEBUG_ACCUMULATOR_TRIG
+    DBG("triggerStep: pulseCounter=%d, triggerMode=%d, shouldTick=%d",
+        _pulseCounter,
+        sequence.accumulator().triggerMode(),
+        step.isAccumulatorTrigger());
+#endif
+```
+
+Build and run simulator with logging to observe behavior.
+
+##### Step 2.3: Hypothesis Formation
+
+**Likely causes** (in order of probability):
+
+1. **Missing mode check**: Code ticks accumulator without checking `triggerMode()`
+2. **Logic error**: Mode check inverted or incorrect comparison
+3. **Multiple calls**: `triggerStep()` called once per pulse instead of conditionally
+4. **Wrong check location**: Mode checked but at wrong point in execution flow
+
+---
+
+#### Phase 3: Fix the Bug (GREEN - Minimal Fix)
+
+**Goal**: Make the failing tests pass with minimal code changes
+
+##### Suspected Fix (Hypothesis 1): Add Missing Mode Checks
+
+**File**: `src/apps/sequencer/engine/NoteTrackEngine.cpp`
+
+**Current code** (around line 353, STEP mode):
+```cpp
+// STEP mode: Tick once per step (existing logic)
+if (step.isAccumulatorTrigger()) {
+    const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+    if (targetSequence.accumulator().enabled() &&
+        targetSequence.accumulator().triggerMode() == Accumulator::Step) {
+        const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+    }
+}
+```
+
+**Problem**: This code likely gets executed on EVERY call to `triggerStep()`, which happens once per pulse.
+
+**Fix**: Only execute when `_pulseCounter == 1` (first pulse of step):
+
+```cpp
+// STEP mode: Tick once per step (FIXED)
+if (_pulseCounter == 1 &&  // NEW: Only on first pulse
+    step.isAccumulatorTrigger()) {
+    const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+    if (targetSequence.accumulator().enabled() &&
+        targetSequence.accumulator().triggerMode() == Accumulator::Step) {
+        const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+    }
+}
+```
+
+**Current code** (around line 392, GATE mode):
+```cpp
+// GATE mode: Tick per gate fired
+if (step.isAccumulatorTrigger()) {
+    const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+    if (targetSequence.accumulator().enabled() &&
+        targetSequence.accumulator().triggerMode() == Accumulator::Gate) {
+        const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+    }
+}
+```
+
+**Problem**: This code likely gets executed regardless of whether gate actually fires.
+
+**Fix**: Only execute when gate actually fires (inside `if (shouldFireGate)` block):
+
+```cpp
+// GATE mode: Tick per gate fired (FIXED)
+if (shouldFireGate &&  // NEW: Only when gate fires
+    step.isAccumulatorTrigger()) {
+    const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+    if (targetSequence.accumulator().enabled() &&
+        targetSequence.accumulator().triggerMode() == Accumulator::Gate) {
+        const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+    }
+}
+```
+
+##### Implementation Steps
+
+1. **Locate exact buggy code** via Step 2 investigation
+2. **Apply minimal fix** based on root cause
+3. **Verify tests pass**:
+   ```bash
+   cd build/sim/debug
+   make -j TestAccumulatorTriggerModes
+   ./src/tests/integration/TestAccumulatorTriggerModes
+   # Expected: All tests PASS
+   ```
+
+---
+
+#### Phase 4: Refactor (Clean Up Code)
+
+**Goal**: Improve code clarity after fix works
+
+##### Step 4.1: Extract Helper Method
+
+```cpp
+// In NoteTrackEngine.cpp
+void NoteTrackEngine::tickAccumulatorIfNeeded(
+    const NoteSequence::Step &step,
+    const NoteSequence &sequence,
+    bool useFillSequence,
+    Accumulator::TriggerMode mode,
+    bool condition) {
+
+    if (!condition || !step.isAccumulatorTrigger()) {
+        return;
+    }
+
+    const auto &targetSequence = useFillSequence ? *_fillSequence : sequence;
+    if (targetSequence.accumulator().enabled() &&
+        targetSequence.accumulator().triggerMode() == mode) {
+        const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+    }
+}
+
+// Usage:
+tickAccumulatorIfNeeded(step, sequence, useFillSequence,
+                        Accumulator::Step, _pulseCounter == 1);
+
+tickAccumulatorIfNeeded(step, sequence, useFillSequence,
+                        Accumulator::Gate, shouldFireGate);
+```
+
+##### Step 4.2: Add Inline Comments
+
+```cpp
+// STEP mode: Tick once per step (only on first pulse)
+tickAccumulatorIfNeeded(...);
+
+// GATE mode: Tick per gate fired (respects gate mode)
+tickAccumulatorIfNeeded(...);
+
+// RTRIG mode: Tick N times for N retriggers (all at step start)
+// [existing RTRIG code]
+```
+
+---
+
+#### Phase 5: Regression Testing (Verify No Breakage)
+
+**Goal**: Ensure fix doesn't break existing functionality
+
+##### Test 5.1: All Existing Unit Tests
+
+```bash
+cd build/sim/debug
+make -j test_all
+# All 15+ accumulator tests should still pass
+```
+
+##### Test 5.2: Manual Simulator Testing
+
+Test scenarios:
+1. **STEP mode** with various pulse counts (0-7)
+2. **GATE mode** with all gate modes (ALL/FIRST/HOLD/FIRSTLAST)
+3. **RTRIG mode** with various retrigger counts (1-7)
+4. **Combinations**: pulse count + gate mode + retrigger
+5. **Fill sequences**: Test with fill mode active
+
+##### Test 5.3: Hardware Testing
+
+Flash to hardware and verify:
+- STEP mode ticks once per step ✓
+- GATE mode respects gate mode setting ✓
+- RTRIG mode still works ✓
+- No crashes or unexpected behavior ✓
+
+---
+
+### Bug #2: Missing Playhead in ACCST Page
+
+**Issue**: AccumulatorStepsPage does not show running playhead indicator during playback.
+
+---
+
+### TDD Fix Plan - Bug #2: Add Playhead to ACCST Page
+
+#### Phase 1: Research Existing Playhead Implementation (Analysis)
+
+**Goal**: Understand how other pages implement playhead
+
+##### Step 1.1: Study NoteSequenceEditPage
+
+**File**: `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp`
+
+**Find**:
+1. How playhead position is obtained (e.g., `_engine.state().currentStep()`)
+2. How playhead is rendered (drawing code)
+3. How page subscribes to step updates
+4. Refresh rate / update mechanism
+
+**Key code to extract**:
+```cpp
+// Playhead rendering (example)
+int currentStep = _sequence.currentStep();  // Or similar
+canvas.setColor(Color::Bright);
+canvas.drawRect(stepX, stepY, stepWidth, stepHeight);
+```
+
+##### Step 1.2: List Required Components
+
+From research, playhead likely needs:
+- [ ] Access to current step index
+- [ ] Real-time update subscription
+- [ ] Drawing code in `draw()` method
+- [ ] Visual style (color, shape)
+
+---
+
+#### Phase 2: Implement Playhead (TDD)
+
+##### Test 2.1: Playhead Position Test (Conceptual)
+
+```cpp
+// Note: UI tests are harder to automate - may be manual verification
+TEST_CASE("AccumulatorStepsPage shows current step") {
+    // Setup: Sequence playing at step 3
+    // Open ACCST page
+    // Verify: Step 3 has visual indicator
+    // (Manual test or UI automation framework needed)
+}
+```
+
+##### Step 2.2: Add Playhead Rendering (GREEN)
+
+**File**: `src/apps/sequencer/ui/pages/AccumulatorStepsPage.cpp`
+
+**Modify `draw()` method**:
+
+```cpp
+void AccumulatorStepsPage::draw(Canvas &canvas) {
+    // ... existing drawing code ...
+
+    // NEW: Draw playhead indicator
+    int currentStep = /* get current step from engine or sequence state */;
+
+    if (currentStep >= 0 && currentStep < 16) {
+        // Highlight current step
+        int x = /* calculate x position for step */;
+        int y = /* calculate y position */;
+
+        canvas.setColor(Color::Bright);  // Or appropriate color
+        canvas.fillRect(x, y, width, height);
+        // Or: canvas.drawRect(...) for outline
+    }
+
+    // ... rest of drawing ...
+}
+```
+
+##### Step 2.3: Subscribe to Updates
+
+Ensure page refreshes in real-time:
+
+```cpp
+// In update() method or event handler
+void AccumulatorStepsPage::update() {
+    // Check if step changed
+    // Mark page as dirty / request redraw
+}
+```
+
+---
+
+#### Phase 3: Visual Testing (Manual)
+
+**Goal**: Verify playhead looks correct and moves smoothly
+
+##### Test Scenarios:
+
+1. **Start playback** → Playhead appears
+2. **Stop playback** → Playhead disappears or freezes
+3. **Step forward** → Playhead advances
+4. **Loop sequence** → Playhead wraps around
+5. **Change pattern** → Playhead resets correctly
+
+**Visual QA**:
+- Playhead color distinct from other elements ✓
+- Animation smooth (not flickering) ✓
+- Consistent with other pages ✓
+
+---
+
+### Implementation Checklist
+
+**Bug #1: Trigger Modes** (Priority: 🔴 P0)
+- [ ] Phase 1: Write failing integration tests
+- [ ] Phase 2: Investigate root cause via code review
+- [ ] Phase 3: Fix trigger mode logic
+- [ ] Phase 4: Refactor code for clarity
+- [ ] Phase 5: Regression test (sim + hardware)
+
+**Bug #2: Playhead** (Priority: 🟡 P1)
+- [ ] Phase 1: Research existing playhead implementation
+- [ ] Phase 2: Implement playhead rendering
+- [ ] Phase 3: Manual visual testing
+- [ ] Hardware verification
+
+---
+
+### Success Criteria
+
+**Bug #1 Fixed When:**
+- ✅ STEP mode ticks once per step (verified in tests)
+- ✅ GATE mode ticks per gate fired (respects gate mode)
+- ✅ RTRIG mode still works correctly
+- ✅ All integration tests pass
+- ✅ Hardware testing confirms fix
+
+**Bug #2 Fixed When:**
+- ✅ ACCST page shows playhead indicator
+- ✅ Playhead moves in real-time during playback
+- ✅ Visual style consistent with other pages
+- ✅ Hardware testing confirms UX improvement
+
+---
+
+### Estimated Effort
+
+**Bug #1 (Trigger Modes)**:
+- Investigation: 2-4 hours
+- Fix + tests: 3-5 hours
+- Testing: 2-3 hours
+- **Total: 7-12 hours (1-2 days)**
+
+**Bug #2 (Playhead)**:
+- Research: 1-2 hours
+- Implementation: 2-3 hours
+- Testing: 1-2 hours
+- **Total: 4-7 hours (0.5-1 day)**
+
+**Combined: 1.5-3 days** (with testing on hardware)
+
+---
+
+### Key Files
+
+**Bug #1:**
+- `src/apps/sequencer/engine/NoteTrackEngine.cpp` - Fix trigger logic
+- `src/tests/integration/sequencer/TestAccumulatorTriggerModes.cpp` - NEW integration tests
+
+**Bug #2:**
+- `src/apps/sequencer/ui/pages/AccumulatorStepsPage.cpp` - Add playhead
+- `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp` - Reference implementation
+
+**Documentation:**
+- `BUG-REPORT-ACCUMULATOR-TRIGGER-MODES.md` - Detailed bug report
+- `CHANGELOG.md` - Update with bug fixes
+
+---
+
 ## Pending Features
 
 ### To brainstorm
