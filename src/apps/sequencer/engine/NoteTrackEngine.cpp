@@ -333,6 +333,13 @@ void NoteTrackEngine::update(float dt) {
 void NoteTrackEngine::changePattern() {
     _sequence = &_noteTrack.sequence(pattern());
     _fillSequence = &_noteTrack.sequence(std::min(pattern() + 1, CONFIG_PATTERN_COUNT - 1));
+
+#if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
+    // SPREAD MODE (flag=1): Clear gate queue on pattern change to prevent stale accumulator ticks
+    // Old gates might have shouldTickAccumulator=true pointing to old pattern's sequences
+    _gateQueue.clear();
+    _cvQueue.clear();
+#endif
 }
 
 void NoteTrackEngine::monitorMidi(uint32_t tick, const MidiMessage &message) {
