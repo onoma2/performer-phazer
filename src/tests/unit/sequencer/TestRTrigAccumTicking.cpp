@@ -141,15 +141,20 @@ CASE("accumulator value changes when ticked (Phase 3 behavior)") {
     // Initial value should be min
     expectEqual((int)sequence.accumulator().currentValue(), 0, "initial value should be 0");
 
-    // Simulate what happens in tick() when gate fires with shouldTickAccumulator=true
+    // NOTE: First tick after reset() is skipped (delayed first tick feature)
+    // This prevents jump on start - the accumulator needs to be "started" first
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual((int)sequence.accumulator().currentValue(), 1, "value should be 1 after first tick");
+    expectEqual((int)sequence.accumulator().currentValue(), 0, "value still 0 after delayed first tick");
+
+    // Subsequent ticks increment normally
+    const_cast<Accumulator&>(sequence.accumulator()).tick();
+    expectEqual((int)sequence.accumulator().currentValue(), 1, "value should be 1 after second tick");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual((int)sequence.accumulator().currentValue(), 2, "value should be 2 after second tick");
+    expectEqual((int)sequence.accumulator().currentValue(), 2, "value should be 2 after third tick");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual((int)sequence.accumulator().currentValue(), 3, "value should be 3 after third tick");
+    expectEqual((int)sequence.accumulator().currentValue(), 3, "value should be 3 after fourth tick");
 }
 
 CASE("accumulator wraps correctly in Wrap order mode") {
@@ -166,6 +171,11 @@ CASE("accumulator wraps correctly in Wrap order mode") {
 
     expectEqual((int)sequence.accumulator().currentValue(), 0, "initial value should be 0");
 
+    // First tick is delayed (skipped)
+    const_cast<Accumulator&>(sequence.accumulator()).tick();
+    expectEqual((int)sequence.accumulator().currentValue(), 0, "value still 0 after delayed first tick");
+
+    // Now increment normally
     const_cast<Accumulator&>(sequence.accumulator()).tick();
     expectEqual((int)sequence.accumulator().currentValue(), 1, "value should be 1");
 
