@@ -2,8 +2,9 @@
 
 **Date**: 2025-11-18
 **Reporter**: Hardware Testing
-**Status**: 🔴 CRITICAL - Feature not working as designed
+**Status**: 🟡 PARTIAL - Bug #2 Fixed ✅ | Bug #1 Still Open 🔴
 **Affected Version**: Branch `claude/stm-eurorack-cv-oled-01BX54cUuKHJrHRTHbUeC4TG`
+**Fixed Version**: Branch `claude/analyze-bugs-tdd-plan-01K25Lt1hnPSeCH3PQjiNoSC`
 
 ---
 
@@ -74,45 +75,82 @@ Possible issues:
 
 ---
 
-## Bug #2: Missing Playhead in Accumulator Steps Page
+## Bug #2: Missing Playhead in AccumulatorTrigger Layer ✅ FIXED
+
+### Status: 🟢 RESOLVED
+- **Fixed in**: Commit `afdcfc1`
+- **Fixed by**: Correcting AccumulatorTrigger layer rendering in NoteSequenceEditPage
+- **Tested**: ✅ Verified working in local testing
+- **Date fixed**: 2025-11-18
 
 ### Description
-The ACCST page (accumulator steps configuration) does not show a running playhead indicator to show which step is currently playing, unlike all other layer pages (GATE, NOTE, RETRIG, etc.).
+The **AccumulatorTrigger layer** in the STEPS page (accessed by pressing F3/Note button to cycle through layers) does not show a running playhead indicator to highlight which step is currently playing, unlike all other layers (GATE, RETRIG, LENGTH, etc.).
 
 ### Expected Behavior
-- When sequence is playing, ACCST page should show visual indicator of current step
-- Playhead should move in real-time as steps advance
-- Consistent with other layer pages (NOTE, GATE, RETRIG, LENGTH, etc.)
+- When viewing AccumulatorTrigger layer during playback, current step should be highlighted
+- Current step: bright outline
+- Non-current steps: medium outline
+- Visual consistency with Gate and all other layers
 
-### Actual Behavior
-- ACCST page shows static step triggers (STP1-STP16)
+### Actual Behavior (Before Fix)
+- All enabled triggers: bright filled square (no distinction)
+- All disabled triggers: medium outline (no distinction)
 - No visual indication of which step is currently playing
-- User cannot see playback position while editing accumulator triggers
+- User cannot see playback position while viewing this layer
 
-### Steps to Reproduce
+### Steps to Reproduce (Original Bug)
 1. Start sequence playback (PLAY button)
-2. Navigate to NOTE page → playhead visible ✓
-3. Navigate to GATE page → playhead visible ✓
-4. Navigate to ACCST page → playhead missing ✗
+2. Navigate to STEPS page
+3. Press F3 (Note button) to cycle to AccumulatorTrigger layer
+4. **Before fix**: All steps look the same, can't see current step ✗
+5. **After fix**: Current step has bright outline ✅
 
 ### Impact
 - 🟡 **MODERATE**: UX inconsistency
 - Makes editing during playback more difficult
-- User must switch pages to see playback position
+- User must cycle to other layers to see playback position
 
-### Suspected Root Cause
+### Root Cause (IDENTIFIED)
 
-**Location**: `src/apps/sequencer/ui/pages/AccumulatorStepsPage.cpp`
+**Location**: `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp:139-148`
 
-Likely missing:
-- Playhead rendering logic in `draw()` method
-- Real-time update subscription
-- Step state tracking
+**Problem**: The `case Layer::AccumulatorTrigger:` rendering code did not check the `currentStep` variable. It always used the same colors regardless of which step was playing.
 
-**Code to Investigate**:
-- Compare `AccumulatorStepsPage::draw()` with `NoteSequenceEditPage::draw()`
-- Check if page subscribes to step updates
-- Verify if `_currentStep` or equivalent is tracked
+**Code (Before Fix)**:
+```cpp
+case Layer::AccumulatorTrigger:
+    if (step.isAccumulatorTrigger()) {
+        canvas.setColor(Color::Bright);  // ❌ No currentStep check
+        canvas.fillRect(x + 2, y + 2, stepWidth - 4, stepWidth - 4);
+    } else {
+        canvas.setColor(Color::Medium);
+        canvas.drawRect(x + 2, y + 2, stepWidth - 4, stepWidth - 4);
+    }
+    break;
+```
+
+### Resolution (IMPLEMENTED)
+
+**Code (After Fix)**:
+```cpp
+case Layer::AccumulatorTrigger:
+    // Draw outline with playhead highlighting (like Gate layer)
+    canvas.setColor(stepIndex == currentStep ? Color::Bright : Color::Medium);
+    canvas.drawRect(x + 2, y + 2, stepWidth - 4, stepWidth - 4);
+
+    // Fill inner square if trigger enabled
+    if (step.isAccumulatorTrigger()) {
+        canvas.setColor(Color::Bright);
+        canvas.fillRect(x + 4, y + 4, stepWidth - 8, stepWidth - 8);
+    }
+    break;
+```
+
+**Key Changes**:
+1. Draw outline FIRST with `stepIndex == currentStep` check
+2. Then optionally fill inner area if trigger enabled
+3. Follows exact same pattern as Gate layer
+4. Two independent indicators: outline=position, fill=state
 
 ---
 
@@ -129,8 +167,8 @@ Likely missing:
   - Line ~410: RTRIG mode logic
 
 **UI Layer:**
-- `src/apps/sequencer/ui/pages/AccumulatorStepsPage.h/cpp` - Missing playhead
-- `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp` - Reference for playhead implementation
+- `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp` - AccumulatorTrigger layer rendering (Bug #2 - FIXED ✅)
+  - Lines 139-148: AccumulatorTrigger case in draw() method
 
 **Tests:**
 - `src/tests/unit/sequencer/TestAccumulator.cpp` - Unit tests (passing but may not cover bug)
@@ -142,39 +180,47 @@ Likely missing:
 
 **Unit Tests:** ✅ All passing (15 tests)
 - Tests mock behavior, may not catch engine integration bugs
-- Need end-to-end integration tests
+- Need end-to-end integration tests for Bug #1
 
-**Simulator Testing:** ⚠️ Not tested (bug found on hardware)
-- Should reproduce bug in simulator
+**Local Testing:**
+- **Bug #1**: ⏳ Not yet tested (pending fix implementation)
+- **Bug #2**: ✅ Tested and verified working (2025-11-18)
 
-**Hardware Testing:** ❌ Bugs confirmed on real hardware
-- Both bugs reproducible
-- STEP/GATE modes completely non-functional
+**Hardware Testing:**
+- **Bug #1**: ❌ Still broken - STEP/GATE modes completely non-functional
+- **Bug #2**: ✅ Fixed and verified - Playhead now visible in AccumulatorTrigger layer
 
 ---
 
 ## Priority
 
-**Bug #1 (Trigger Modes):** 🔴 **P0 - CRITICAL**
+**Bug #1 (Trigger Modes):** 🔴 **P0 - CRITICAL** ⏳ OPEN
 - Blocks feature usage
 - Must fix before any release
 - Affects all users attempting to use STEP or GATE modes
+- **Status**: Not yet fixed - requires engine layer modification
 
-**Bug #2 (Playhead):** 🟡 **P1 - HIGH**
-- UX issue but not blocking
-- Should fix for consistency
-- Lower priority than Bug #1
+**Bug #2 (Playhead):** 🟢 **FIXED** ✅ CLOSED
+- Fixed in commit `afdcfc1`
+- Tested and verified working
+- AccumulatorTrigger layer now shows playhead indicator
+- **Status**: Complete
 
 ---
 
 ## Next Steps
 
-1. **Reproduce in simulator** - Verify bugs exist in sim environment
-2. **Add integration tests** - Write tests that catch these bugs
-3. **Fix Bug #1** - Correct trigger mode logic in NoteTrackEngine.cpp
-4. **Fix Bug #2** - Add playhead rendering to AccumulatorStepsPage
-5. **Regression test** - Verify all trigger modes work correctly
-6. **Hardware verify** - Confirm fixes on real hardware
+**Bug #2 Completed**: ✅
+- Fixed in commit `afdcfc1`
+- Tested and verified working
+
+**Bug #1 Remaining**: 🔴 CRITICAL
+1. ⏳ **Add integration tests** - Write tests that catch trigger mode bugs
+2. ⏳ **Fix Bug #1** - Correct trigger mode logic in NoteTrackEngine.cpp (line ~353)
+   - Add `&& _pulseCounter == 1` check to STEP mode logic
+3. ⏳ **Test in simulator** - Verify all trigger modes work correctly
+4. ⏳ **Hardware verify** - Confirm fix on real hardware
+5. ⏳ **Regression test** - Ensure no existing features broken
 
 ---
 
