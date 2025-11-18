@@ -1,116 +1,103 @@
-#include "catch.hpp"
+#include "UnitTest.h"
+
 #include "apps/sequencer/engine/NoteTrackEngine.h"
 #include "apps/sequencer/Config.h"
 
-TEST_CASE("Gate struct basic fields") {
-    SECTION("stores tick and gate values") {
-        NoteTrackEngine::Gate gate;
-        gate.tick = 100;
-        gate.gate = true;
+UNIT_TEST("GateStruct") {
 
-        REQUIRE(gate.tick == 100);
-        REQUIRE(gate.gate == true);
-    }
+CASE("basic gate fields") {
+    NoteTrackEngine::Gate gate;
+    gate.tick = 100;
+    gate.gate = true;
 
-    SECTION("stores different tick values") {
-        NoteTrackEngine::Gate gate;
-        gate.tick = 48;
-        gate.gate = false;
+    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.gate, true, "gate should be true");
+}
 
-        REQUIRE(gate.tick == 48);
-        REQUIRE(gate.gate == false);
-    }
+CASE("different tick values") {
+    NoteTrackEngine::Gate gate;
+    gate.tick = 48;
+    gate.gate = false;
+
+    expectEqual(gate.tick, 48u, "tick should be 48");
+    expectEqual(gate.gate, false, "gate should be false");
+}
+
+CASE("gate struct size constraint") {
+    // Ensure struct doesn't exceed memory constraints
+#if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
+    // With experimental fields: should be <= 16 bytes
+    expectTrue(sizeof(NoteTrackEngine::Gate) <= 16, "Gate struct should be <= 16 bytes with experimental fields");
+#else
+    // Without experimental fields: should be 8 bytes
+    expectEqual(sizeof(NoteTrackEngine::Gate), 8ul, "Gate struct should be 8 bytes without experimental fields");
+#endif
+}
+
+CASE("basic 2-arg construction") {
+    NoteTrackEngine::Gate gate = { 100, true };
+
+    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.gate, true, "gate should be true");
 }
 
 #if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
 
-TEST_CASE("Gate struct experimental spread-ticks fields") {
-    SECTION("stores shouldTickAccumulator flag") {
-        NoteTrackEngine::Gate gate;
-        gate.tick = 100;
-        gate.gate = true;
-        gate.shouldTickAccumulator = true;
-        gate.sequenceId = 0;
+CASE("experimental shouldTickAccumulator field") {
+    NoteTrackEngine::Gate gate;
+    gate.tick = 100;
+    gate.gate = true;
+    gate.shouldTickAccumulator = true;
+    gate.sequenceId = 0;
 
-        REQUIRE(gate.tick == 100);
-        REQUIRE(gate.gate == true);
-        REQUIRE(gate.shouldTickAccumulator == true);
-        REQUIRE(gate.sequenceId == 0);
-    }
-
-    SECTION("shouldTickAccumulator defaults to false") {
-        NoteTrackEngine::Gate gate = { 100, true };
-
-        // With 2-arg constructor, should default to false
-        REQUIRE(gate.shouldTickAccumulator == false);
-        REQUIRE(gate.sequenceId == 0);
-    }
-
-    SECTION("stores sequenceId correctly") {
-        NoteTrackEngine::Gate mainGate;
-        mainGate.tick = 100;
-        mainGate.gate = true;
-        mainGate.shouldTickAccumulator = false;
-        mainGate.sequenceId = 0;  // MainSequenceId
-
-        NoteTrackEngine::Gate fillGate;
-        fillGate.tick = 200;
-        fillGate.gate = true;
-        fillGate.shouldTickAccumulator = true;
-        fillGate.sequenceId = 1;  // FillSequenceId
-
-        REQUIRE(mainGate.sequenceId == 0);
-        REQUIRE(fillGate.sequenceId == 1);
-        REQUIRE(mainGate.sequenceId != fillGate.sequenceId);
-    }
-
-    SECTION("4-arg constructor sets all fields") {
-        NoteTrackEngine::Gate gate = { 100, true, true, 1 };
-
-        REQUIRE(gate.tick == 100);
-        REQUIRE(gate.gate == true);
-        REQUIRE(gate.shouldTickAccumulator == true);
-        REQUIRE(gate.sequenceId == 1);
-    }
-
-    SECTION("Gate struct size is acceptable") {
-        // Ensure struct doesn't exceed memory constraints
-        // With experimental fields: tick(4) + gate(1) + shouldTickAccum(1) + seqId(1) + padding(1) = 8 bytes
-        // Could be up to 12 bytes with different alignment
-        REQUIRE(sizeof(NoteTrackEngine::Gate) <= 16);
-    }
+    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.gate, true, "gate should be true");
+    expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
+    expectEqual(gate.sequenceId, 0u, "sequenceId should be 0");
 }
 
-TEST_CASE("Gate struct sequence ID constants") {
-    SECTION("MainSequenceId is 0") {
-        REQUIRE(NoteTrackEngine::MainSequenceId == 0);
-    }
+CASE("experimental shouldTickAccumulator defaults to false") {
+    NoteTrackEngine::Gate gate = { 100, true };
 
-    SECTION("FillSequenceId is 1") {
-        REQUIRE(NoteTrackEngine::FillSequenceId == 1);
-    }
+    // With 2-arg constructor, experimental fields should default
+    expectEqual(gate.shouldTickAccumulator, false, "shouldTickAccumulator should default to false");
+    expectEqual(gate.sequenceId, 0u, "sequenceId should default to 0");
+}
 
-    SECTION("Main and Fill IDs are different") {
-        REQUIRE(NoteTrackEngine::MainSequenceId != NoteTrackEngine::FillSequenceId);
-    }
+CASE("experimental sequenceId field") {
+    NoteTrackEngine::Gate mainGate;
+    mainGate.tick = 100;
+    mainGate.gate = true;
+    mainGate.shouldTickAccumulator = false;
+    mainGate.sequenceId = 0;  // MainSequenceId
+
+    NoteTrackEngine::Gate fillGate;
+    fillGate.tick = 200;
+    fillGate.gate = true;
+    fillGate.shouldTickAccumulator = true;
+    fillGate.sequenceId = 1;  // FillSequenceId
+
+    expectEqual(mainGate.sequenceId, 0u, "main gate sequenceId should be 0");
+    expectEqual(fillGate.sequenceId, 1u, "fill gate sequenceId should be 1");
+    expectTrue(mainGate.sequenceId != fillGate.sequenceId, "main and fill sequenceIds should differ");
+}
+
+CASE("experimental 4-arg constructor") {
+    NoteTrackEngine::Gate gate = { 100, true, true, 1 };
+
+    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.gate, true, "gate should be true");
+    expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
+    expectEqual(gate.sequenceId, 1u, "sequenceId should be 1");
+}
+
+CASE("experimental sequence ID constants") {
+    expectEqual(NoteTrackEngine::MainSequenceId, 0u, "MainSequenceId should be 0");
+    expectEqual(NoteTrackEngine::FillSequenceId, 1u, "FillSequenceId should be 1");
+    expectTrue(NoteTrackEngine::MainSequenceId != NoteTrackEngine::FillSequenceId,
+               "MainSequenceId and FillSequenceId should differ");
 }
 
 #endif // CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
 
-#if !CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
-
-TEST_CASE("Gate struct without experimental features") {
-    SECTION("Gate struct has minimal size") {
-        // Without experimental fields: tick(4) + gate(1) + padding(3) = 8 bytes
-        REQUIRE(sizeof(NoteTrackEngine::Gate) == 8);
-    }
-
-    SECTION("Basic 2-arg construction works") {
-        NoteTrackEngine::Gate gate = { 100, true };
-
-        REQUIRE(gate.tick == 100);
-        REQUIRE(gate.gate == true);
-    }
 }
-
-#endif // CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
