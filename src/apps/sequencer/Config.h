@@ -70,5 +70,5 @@
 // Risk: Medium (sequence validation, queue management)
 // Default: 0 (burst mode) for stable release
 #ifndef CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
-#define CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS 0
+#define CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS 1  // TEMPORARILY ENABLED FOR PHASE 2 TESTING
 #endif
