@@ -23,9 +23,9 @@ CASE("gate metadata logic - RTRIG mode with accumulator enabled") {
     sequence.accumulator().setEnabled(true);
     sequence.accumulator().setTriggerMode(Accumulator::Retrigger);
     sequence.accumulator().setDirection(Accumulator::Up);
-    sequence.accumulator().setMin(0);
-    sequence.accumulator().setMax(10);
-    sequence.accumulator().setStepSize(1);
+    sequence.accumulator().setMinValue(0);
+    sequence.accumulator().setMaxValue(10);
+    sequence.accumulator().setStepValue(1);
 
     // Verify preconditions
     expectEqual(sequence.step(0).gate(), true, "step gate should be true");
@@ -133,23 +133,23 @@ CASE("accumulator value changes when ticked (Phase 3 behavior)") {
     sequence.accumulator().setEnabled(true);
     sequence.accumulator().setTriggerMode(Accumulator::Retrigger);
     sequence.accumulator().setDirection(Accumulator::Up);
-    sequence.accumulator().setMin(0);
-    sequence.accumulator().setMax(10);
-    sequence.accumulator().setStepSize(1);
+    sequence.accumulator().setMinValue(0);
+    sequence.accumulator().setMaxValue(10);
+    sequence.accumulator().setStepValue(1);
     sequence.accumulator().reset();
 
     // Initial value should be min
-    expectEqual(sequence.accumulator().value(), 0, "initial value should be 0");
+    expectEqual(sequence.accumulator().currentValue(), 0, "initial value should be 0");
 
     // Simulate what happens in tick() when gate fires with shouldTickAccumulator=true
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().value(), 1, "value should be 1 after first tick");
+    expectEqual(sequence.accumulator().currentValue(), 1, "value should be 1 after first tick");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().value(), 2, "value should be 2 after second tick");
+    expectEqual(sequence.accumulator().currentValue(), 2, "value should be 2 after second tick");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().value(), 3, "value should be 3 after third tick");
+    expectEqual(sequence.accumulator().currentValue(), 3, "value should be 3 after third tick");
 }
 
 CASE("accumulator wraps correctly in Wrap order mode") {
@@ -159,21 +159,21 @@ CASE("accumulator wraps correctly in Wrap order mode") {
     sequence.accumulator().setTriggerMode(Accumulator::Retrigger);
     sequence.accumulator().setDirection(Accumulator::Up);
     sequence.accumulator().setOrder(Accumulator::Wrap);
-    sequence.accumulator().setMin(0);
-    sequence.accumulator().setMax(2);  // Small range for quick wrap
-    sequence.accumulator().setStepSize(1);
+    sequence.accumulator().setMinValue(0);
+    sequence.accumulator().setMaxValue(2);  // Small range for quick wrap
+    sequence.accumulator().setStepValue(1);
     sequence.accumulator().reset();
 
-    expectEqual(sequence.accumulator().value(), 0, "initial value should be 0");
+    expectEqual(sequence.accumulator().currentValue(), 0, "initial value should be 0");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().value(), 1, "value should be 1");
+    expectEqual(sequence.accumulator().currentValue(), 1, "value should be 1");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().value(), 2, "value should be 2 (at max)");
+    expectEqual(sequence.accumulator().currentValue(), 2, "value should be 2 (at max)");
 
     const_cast<Accumulator&>(sequence.accumulator()).tick();
-    expectEqual(sequence.accumulator().value(), 0, "value should wrap to 0");
+    expectEqual(sequence.accumulator().currentValue(), 0, "value should wrap to 0");
 }
 
 #if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS
