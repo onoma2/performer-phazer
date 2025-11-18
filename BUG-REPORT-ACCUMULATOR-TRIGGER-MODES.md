@@ -2,16 +2,22 @@
 
 **Date**: 2025-11-18
 **Reporter**: Hardware Testing
-**Status**: 🟡 PARTIAL - Bug #2 Fixed ✅ | Bug #1 Still Open 🔴
+**Status**: 🟢 ALL BUGS FIXED ✅
 **Affected Version**: Branch `claude/stm-eurorack-cv-oled-01BX54cUuKHJrHRTHbUeC4TG`
 **Fixed Version**: Branch `claude/analyze-bugs-tdd-plan-01K25Lt1hnPSeCH3PQjiNoSC`
 
 ---
 
-## Bug #1: GATE and STEP Trigger Modes Not Working
+## Bug #1: STEP Trigger Mode Not Working ✅ FIXED
+
+### Status: 🟢 RESOLVED
+- **Fixed in**: Commit `961f5f2`
+- **Fixed by**: Added pulse counter check to STEP mode logic
+- **Tested**: ✅ Verified working in local testing
+- **Date fixed**: 2025-11-18
 
 ### Description
-Accumulator increments on every gate pulse regardless of the selected TRIG mode setting. Both STEP and GATE modes appear to behave identically to RTRIG mode (ticking on every pulse/gate).
+STEP mode accumulator trigger was firing on every pulse instead of once per step when pulse count > 0. This made STEP mode behave identically to RTRIG mode, completely breaking its intended functionality.
 
 ### Expected Behavior
 
@@ -60,18 +66,35 @@ Likely issue: Trigger mode checking logic is incorrect or missing. The code may 
 - Checking it in the wrong place
 - Logic inverted or conditions wrong
 
-**Code to Investigate** (lines ~350-430):
+**Root Cause (IDENTIFIED)**:
+Line 354 in `NoteTrackEngine.cpp` lacked pulse counter check:
 ```cpp
-// STEP mode tick logic (around line 353)
-// GATE mode tick logic (around line 392)
-// RTRIG mode tick logic (around line 410)
+// BEFORE FIX (BROKEN)
+if (step.isAccumulatorTrigger()) {  // No _pulseCounter check
+    if (triggerMode() == Accumulator::Step) {
+        tick();  // Executed on every pulse!
+    }
+}
 ```
 
-Possible issues:
-1. All three conditions might be evaluating to true
-2. Mode checking might be bypassed
-3. Wrong sequence pointer being checked
-4. Fill sequence logic interfering
+When step has `pulseCount=3`, triggerStep() is called 4 times (once per pulse), causing 4 ticks instead of 1.
+
+### Resolution (IMPLEMENTED)
+
+**Fix**: Added pulse counter check to line 354
+
+**Code (AFTER FIX)**:
+```cpp
+// STEP mode: Tick accumulator once per step (first pulse only)
+if (step.isAccumulatorTrigger() && _pulseCounter == 1) {  // ✅ ADDED CHECK
+    if (targetSequence.accumulator().enabled() &&
+        targetSequence.accumulator().triggerMode() == Accumulator::Step) {
+        const_cast<Accumulator&>(targetSequence.accumulator()).tick();
+    }
+}
+```
+
+**Result**: STEP mode now only ticks on first pulse (_pulseCounter == 1), making it independent of pulse count as intended.
 
 ---
 
