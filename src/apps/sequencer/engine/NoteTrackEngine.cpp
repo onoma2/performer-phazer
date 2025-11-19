@@ -10,6 +10,7 @@
 #include "core/math/Math.h"
 
 #include "model/Scale.h"
+#include "model/HarmonyEngine.h"
 
 static Random rng;
 
@@ -68,8 +69,60 @@ static int evalTransposition(const Scale &scale, int octave, int transpose) {
 }
 
 // evaluate note voltage
-static float evalStepNote(const NoteSequence::Step &step, int probabilityBias, const Scale &scale, int rootNote, int octave, int transpose, const NoteSequence &sequence, bool useVariation = true) {
+static float evalStepNote(const NoteSequence::Step &step, int probabilityBias, const Scale &scale, int rootNote, int octave, int transpose, const NoteSequence &sequence, const Model &model, int currentStepIndex, bool useVariation = true) {
     int note = step.note() + evalTransposition(scale, octave, transpose);
+
+    // Apply harmony modulation if this sequence is a harmony follower
+    NoteSequence::HarmonyRole harmonyRole = sequence.harmonyRole();
+    if (harmonyRole != NoteSequence::HarmonyOff && harmonyRole != NoteSequence::HarmonyMaster) {
+        // Get master track and sequence
+        int masterTrackIndex = sequence.masterTrackIndex();
+        const auto &masterTrack = model.project().track(masterTrackIndex);
+        const auto &masterSequence = masterTrack.noteTrack().sequence(0); // Use pattern 0 for now
+
+        // Get master's note at the same step index (synchronized playback)
+        int masterStepIndex = clamp(currentStepIndex, masterSequence.firstStep(), masterSequence.lastStep());
+        const auto &masterStep = masterSequence.step(masterStepIndex);
+        int masterNote = masterStep.note();
+
+        // Convert to MIDI note number (middle C = 60)
+        // Note values are -64 to +63, where 0 = middle C
+        int midiNote = masterNote + 60;
+
+        // Get scale degree (0-6 for 7-note scales)
+        // For simplicity, use note modulo 7 as scale degree
+        int scaleDegree = ((masterNote % 7) + 7) % 7;
+
+        // Get harmony mode from sequence's harmonyScale setting
+        HarmonyEngine::Mode harmonyMode = static_cast<HarmonyEngine::Mode>(sequence.harmonyScale());
+
+        // Create a local HarmonyEngine for harmonization
+        HarmonyEngine harmonyEngine;
+        harmonyEngine.setMode(harmonyMode);
+        auto chord = harmonyEngine.harmonize(midiNote, scaleDegree);
+
+        // Extract the appropriate chord tone based on follower role
+        int harmonizedMidi = midiNote;
+        switch (harmonyRole) {
+        case NoteSequence::HarmonyFollowerRoot:
+            harmonizedMidi = chord.root;
+            break;
+        case NoteSequence::HarmonyFollower3rd:
+            harmonizedMidi = chord.third;
+            break;
+        case NoteSequence::HarmonyFollower5th:
+            harmonizedMidi = chord.fifth;
+            break;
+        case NoteSequence::HarmonyFollower7th:
+            harmonizedMidi = chord.seventh;
+            break;
+        default:
+            break;
+        }
+
+        // Convert back to note value (-64 to +63 range)
+        note = (harmonizedMidi - 60) + evalTransposition(scale, octave, transpose);
+    }
 
     // Apply accumulator modulation if enabled
     if (sequence.accumulator().enabled()) {
@@ -315,7 +368,7 @@ void NoteTrackEngine::update(float dt) {
 
     if (stepMonitoring) {
         const auto &step = sequence.step(_monitorStepIndex);
-        setOverride(evalStepNote(step, 0, scale, rootNote, octave, transpose, sequence, false));
+        setOverride(evalStepNote(step, 0, scale, rootNote, octave, transpose, sequence, _model, _monitorStepIndex, false));
     } else if (liveMonitoring && _recordHistory.isNoteActive()) {
         int note = noteFromMidiNote(_recordHistory.activeNote()) + evalTransposition(scale, octave, transpose);
         setOverride(scale.noteToVolts(note) + (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f));
@@ -508,7 +561,7 @@ void NoteTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
     if (stepGate || _noteTrack.cvUpdateMode() == NoteTrack::CvUpdateMode::Always) {
         const auto &scale = evalSequence.selectedScale(_model.project().scale());
         int rootNote = evalSequence.selectedRootNote(_model.project().rootNote());
-        _cvQueue.push({ Groove::applySwing(tick + gateOffset, swing()), evalStepNote(step, _noteTrack.noteProbabilityBias(), scale, rootNote, octave, transpose, evalSequence), step.slide() });
+        _cvQueue.push({ Groove::applySwing(tick + gateOffset, swing()), evalStepNote(step, _noteTrack.noteProbabilityBias(), scale, rootNote, octave, transpose, evalSequence, _model, _currentStep), step.slide() });
     }
 }
 
