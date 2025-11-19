@@ -71,7 +71,12 @@ public:
 
         switch (Item(row)) {
         case HarmonyRole:
-            return 6; // Off, Master, FollowerRoot, Follower3rd, Follower5th, Follower7th
+            // Only tracks 1 and 5 (index 0 and 4) can be Master
+            if (_sequence->canBeHarmonyMaster()) {
+                return 6; // Off, Master, FollowerRoot, Follower3rd, Follower5th, Follower7th
+            } else {
+                return 5; // Off, FollowerRoot, Follower3rd, Follower5th, Follower7th (no Master)
+            }
         case HarmonyScale:
             return 7; // Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian
         case HarmonyInversion:
@@ -87,8 +92,14 @@ public:
         if (!_sequence) return -1;
 
         switch (Item(row)) {
-        case HarmonyRole:
-            return static_cast<int>(_sequence->harmonyRole());
+        case HarmonyRole: {
+            int role = static_cast<int>(_sequence->harmonyRole());
+            // For tracks that can't be master, remap indices to skip Master
+            if (!_sequence->canBeHarmonyMaster() && role >= NoteSequence::HarmonyFollowerRoot) {
+                return role - 1; // Map FollowerRoot(2)→1, Follower3rd(3)→2, etc.
+            }
+            return role;
+        }
         case HarmonyScale:
             return _sequence->harmonyScale();
         case HarmonyInversion:
@@ -108,7 +119,15 @@ public:
             case HarmonyRole: {
                 // Save old role before changing
                 auto oldRole = _sequence->harmonyRole();
-                auto newRole = static_cast<NoteSequence::HarmonyRole>(index);
+
+                // For tracks that can't be master, remap UI indices to skip Master
+                // UI: 0=Off, 1=FollowerRoot, 2=Follower3rd, 3=Follower5th, 4=Follower7th
+                // Enum: 0=Off, 2=FollowerRoot, 3=Follower3rd, 4=Follower5th, 5=Follower7th
+                int roleValue = index;
+                if (!_sequence->canBeHarmonyMaster() && index >= 1) {
+                    roleValue = index + 1; // Map UI 1→2, 2→3, 3→4, 4→5
+                }
+                auto newRole = static_cast<NoteSequence::HarmonyRole>(roleValue);
 
                 // Set new role
                 _sequence->setHarmonyRole(newRole);
