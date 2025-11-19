@@ -110,19 +110,15 @@ static float evalStepNote(const NoteSequence::Step &step, int probabilityBias, c
         // Get harmony mode from sequence's harmonyScale setting
         HarmonyEngine::Mode harmonyMode = static_cast<HarmonyEngine::Mode>(sequence.harmonyScale());
 
-        // Check master step for per-step inversion/voicing overrides
-        int inversionValue = masterStep.inversionOverride();
-        int voicingValue = masterStep.voicingOverride();
-
-        // Use master step overrides if set, otherwise use sequence-level settings
-        int inversion = (inversionValue == 0) ? sequence.harmonyInversion() : (inversionValue - 1);
-        int voicing = (voicingValue == 0) ? sequence.harmonyVoicing() : (voicingValue - 1);
-
-        // Create a local HarmonyEngine for harmonization
-        HarmonyEngine harmonyEngine;
+        // Use Model's shared HarmonyEngine to avoid stack allocation in hot path
+        // Note: Per-step inversion/voicing overrides are NOT applied because:
+        // 1. Creating local HarmonyEngine causes stack overflow on hardware
+        // 2. Inversion/voicing transformations are not implemented in HarmonyEngine::harmonize()
+        // Use sequence-level harmony settings instead
+        auto &harmonyEngine = const_cast<HarmonyEngine&>(model.harmonyEngine());
         harmonyEngine.setMode(harmonyMode);
-        harmonyEngine.setInversion(inversion);
-        harmonyEngine.setVoicing(static_cast<HarmonyEngine::Voicing>(voicing));
+        harmonyEngine.setInversion(sequence.harmonyInversion());
+        harmonyEngine.setVoicing(static_cast<HarmonyEngine::Voicing>(sequence.harmonyVoicing()));
         harmonyEngine.setTranspose(sequence.harmonyTranspose());
         auto chord = harmonyEngine.harmonize(midiNote, scaleDegree);
 
