@@ -602,7 +602,10 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             break;
         }
         break;
-    case Function::Note:
+    case Function::Note: {
+        const auto &sequence = _project.selectedNoteSequence();
+        bool isFollower = (sequence.harmonyRole() >= NoteSequence::HarmonyFollowerRoot);
+
         switch (layer()) {
         case Layer::Note:
             setLayer(Layer::NoteVariationRange);
@@ -614,7 +617,12 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             setLayer(Layer::AccumulatorTrigger);
             break;
         case Layer::AccumulatorTrigger:
-            setLayer(Layer::HarmonyRoleOverride);
+            // Only show HarmonyRoleOverride if sequence is a follower
+            if (isFollower) {
+                setLayer(Layer::HarmonyRoleOverride);
+            } else {
+                setLayer(Layer::Note);
+            }
             break;
         case Layer::HarmonyRoleOverride:
             setLayer(Layer::Note);
@@ -624,6 +632,7 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             break;
         }
         break;
+    }
     case Function::Condition:
         setLayer(Layer::Condition);
         break;
