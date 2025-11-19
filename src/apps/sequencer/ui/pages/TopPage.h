@@ -53,6 +53,7 @@ private:
         NoteSequence,
         Accumulator,
         AccumulatorSteps,
+        Harmony,
     };
 
     void setMode(Mode mode);

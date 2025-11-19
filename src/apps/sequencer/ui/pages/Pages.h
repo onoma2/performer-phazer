@@ -32,6 +32,7 @@
 #include "UserScalePage.h"
 #include "AccumulatorPage.h"
 #include "AccumulatorStepsPage.h"
+#include "HarmonyPage.h"
 
 #ifdef CONFIG_ENABLE_INTRO
 #include "IntroPage.h"
@@ -59,6 +60,7 @@ struct Pages {
     OverviewPage overview;
     AccumulatorPage accumulator;
     AccumulatorStepsPage accumulatorSteps;
+    HarmonyPage harmony;
     SystemPage system;
     // modal pages
     TempoPage tempo;
@@ -102,6 +104,7 @@ struct Pages {
         overview(manager, context),
         accumulator(manager, context),
         accumulatorSteps(manager, context),
+        harmony(manager, context),
         system(manager, context),
         // modal pages
         tempo(manager, context),
