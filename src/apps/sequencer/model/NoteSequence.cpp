@@ -321,11 +321,16 @@ void NoteSequence::write(VersionedSerializedWriter &writer) const {
     _accumulator.write(writer);
 
     // Write harmony properties (Version34+)
-    // Bit-pack: harmonyRole (3 bits) + harmonyScale (3 bits) = 6 bits in 1 byte
-    uint8_t harmonyFlags = (static_cast<uint8_t>(_harmonyRole) << 0) |
-                           (static_cast<uint8_t>(_harmonyScale) << 3);
-    writer.write(harmonyFlags);
+    // Byte 1: harmonyRole (3 bits) + harmonyScale (3 bits) + harmonyInversion (2 bits) = 8 bits
+    uint8_t harmonyFlags1 = (static_cast<uint8_t>(_harmonyRole) << 0) |
+                            (static_cast<uint8_t>(_harmonyScale) << 3) |
+                            (static_cast<uint8_t>(_harmonyInversion) << 6);
+    writer.write(harmonyFlags1);
     writer.write(_masterTrackIndex);
+
+    // Byte 2: harmonyVoicing (2 bits) + 6 bits reserved for future use
+    uint8_t harmonyFlags2 = (static_cast<uint8_t>(_harmonyVoicing) << 0);
+    writer.write(harmonyFlags2);
 }
 
 void NoteSequence::read(VersionedSerializedReader &reader) {
@@ -353,15 +358,23 @@ void NoteSequence::read(VersionedSerializedReader &reader) {
 
     // Read harmony properties (Version34+)
     if (reader.dataVersion() >= ProjectVersion::Version34) {
-        uint8_t harmonyFlags;
-        reader.read(harmonyFlags);
-        _harmonyRole = static_cast<HarmonyRole>((harmonyFlags >> 0) & 0x7);  // 3 bits
-        _harmonyScale = (harmonyFlags >> 3) & 0x7;                            // 3 bits
+        uint8_t harmonyFlags1;
+        reader.read(harmonyFlags1);
+        _harmonyRole = static_cast<HarmonyRole>((harmonyFlags1 >> 0) & 0x7);  // 3 bits
+        _harmonyScale = (harmonyFlags1 >> 3) & 0x7;                            // 3 bits
+        _harmonyInversion = (harmonyFlags1 >> 6) & 0x3;                        // 2 bits
         reader.read(_masterTrackIndex);
+
+        // Read second harmony byte (Version34+ with inversion/voicing)
+        uint8_t harmonyFlags2;
+        reader.read(harmonyFlags2);
+        _harmonyVoicing = (harmonyFlags2 >> 0) & 0x3;  // 2 bits
     } else {
         // Backward compatibility: use defaults
         _harmonyRole = HarmonyOff;
         _masterTrackIndex = 0;
         _harmonyScale = 0;
+        _harmonyInversion = 0;
+        _harmonyVoicing = 0;
     }
 }

@@ -495,6 +495,20 @@ public:
         _harmonyScale = clamp(scale, 0, 6); // 0-6 for 7 modes
     }
 
+    // harmonyInversion
+
+    int harmonyInversion() const { return _harmonyInversion; }
+    void setHarmonyInversion(int inversion) {
+        _harmonyInversion = clamp(inversion, 0, 3); // 0-3 for 4 inversions
+    }
+
+    // harmonyVoicing
+
+    int harmonyVoicing() const { return _harmonyVoicing; }
+    void setHarmonyVoicing(int voicing) {
+        _harmonyVoicing = clamp(voicing, 0, 3); // 0-3 for 4 voicings
+    }
+
     //----------------------------------------
     // Methods
     //----------------------------------------
@@ -548,6 +562,8 @@ private:
     HarmonyRole _harmonyRole = HarmonyOff;
     int8_t _masterTrackIndex = 0;  // Which track to follow (0-7)
     uint8_t _harmonyScale = 0;     // Scale override (0-6 for 7 modes)
+    uint8_t _harmonyInversion = 0; // Inversion (0-3 for root, 1st, 2nd, 3rd)
+    uint8_t _harmonyVoicing = 0;   // Voicing (0-3 for Close, Drop2, Drop3, Spread)
 
     uint8_t _edited;
 

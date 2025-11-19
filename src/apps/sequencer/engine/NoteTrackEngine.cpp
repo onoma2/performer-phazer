@@ -99,6 +99,8 @@ static float evalStepNote(const NoteSequence::Step &step, int probabilityBias, c
         // Create a local HarmonyEngine for harmonization
         HarmonyEngine harmonyEngine;
         harmonyEngine.setMode(harmonyMode);
+        harmonyEngine.setInversion(sequence.harmonyInversion());
+        harmonyEngine.setVoicing(static_cast<HarmonyEngine::Voicing>(sequence.harmonyVoicing()));
         auto chord = harmonyEngine.harmonize(midiNote, scaleDegree);
 
         // Extract the appropriate chord tone based on follower role

@@ -10,6 +10,8 @@ public:
         HarmonyRole,
         MasterTrack,
         HarmonyScale,
+        HarmonyInversion,
+        HarmonyVoicing,
         Last
     };
 
@@ -65,6 +67,10 @@ public:
             return 6; // Off, Master, FollowerRoot, Follower3rd, Follower5th, Follower7th
         case HarmonyScale:
             return 7; // Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian
+        case HarmonyInversion:
+            return 4; // Root, 1st, 2nd, 3rd
+        case HarmonyVoicing:
+            return 4; // Close, Drop2, Drop3, Spread
         default:
             return 0;
         }
@@ -78,6 +84,10 @@ public:
             return static_cast<int>(_sequence->harmonyRole());
         case HarmonyScale:
             return _sequence->harmonyScale();
+        case HarmonyInversion:
+            return _sequence->harmonyInversion();
+        case HarmonyVoicing:
+            return _sequence->harmonyVoicing();
         default:
             return -1;
         }
@@ -94,6 +104,12 @@ public:
             case HarmonyScale:
                 _sequence->setHarmonyScale(index);
                 break;
+            case HarmonyInversion:
+                _sequence->setHarmonyInversion(index);
+                break;
+            case HarmonyVoicing:
+                _sequence->setHarmonyVoicing(index);
+                break;
             default:
                 break;
             }
@@ -103,10 +119,12 @@ public:
 private:
     static const char *itemName(Item item) {
         switch (item) {
-        case HarmonyRole:   return "ROLE";
-        case MasterTrack:   return "MASTER";
-        case HarmonyScale:  return "SCALE";
-        case Last:          break;
+        case HarmonyRole:      return "ROLE";
+        case MasterTrack:      return "MASTER";
+        case HarmonyScale:     return "SCALE";
+        case HarmonyInversion: return "INVERSION";
+        case HarmonyVoicing:   return "VOICING";
+        case Last:             break;
         }
         return nullptr;
     }
@@ -144,6 +162,28 @@ private:
             case 4: str("MIXOLY"); break;
             case 5: str("AEOLIN"); break;
             case 6: str("LOCRIN"); break;
+            default: str("---"); break;
+            }
+            break;
+        }
+        case HarmonyInversion: {
+            int inversion = _sequence->harmonyInversion();
+            switch (inversion) {
+            case 0: str("ROOT"); break;
+            case 1: str("1ST"); break;
+            case 2: str("2ND"); break;
+            case 3: str("3RD"); break;
+            default: str("---"); break;
+            }
+            break;
+        }
+        case HarmonyVoicing: {
+            int voicing = _sequence->harmonyVoicing();
+            switch (voicing) {
+            case 0: str("CLOSE"); break;
+            case 1: str("DROP2"); break;
+            case 2: str("DROP3"); break;
+            case 3: str("SPREAD"); break;
             default: str("---"); break;
             }
             break;
