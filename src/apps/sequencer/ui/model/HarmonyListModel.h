@@ -3,6 +3,8 @@
 #include "ListModel.h"
 
 #include "model/NoteSequence.h"
+#include "model/Model.h"
+#include "model/Track.h"
 
 class HarmonyListModel : public ListModel {
 public:
@@ -16,10 +18,14 @@ public:
         Last
     };
 
-    HarmonyListModel() : _sequence(nullptr) {}
+    HarmonyListModel() : _sequence(nullptr), _model(nullptr) {}
 
     void setSequence(NoteSequence *sequence) {
         _sequence = sequence;
+    }
+
+    void setModel(Model *model) {
+        _model = model;
     }
 
     virtual int rows() const override {
@@ -99,9 +105,29 @@ public:
 
         if (index < indexedCount(row)) {
             switch (Item(row)) {
-            case HarmonyRole:
-                _sequence->setHarmonyRole(static_cast<NoteSequence::HarmonyRole>(index));
+            case HarmonyRole: {
+                // Save old role before changing
+                auto oldRole = _sequence->harmonyRole();
+                auto newRole = static_cast<NoteSequence::HarmonyRole>(index);
+
+                // Set new role
+                _sequence->setHarmonyRole(newRole);
+
+                // Copy master's mode when changing from non-follower to follower
+                bool wasFollower = (oldRole >= NoteSequence::HarmonyFollowerRoot);
+                bool isFollower = (newRole >= NoteSequence::HarmonyFollowerRoot);
+
+                if (!wasFollower && isFollower && _model) {
+                    int masterIdx = _sequence->masterTrackIndex();
+                    const auto &masterTrack = _model->project().track(masterIdx);
+                    if (masterTrack.trackMode() == Track::TrackMode::Note) {
+                        const auto &masterSequence = masterTrack.noteTrack().sequence(0);
+                        int masterMode = masterSequence.harmonyScale();
+                        _sequence->setHarmonyScale(masterMode);
+                    }
+                }
                 break;
+            }
             case HarmonyScale:
                 _sequence->setHarmonyScale(index);
                 break;
@@ -222,4 +248,5 @@ private:
     }
 
     NoteSequence *_sequence;
+    Model *_model;
 };
