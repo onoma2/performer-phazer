@@ -630,10 +630,7 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             break;
         }
         break;
-    case Function::Length: {
-        const auto &sequence = _project.selectedNoteSequence();
-        bool isMaster = (sequence.harmonyRole() == NoteSequence::HarmonyMaster);
-
+    case Function::Length:
         switch (layer()) {
         case Layer::Length:
             setLayer(Layer::LengthVariationRange);
@@ -642,17 +639,6 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             setLayer(Layer::LengthVariationProbability);
             break;
         case Layer::LengthVariationProbability:
-            // Only show Inversion/Voicing for Master tracks
-            if (isMaster) {
-                setLayer(Layer::InversionOverride);
-            } else {
-                setLayer(Layer::Length);
-            }
-            break;
-        case Layer::InversionOverride:
-            setLayer(Layer::VoicingOverride);
-            break;
-        case Layer::VoicingOverride:
             setLayer(Layer::Length);
             break;
         default:
@@ -660,9 +646,9 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             break;
         }
         break;
-    }
     case Function::Note: {
         const auto &sequence = _project.selectedNoteSequence();
+        bool isMaster = (sequence.harmonyRole() == NoteSequence::HarmonyMaster);
         bool isFollower = (sequence.harmonyRole() >= NoteSequence::HarmonyFollowerRoot);
 
         switch (layer()) {
@@ -676,12 +662,22 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             setLayer(Layer::AccumulatorTrigger);
             break;
         case Layer::AccumulatorTrigger:
-            // Only show HarmonyRoleOverride if sequence is a follower
-            if (isFollower) {
+            // Master tracks: show Inversion/Voicing
+            // Follower tracks: show HarmonyRoleOverride
+            // Off tracks: back to Note
+            if (isMaster) {
+                setLayer(Layer::InversionOverride);
+            } else if (isFollower) {
                 setLayer(Layer::HarmonyRoleOverride);
             } else {
                 setLayer(Layer::Note);
             }
+            break;
+        case Layer::InversionOverride:
+            setLayer(Layer::VoicingOverride);
+            break;
+        case Layer::VoicingOverride:
+            setLayer(Layer::Note);
             break;
         case Layer::HarmonyRoleOverride:
             setLayer(Layer::Note);
@@ -713,12 +709,12 @@ int NoteSequenceEditPage::activeFunctionKey() {
     case Layer::Length:
     case Layer::LengthVariationRange:
     case Layer::LengthVariationProbability:
-    case Layer::InversionOverride:
-    case Layer::VoicingOverride:
         return 2;
     case Layer::Note:
     case Layer::NoteVariationRange:
     case Layer::NoteVariationProbability:
+    case Layer::InversionOverride:
+    case Layer::VoicingOverride:
         return 3;
     case Layer::Condition:
         return 4;
