@@ -85,6 +85,7 @@ set(sources
     ui/pages/MidiOutputPage.cpp
     ui/pages/AccumulatorPage.cpp
     ui/pages/AccumulatorStepsPage.cpp
+    ui/pages/HarmonyPage.cpp
     ui/pages/MonitorPage.cpp
     ui/pages/NoteSequenceEditPage.cpp
     ui/pages/NoteSequencePage.cpp
