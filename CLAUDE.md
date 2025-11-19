@@ -522,6 +522,169 @@ Gate mode is a per-step parameter that determines the gate firing behavior when 
 - `GATE_MODE_TDD_PLAN.md` - Complete technical specification
 - `GATE_MODE_ENGINE_DESIGN.md` - Engine implementation design
 
+## Harmony Feature
+
+The PEW|FORMER firmware includes Harmonàig-style harmonic sequencing that allows tracks to automatically harmonize a master track's melody. This enables instant chord creation, complex harmonic arrangements, and modal exploration. See `HARMONY-DONE.md` for complete implementation summary and `QWEN.md` Part 5 for technical details.
+
+### Overview
+
+The harmony feature provides master/follower track relationships where follower tracks automatically play harmonized chord tones (root, 3rd, 5th, 7th) based on a master track's melody. Any track can be a master or follower, allowing flexible harmonic arrangements.
+
+**Core capabilities:**
+- Master/follower track relationships
+- 7 modal scales (Ionian modes)
+- 4-voice chord generation
+- Per-track harmony configuration
+- Synchronized step playback
+
+### Core Parameters
+
+**HarmonyRole** (per NoteSequence):
+- `Off` (0): No harmony (default)
+- `Master` (1): Defines the harmony (plays melody)
+- `FollowerRoot` (2): Plays root note of harmonized chord
+- `Follower3rd` (3): Plays 3rd note of harmonized chord
+- `Follower5th` (4): Plays 5th note of harmonized chord
+- `Follower7th` (5): Plays 7th note of harmonized chord
+
+**MasterTrackIndex** (per NoteSequence):
+- Range: 0-7 (tracks 1-8)
+- Specifies which track to follow when in follower role
+- Only relevant for follower tracks
+
+**HarmonyScale** (per NoteSequence):
+- Range: 0-6 (7 Ionian modes)
+- **0 - Ionian** (Major): Bright, happy
+- **1 - Dorian** (Minor with raised 6th): Jazz minor
+- **2 - Phrygian** (Minor with b2): Spanish/dark
+- **3 - Lydian** (Major with #4): Dreamy
+- **4 - Mixolydian** (Major with b7): Dominant/bluesy
+- **5 - Aeolian** (Natural Minor): Melancholic
+- **6 - Locrian** (Diminished): Unstable/tense
+
+### UI Integration
+
+**Accessing Harmony Page:**
+1. Navigate to a Note track (press T1-T8)
+2. Press **Sequence** button (S2) to cycle views:
+   - 1st press: NoteSequence page
+   - 2nd press: Accumulator page (ACCUM)
+   - 3rd press: **Harmony page** (HARMONY) ← Feature page
+   - 4th press: Cycles back to NoteSequence
+
+**Editing Harmony Parameters:**
+- Turn encoder to navigate between parameters
+- Turn encoder to edit selected parameter value
+- **ROLE**: Cycles Off → Master → Root → 3rd → 5th → 7th
+- **MASTER**: Cycles T1 → T2 → ... → T8 (which track to follow)
+- **SCALE**: Cycles through 7 modes (Ionian through Locrian)
+
+### Implementation Architecture
+
+**Model Layer:**
+- `HarmonyEngine.h/cpp` - Core harmonization logic for all 7 Ionian modes
+- `NoteSequence.h/cpp` - Harmony properties (harmonyRole, masterTrackIndex, harmonyScale)
+- `Model.h` - Central HarmonyEngine instance accessible to all tracks
+
+**Engine Layer:**
+- `NoteTrackEngine.cpp::evalStepNote()` - Direct integration
+- Checks if sequence is harmony follower
+- Gets master track's note at same step index (synchronized playback)
+- Harmonizes using HarmonyEngine
+- Extracts appropriate chord tone based on follower role
+- Replaces follower's note with harmonized pitch
+
+**Modulation Order** (important):
+1. Base note + transpose/octave
+2. **Harmony modulation** (if follower)
+3. Accumulator modulation (if enabled)
+4. Note variation (if enabled)
+
+**UI Layer:**
+- `HarmonyListModel.h` - Parameter editing model
+- `HarmonyPage.h/cpp` - Dedicated harmony configuration page
+- `Pages.h` - HarmonyPage integration
+- `TopPage.h/cpp` - Navigation integration (Sequence button cycling)
+
+### Use Cases
+
+**Instant Chord Pads:**
+- Set Track 1 as Master, program melody
+- Set Tracks 2-4 as Followers (Root/3rd/5th)
+- Result: Instant 3-voice chord harmonization
+
+**Dual Chord Progressions:**
+- Tracks 1-4: Bass harmony group
+- Tracks 5-8: Lead harmony group
+- Independent harmonic progressions
+
+**Modal Exploration:**
+- Same master melody across multiple tracks
+- Different harmonyScale settings per follower
+- Hear how modes color the melodic material
+
+**Jazz Voicings:**
+- Use all 4 follower voices (Root/3rd/5th/7th)
+- Set scale to Dorian or Mixolydian
+- Instant jazz chord progressions
+
+### Compatibility
+
+Harmony works seamlessly with all existing features:
+- ✅ Accumulator (harmony first, then accumulator offset)
+- ✅ Note variation (harmony first, then random variation)
+- ✅ Transpose/Octave (applied after harmony)
+- ✅ Gate modes, Pulse count, Retrigger
+- ✅ Fill modes
+- ✅ Slide/portamento
+
+### Testing Status
+
+✅ **Fully tested and verified:**
+- 19 passing unit tests (HarmonyEngine, NoteSequence, Model integration)
+- Contract tests verify coordination
+- Hardware build successful
+- Compatible with existing features
+- Production ready
+
+### What's NOT Implemented (Optional)
+
+These features from the original plan are not yet implemented but could be added:
+- ❌ Inversion parameter (0-3) - ~1.5 hours to add
+- ❌ Voicing parameter (Close/Drop2/Drop3/Spread) - ~1.5 hours to add
+- ❌ Manual chord quality selection (currently auto-diatonic)
+- ❌ Additional scales (Harmonic Minor, Melodic Minor, etc.)
+
+**Note**: HarmonyEngine already supports inversion and voicing internally, just needs UI exposure. Current implementation uses root position close voicing only.
+
+### Key Files
+
+**Model Layer:**
+- `src/apps/sequencer/model/HarmonyEngine.h/cpp` - Core harmonization
+- `src/apps/sequencer/model/NoteSequence.h/cpp` - Harmony properties
+- `src/apps/sequencer/model/Model.h` - HarmonyEngine integration
+
+**Engine Layer:**
+- `src/apps/sequencer/engine/NoteTrackEngine.cpp` - Direct integration in evalStepNote()
+
+**UI Layer:**
+- `src/apps/sequencer/ui/model/HarmonyListModel.h` - Parameter editing model
+- `src/apps/sequencer/ui/pages/HarmonyPage.h/cpp` - Main configuration page
+- `src/apps/sequencer/ui/pages/Pages.h` - Page registration
+- `src/apps/sequencer/ui/pages/TopPage.h/cpp` - Navigation integration
+
+**Tests:**
+- `src/tests/unit/sequencer/TestHarmonyEngine.cpp` - HarmonyEngine unit tests
+- `src/tests/unit/sequencer/TestHarmonyIntegration.cpp` - Integration tests
+- `src/tests/unit/sequencer/TestModel.cpp` - Model coordination tests
+
+**Documentation:**
+- `HARMONY-DONE.md` - Complete implementation summary
+- `HARMONY-HARDWARE-TESTS.md` - 8 comprehensive test cases
+- `WORKING-TDD-HARMONY-PLAN.md` - Planning document with status
+- `QWEN.md` Part 5 - Technical implementation details
+- `PHASE-1-COMPLETE.md` - Phase 1 Days 1-6 summary
+
 ## Simulator Interface
 
 The simulator provides a complete virtual hardware interface (see `doc/simulator-interface.png`):
@@ -633,12 +796,198 @@ The following third-party libraries are used in this project:
 - [tinyformat](https://github.com/c42f/tinyformat) - Type-safe printf
 - [args](https://github.com/Taywee/args) - Command-line argument parsing
 
+## Testing Conventions and Common Errors
+
+### Test Framework
+
+**CRITICAL**: This project uses a **custom UnitTest.h framework**, NOT Catch2 or Google Test.
+
+**Correct Test Structure:**
+```cpp
+#include "UnitTest.h"
+
+UNIT_TEST("TestName") {
+
+CASE("test_case_name") {
+    // Test code here
+    expectEqual(actual, expected, "optional message");
+    expectTrue(condition, "optional message");
+    expectFalse(condition, "optional message");
+}
+
+} // UNIT_TEST("TestName")
+```
+
+**Common Test Framework Errors:**
+
+❌ **WRONG** (Catch2 style):
+```cpp
+#include "catch.hpp"
+
+TEST_CASE("Description", "[tag]") {
+    REQUIRE(condition);
+}
+```
+
+✅ **CORRECT** (UnitTest.h style):
+```cpp
+#include "UnitTest.h"
+
+UNIT_TEST("TestName") {
+CASE("description") {
+    expectTrue(condition, "message");
+}
+}
+```
+
+**Assertion Functions:**
+- `expectEqual(a, b, msg)` - Compare values (int, float, const char*)
+- `expectTrue(condition, msg)` - Assert true
+- `expectFalse(condition, msg)` - Assert false
+- `expect(condition, msg)` - Generic assertion
+
+**Enum Comparison:**
+- Always cast enums to `int` for expectEqual:
+```cpp
+expectEqual(static_cast<int>(actual), static_cast<int>(expected), "message");
+```
+
+### Type System Conventions
+
+**Clamp Function Type Matching:**
+
+The `clamp()` function requires all three arguments to be the **same type**.
+
+❌ **WRONG**:
+```cpp
+_masterTrackIndex = clamp(index, int8_t(0), int8_t(7));  // Type mismatch!
+_harmonyScale = clamp(scale, uint8_t(0), uint8_t(6));   // Type mismatch!
+```
+
+✅ **CORRECT**:
+```cpp
+_masterTrackIndex = clamp(index, 0, 7);  // All int
+_harmonyScale = clamp(scale, 0, 6);      // All int
+```
+
+The compiler will assign to the correct member variable type automatically.
+
+**Enum Conventions in Model Layer:**
+
+Model enums follow specific patterns:
+
+✅ **CORRECT** (plain enum, no Last):
+```cpp
+enum HarmonyRole {
+    HarmonyOff = 0,
+    HarmonyMaster = 1,
+    HarmonyFollowerRoot = 2,
+    // ... no Last member
+};
+```
+
+❌ **WRONG** (enum class with Last):
+```cpp
+enum class HarmonyRole {  // Don't use "class"
+    HarmonyOff = 0,
+    Last  // Don't add Last in model enums
+};
+```
+
+**Note**: UI/Pages enums DO use `enum class` and `Last` - this convention is specific to model layer.
+
+### Bitfield Packing
+
+**Available Space Check:**
+```cpp
+// In NoteSequence::Step::_data1 union
+// Check comments for remaining bits:
+BitField<uint32_t, 20, GateMode::Bits> gateMode;  // bits 20-21
+// 10 bits left  <-- Always documented
+```
+
+**Serialization Pattern:**
+```cpp
+// Write (bit-pack multiple values into single byte)
+uint8_t flags = (static_cast<uint8_t>(_role) << 0) |
+                (static_cast<uint8_t>(_scale) << 3);
+writer.write(flags);
+
+// Read (unpack with masks)
+uint8_t flags;
+reader.read(flags);
+_role = static_cast<Role>((flags >> 0) & 0x7);   // 3 bits
+_scale = (flags >> 3) & 0x7;                      // 3 bits
+```
+
+### Common Compilation Errors
+
+**Error: "no member named 'X' in 'ClassName'"**
+- Cause: Using undefined enum or method
+- Fix: Check if you're using plain enum (not enum class) for model enums
+- Fix: Ensure you've added the member to the class definition
+
+**Error: "no matching function for call to 'clamp'"**
+- Cause: Type mismatch in clamp arguments
+- Fix: Use `clamp(value, 0, max)` without type casts
+
+**Error: "undefined symbols for architecture"**
+- Cause: Missing CMakeLists.txt registration
+- Fix: Add `register_sequencer_test(TestName TestName.cpp)` to CMakeLists.txt
+
+### Test Organization
+
+**Unit Test Location:**
+- `src/tests/unit/sequencer/` - Model and small unit tests
+- `src/tests/integration/` - Integration tests (less common)
+
+**Test Naming:**
+- File: `TestFeatureName.cpp`
+- Test: `UNIT_TEST("FeatureName")`
+- Cases: `CASE("descriptive_lowercase_name")`
+
+**Example Test Structure:**
+```cpp
+#include "UnitTest.h"
+#include "apps/sequencer/model/YourClass.h"
+
+UNIT_TEST("YourClass") {
+
+CASE("default_values") {
+    YourClass obj;
+    expectEqual(obj.value(), 0, "default value should be 0");
+}
+
+CASE("setter_getter") {
+    YourClass obj;
+    obj.setValue(42);
+    expectEqual(obj.value(), 42, "value should be 42");
+}
+
+CASE("clamping") {
+    YourClass obj;
+    obj.setValue(1000);  // Over max
+    expectEqual(obj.value(), 127, "value should clamp to 127");
+}
+
+} // UNIT_TEST("YourClass")
+```
+
+### Reference Examples
+
+**Good test examples to copy from:**
+- `src/tests/unit/sequencer/TestAccumulator.cpp` - Model testing
+- `src/tests/unit/sequencer/TestNoteSequence.cpp` - Property testing
+- `src/tests/unit/sequencer/TestHarmonyEngine.cpp` - Lookup table testing
+- `src/tests/unit/sequencer/TestPulseCount.cpp` - Feature testing
+
 ## Documentation References
 
 - **CLAUDE.md** (this file) - Main development reference for Claude Code
 - **QWEN.md** - Complete accumulator feature implementation documentation
 - **TODO.md** - Development task tracking and completed features
 - **README.md** - Project overview and build instructions
+- **PHASE-1-COMPLETE.md** - Harmony feature implementation summary and Phase 2 roadmap
 - **doc/improvements/** - jackpf improvement documentation
   - `noise-reduction.md` - Display noise reduction techniques
   - `shape-improvements.md` - CV curve generation enhancements

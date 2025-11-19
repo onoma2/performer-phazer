@@ -27,6 +27,7 @@ set(sources
     model/Accumulator.cpp
     model/Arpeggiator.cpp
     model/Calibration.cpp
+    model/HarmonyEngine.cpp
     model/ClipBoard.cpp
     model/ClockSetup.cpp
     model/Curve.cpp
@@ -84,6 +85,7 @@ set(sources
     ui/pages/MidiOutputPage.cpp
     ui/pages/AccumulatorPage.cpp
     ui/pages/AccumulatorStepsPage.cpp
+    ui/pages/HarmonyPage.cpp
     ui/pages/MonitorPage.cpp
     ui/pages/NoteSequenceEditPage.cpp
     ui/pages/NoteSequencePage.cpp

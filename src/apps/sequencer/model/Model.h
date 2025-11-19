@@ -3,6 +3,7 @@
 #include "Project.h"
 #include "Settings.h"
 #include "ClipBoard.h"
+#include "HarmonyEngine.h"
 #include "Serialize.h"
 
 #include "os/os.h"
@@ -37,6 +38,9 @@ public:
     const ClipBoard &clipBoard() const { return _clipBoard; }
           ClipBoard &clipBoard()       { return _clipBoard; }
 
+    const HarmonyEngine &harmonyEngine() const { return _harmonyEngine; }
+          HarmonyEngine &harmonyEngine()       { return _harmonyEngine; }
+
     //----------------------------------------
     // Methods
     //----------------------------------------
@@ -49,4 +53,5 @@ private:
     Project _project;
     Settings _settings;
     ClipBoard _clipBoard;
+    HarmonyEngine _harmonyEngine;
 };
