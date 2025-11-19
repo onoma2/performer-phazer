@@ -93,14 +93,18 @@ void TopPage::keyPress(KeyPressEvent &event) {
     if (key.isTrackSelect()) {
         _project.setSelectedTrackIndex(key.trackSelect());
 
-        // If currently on a sequence subpage, navigate back to NoteSequence view
+        // If currently on a sequence subpage, stay on that view for the new track
         Page* currentPage = _manager.top();
-        bool onSequenceView = (currentPage == &pages.noteSequence ||
-                              currentPage == &pages.accumulator ||
-                              currentPage == &pages.harmony);
 
-        if (onSequenceView) {
+        // Update _sequenceView to match current page
+        if (currentPage == &pages.noteSequence) {
             _sequenceView = SequenceView::NoteSequence;
+            setSequenceView(_sequenceView);
+        } else if (currentPage == &pages.accumulator) {
+            _sequenceView = SequenceView::Accumulator;
+            setSequenceView(_sequenceView);
+        } else if (currentPage == &pages.harmony) {
+            _sequenceView = SequenceView::Harmony;
             setSequenceView(_sequenceView);
         }
 
