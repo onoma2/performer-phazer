@@ -73,7 +73,21 @@ static float evalStepNote(const NoteSequence::Step &step, int probabilityBias, c
     int note = step.note() + evalTransposition(scale, octave, transpose);
 
     // Apply harmony modulation if this sequence is a harmony follower
-    NoteSequence::HarmonyRole harmonyRole = sequence.harmonyRole();
+    // Check per-step harmony role override first
+    int harmonyRoleOverride = step.harmonyRoleOverride();
+    NoteSequence::HarmonyRole harmonyRole;
+
+    if (harmonyRoleOverride == 0) {
+        // UseSequence: use sequence-level role
+        harmonyRole = sequence.harmonyRole();
+    } else if (harmonyRoleOverride >= 1 && harmonyRoleOverride <= 4) {
+        // Map override values to follower roles: 1=Root, 2=3rd, 3=5th, 4=7th
+        harmonyRole = static_cast<NoteSequence::HarmonyRole>(harmonyRoleOverride + 1);
+    } else {
+        // harmonyRoleOverride == 5: Off (no harmony)
+        harmonyRole = NoteSequence::HarmonyOff;
+    }
+
     if (harmonyRole != NoteSequence::HarmonyOff && harmonyRole != NoteSequence::HarmonyMaster) {
         // Get master track and sequence
         int masterTrackIndex = sequence.masterTrackIndex();

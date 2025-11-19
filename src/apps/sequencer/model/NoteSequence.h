@@ -36,12 +36,23 @@ public:
     using Condition = UnsignedValue<7>;
     using PulseCount = UnsignedValue<3>;  // 0-7 representing 1-8 pulses
     using GateMode = UnsignedValue<2>;    // 0-3 representing 4 modes
+    using HarmonyRoleOverride = UnsignedValue<3>;  // 0-5 per-step harmony role override
 
     enum class GateModeType {
         All = 0,        // Fires gates on every pulse (default)
         First = 1,      // Single gate on first pulse only
         Hold = 2,       // One long gate for entire duration
         FirstLast = 3,  // Gates on first and last pulse only
+        Last
+    };
+
+    enum class HarmonyRoleOverrideType {
+        UseSequence = 0,  // Use sequence-level harmonyRole (default)
+        Root = 1,         // Override to root
+        Third = 2,        // Override to 3rd
+        Fifth = 3,        // Override to 5th
+        Seventh = 4,      // Override to 7th
+        Off = 5,          // Override to off (no harmony, play base note)
         Last
     };
 
@@ -74,6 +85,7 @@ public:
         AccumulatorTrigger,
         PulseCount,
         GateMode,
+        HarmonyRoleOverride,
         Last
     };
 
@@ -95,6 +107,7 @@ public:
         case Layer::AccumulatorTrigger:         return "ACCUM";
         case Layer::PulseCount:                 return "PULSE COUNT";
         case Layer::GateMode:                   return "GATE MODE";
+        case Layer::HarmonyRoleOverride:        return "HARMONY ROLE";
         case Layer::Last:                       break;
         }
         return nullptr;
@@ -223,6 +236,12 @@ public:
             _data1.gateMode = GateMode::clamp(gateMode);
         }
 
+        // harmonyRoleOverride
+        int harmonyRoleOverride() const { return _data1.harmonyRoleOverride; }
+        void setHarmonyRoleOverride(int harmonyRoleOverride) {
+            _data1.harmonyRoleOverride = HarmonyRoleOverride::clamp(harmonyRoleOverride);
+        }
+
         //----------------------------------------
         // Methods
         //----------------------------------------
@@ -264,7 +283,8 @@ public:
             BitField<uint32_t, 16, 1> isAccumulatorTrigger;
             BitField<uint32_t, 17, PulseCount::Bits> pulseCount;  // bits 17-19
             BitField<uint32_t, 20, GateMode::Bits> gateMode;      // bits 20-21
-            // 10 bits left
+            BitField<uint32_t, 22, HarmonyRoleOverride::Bits> harmonyRoleOverride;  // bits 22-24
+            // 7 bits left
         } _data1;
     };
 

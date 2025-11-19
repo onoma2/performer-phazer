@@ -30,6 +30,7 @@ Types::LayerRange NoteSequence::layerRange(Layer layer) {
         return { 0, 1 };
     CASE(PulseCount)
     CASE(GateMode)
+    CASE(HarmonyRoleOverride)
     case Layer::Last:
         break;
     }
@@ -76,6 +77,8 @@ int NoteSequence::layerDefaultValue(Layer layer)
         return step.pulseCount();
     case Layer::GateMode:
         return step.gateMode();
+    case Layer::HarmonyRoleOverride:
+        return step.harmonyRoleOverride();
     case Layer::Last:
         break;
     }
@@ -117,6 +120,8 @@ int NoteSequence::Step::layerValue(Layer layer) const {
         return pulseCount();
     case Layer::GateMode:
         return gateMode();
+    case Layer::HarmonyRoleOverride:
+        return harmonyRoleOverride();
     case Layer::Last:
         break;
     }
@@ -173,6 +178,9 @@ void NoteSequence::Step::setLayerValue(Layer layer, int value) {
         break;
     case Layer::GateMode:
         setGateMode(value);
+        break;
+    case Layer::HarmonyRoleOverride:
+        setHarmonyRoleOverride(value);
         break;
     case Layer::Last:
         break;

@@ -197,6 +197,23 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
             canvas.drawText(x + (stepWidth - canvas.textWidth(str) + 1) / 2, y + 20, str);
             break;
         }
+        case Layer::HarmonyRoleOverride: {
+            // Display harmony role override as abbreviation
+            canvas.setColor(Color::Bright);
+            const char* harmonyStr;
+            switch (step.harmonyRoleOverride()) {
+            case 0: harmonyStr = "SEQ"; break;
+            case 1: harmonyStr = "ROOT"; break;
+            case 2: harmonyStr = "3RD"; break;
+            case 3: harmonyStr = "5TH"; break;
+            case 4: harmonyStr = "7TH"; break;
+            case 5: harmonyStr = "OFF"; break;
+            default: harmonyStr = "SEQ"; break;
+            }
+            FixedStringBuilder<8> str("%s", harmonyStr);
+            canvas.drawText(x + (stepWidth - canvas.textWidth(str) + 1) / 2, y + 20, str);
+            break;
+        }
         case Layer::Length:
             SequencePainter::drawLength(
                 canvas,
@@ -466,6 +483,9 @@ void NoteSequenceEditPage::encoder(EncoderEvent &event) {
             case Layer::GateMode:
                 step.setGateMode(step.gateMode() + event.value());
                 break;
+            case Layer::HarmonyRoleOverride:
+                step.setHarmonyRoleOverride(step.harmonyRoleOverride() + event.value());
+                break;
             case Layer::Condition:
                 step.setCondition(ModelUtils::adjustedEnum(step.condition(), event.value()));
                 break;
@@ -594,6 +614,9 @@ void NoteSequenceEditPage::switchLayer(int functionKey, bool shift) {
             setLayer(Layer::AccumulatorTrigger);
             break;
         case Layer::AccumulatorTrigger:
+            setLayer(Layer::HarmonyRoleOverride);
+            break;
+        case Layer::HarmonyRoleOverride:
             setLayer(Layer::Note);
             break;
         default:
@@ -630,6 +653,7 @@ int NoteSequenceEditPage::activeFunctionKey() {
     case Layer::Condition:
         return 4;
     case Layer::AccumulatorTrigger:
+    case Layer::HarmonyRoleOverride:
         return 3; // Same as Note button
     case Layer::Last:
         break;
@@ -737,6 +761,23 @@ void NoteSequenceEditPage::drawDetail(Canvas &canvas, const NoteSequence::Step &
         }
         str.reset();
         str("%s", modeName);
+        canvas.setFont(Font::Small);
+        canvas.drawTextCentered(64 + 32, 16, 64, 32, str);
+        break;
+    }
+    case Layer::HarmonyRoleOverride: {
+        const char* harmonyName;
+        switch (step.harmonyRoleOverride()) {
+        case 0: harmonyName = "SEQ"; break;
+        case 1: harmonyName = "ROOT"; break;
+        case 2: harmonyName = "3RD"; break;
+        case 3: harmonyName = "5TH"; break;
+        case 4: harmonyName = "7TH"; break;
+        case 5: harmonyName = "OFF"; break;
+        default: harmonyName = "SEQ"; break;
+        }
+        str.reset();
+        str("%s", harmonyName);
         canvas.setFont(Font::Small);
         canvas.drawTextCentered(64 + 32, 16, 64, 32, str);
         break;
