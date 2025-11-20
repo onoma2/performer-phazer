@@ -148,7 +148,95 @@ Tuesday track in Overview shows algorithm name instead of scale/sequence info.
 
 ### Why "Tuesday"
 
-The name likely references the **Tuesday** generative music generator or similar algorithmic composition tools. It evokes the spirit of controlled randomness and emergent musical structures.
+The name references the **Tuesday** Eurorack module - a generative algorithmic sequencer that produces tightly coupled gate+pitch pairs using various musical algorithms.
+
+---
+
+## Algorithm Catalog
+
+### Original Tuesday Algorithms (from source code)
+
+| # | Enum | Name | Type | State Structure | Description |
+|---|------|------|------|-----------------|-------------|
+| 0 | ALGO_TESTS | **TEST** | Utility | Mode, Note, Velocity | Calibration/test patterns (oct sweeps, min/max) |
+| 1 | ALGO_TRITRANCE | **TRITRANCE** | Melodic | Generic | German-style minimal melodies |
+| 2 | ALGO_STOMPER | **STOMPER** | Rhythmic | LastMode, CountDown, LowNote, HighNote[2] | Fishy patterns with slides, 14 actions |
+| 3 | ALGO_MARKOV | **MARKOV** | Melodic | NoteHistory1/3, matrix[8][8][2] | 3rd-order Markov chain transitions |
+| 4 | ALGO_WOBBLE | **WOBBLE** | Smooth | Phase, PhaseSpeed (×2), LastWasHigh | Dual LFO wobble patterns |
+| 5 | ALGO_CHIPARP1 | **CHIPARP1** | Arpeggio | R, ChordSeed, Base, Dir | Chip-tune arpeggio style 1 |
+| 6 | ALGO_CHIPARP2 | **CHIPARP2** | Arpeggio | R, ChordSeed, len, offset, etc. | Chip-tune arpeggio style 2 |
+| 7 | ALGO_SNH | **SNH** | Random | Phase, LastVal, Target, Current, Filter | Sample & Hold with slew |
+| 8 | ALGO_SAIKO_CLASSIC | **SAIKO** | Classic | Generic | Classic Saiko patterns reimagined |
+| 9 | ALGO_SAIKO_LEAD | **SAIKOLEAD** | Lead | Generic | Saiko lead patterns |
+| 10 | ALGO_SCALEWALKER | **SCALEWALK** | Melodic | R, WalkLen, Current | Sequential scale degree walking |
+| 11 | ALGO_TOOEASY | **TOOEASY** | Simple | R, WalkLen, Current, Pattern[16] | Simple pre-made patterns |
+| 12 | ALGO_RANDOM | **RANDOM** | Chaotic | (none) | Pure random notes |
+
+### New Algorithms (from ALGO-RESEARCH)
+
+| # | Name | Type | State Structure | Description |
+|---|------|------|-----------------|-------------|
+| 13 | **CELLAUTO** | Chaotic | cells[16], rule, generation | Cellular automata (Wolfram rules) |
+| 14 | **CHAOS** | Chaotic | x, r, threshold (floats) | Logistic map chaos |
+| 15 | **FRACTAL** | Chaotic | zoom, offset, depth (floats) | Mandelbrot-style patterns |
+| 16 | **WAVE** | Smooth | phase1/2/3, freq1/2/3 (floats) | Triple wave interference |
+| 17 | **DNA** | Evolving | genome[16], mutation_rate | Genetic mutation/crossover |
+| 18 | **TURING** | Stateful | tape[32], head, state, rules | Turing machine sequencer |
+| 19 | **PARTICLE** | Physics | particles[8] (floats) | Bouncing particle system |
+| 20 | **NEURAL** | Adaptive | neurons[16], weights[16][16] | Neural network with learning |
+| 21 | **QUANTUM** | Probabilistic | probability_map[16][8] | Quantum wave collapse |
+| 22 | **LSYSTEM** | Generative | axiom, rules, string | L-System string rewriting |
+
+### MVP Algorithm Set (6 algorithms)
+
+| Priority | # | Name | Complexity | Why Include |
+|----------|---|------|------------|-------------|
+| **1** | 12 | RANDOM | Very Easy | Baseline test, no state needed |
+| **2** | 10 | SCALEWALK | Easy | Simple state, predictable output |
+| **3** | 7 | SNH | Easy | Classic S&H behavior, useful |
+| **4** | 11 | TOOEASY | Easy | Pre-made patterns, immediate results |
+| **5** | 3 | MARKOV | Medium | Classic Tuesday, intelligent transitions |
+| **6** | 2 | STOMPER | Medium | Rhythmic variety, slides, 14 actions |
+
+### Deferred Algorithms (Post-MVP)
+
+| # | Name | Reason |
+|---|------|--------|
+| 0 | TEST | Utility/calibration only |
+| 1 | TRITRANCE | Need implementation analysis |
+| 4 | WOBBLE | Dual phase LFOs, moderate complexity |
+| 5-6 | CHIPARP1/2 | Chord awareness, arpeggiator logic |
+| 8-9 | SAIKO | Need implementation analysis |
+| 13 | CELLAUTO | Integer math but complex rules |
+| 14-22 | New algos | Float math, complex state structures |
+
+### Implementation Order
+
+1. **RANDOM** - No state, pure random, perfect for initial testing
+2. **SCALEWALK** - Minimal state (position), deterministic behavior
+3. **SNH** - Phase accumulator + slew, classic modular behavior
+4. **TOOEASY** - Pre-generated pattern playback
+5. **MARKOV** - Matrix-based transitions, well-documented
+6. **STOMPER** - State machine with 14 actions, adds rhythmic variety
+
+### Algorithm Source Files
+
+Original Tuesday source code location: `ALGO-RESEARCH/Tuesday/Sources/`
+
+| File | Algorithm |
+|------|-----------|
+| `Algo_Markov.h` | MARKOV implementation |
+| `Algo_Stomper.h` | STOMPER implementation |
+| `Algo_ScaleWalker.h` | SCALEWALK implementation |
+| `Algo_SNH.h` | SNH implementation |
+| `Algo_TooEasy.h` | TOOEASY implementation |
+| `Algo_Wobble.h` | WOBBLE implementation |
+| `Algo_ChipArps.h` | CHIPARP1/2 implementations |
+| `Algo_TriTrance.h` | TRITRANCE implementation |
+| `Algo_SaikoSet.h` | SAIKO implementations |
+| `Algo_Test.h` | TEST implementation |
+| `Algo.h` | Common structures and enum |
+| `Algo.c` | Utility functions |
 
 ---
 
