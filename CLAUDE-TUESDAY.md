@@ -60,19 +60,18 @@ Unlike NoteTrack which uses step buttons (S1-S16) to select steps for editing, T
 │ T1  TUESDAY                              120.0 BPM  ▶ P01  │
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
-│            ╔═══════════════════════════╗                   │
-│            ║       M A R K O V         ║                   │
-│            ╚═══════════════════════════╝                   │
 │                                                            │
-│   FLOW      ORNAMENT   INTENSITY   LOOP                    │
-│   ████░░░   ███░░░░░   ██████░░░   16                      │
-│   [127]     [ 85]      [200]       steps                   │
+│  MARKOV     127        85         200        16            │
+│  ████░░░    ████░░░    ███░░░░    ██████░    steps         │
+│                                                            │
+│                                                            │
 │                                                            │
 ├────────────────────────────────────────────────────────────┤
 │  ALGO       FLOW       ORN        INTEN      LOOP          │
-│   F1         F2         F3         F4         F5           │
 └────────────────────────────────────────────────────────────┘
 ```
+
+All 5 parameters displayed uniformly - value above, bar graph below, F-button label at bottom. Algorithm name (MARKOV) is just another parameter value.
 
 **Interaction Flow:**
 
@@ -104,20 +103,18 @@ Unlike NoteTrack which uses step buttons (S1-S16) to select steps for editing, T
 │ T1  TUESDAY                              120.0 BPM  ▶ P01  │
 ├────────────────────────────────────────────────────────────┤
 │                                              ┌──────────┐  │
-│            ╔═══════════════════════════╗     │ ●  C4    │  │
-│            ║      S T O M P E R        ║     │ CV: 2.1V │  │
-│            ╚═══════════════════════════╝     │ GT: HIGH │  │
+│                                              │ ●  C4    │  │
+│  STOMPER    255        50         230        │ CV: 2.1V │  │
+│  ████████   ████████   ██░░░░░    █████████  │ GT: HIGH │  │
 │                                              └──────────┘  │
-│   FLOW      ORNAMENT   INTENSITY   LOOP                    │
-│   ████████  ██░░░░░░   █████████   ∞                       │
-│   [255]     [ 50]      [230]       inf                     │
+│                                                            │
 │                                                            │
 ├────────────────────────────────────────────────────────────┤
 │ >ALGO       FLOW       ORN        INTEN      LOOP          │
 └────────────────────────────────────────────────────────────┘
 ```
 
-The `>` indicator shows currently selected parameter. The activity box shows:
+The `>` indicator shows currently selected parameter. Activity box (top-right) shows:
 - Current note (C4)
 - CV output voltage
 - Gate state (HIGH/LOW)
@@ -126,11 +123,11 @@ The `>` indicator shows currently selected parameter. The activity box shows:
 
 | Aspect | NoteTrack | Tuesday Track |
 |--------|-----------|---------------|
-| Main display | 16 step grid with notes | Algorithm name + parameter bars |
+| Main display | 16 step grid with notes | 5 parameter columns with values + bars |
 | F1-F5 | Gate/Retrig/Length/Note/Cond layers | ALGO/FLOW/ORN/INTEN/LOOP params |
 | S1-S16 | Select/toggle steps | Not used (no steps) |
 | Encoder | Edit selected step value | Edit selected parameter |
-| Visual focus | Step data | Parameter knobs + output monitor |
+| Visual focus | Step data | Parameter values + output monitor |
 
 **Track Selection View (OverviewPage):**
 
