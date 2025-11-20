@@ -126,7 +126,8 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
         }
 
         // accumulator trigger indicator (top-right corner dot)
-        if (step.isAccumulatorTrigger()) {
+        // Don't show on AccumulatorTrigger layer as it already shows filled squares
+        if (step.isAccumulatorTrigger() && layer() != Layer::AccumulatorTrigger) {
             canvas.setColor(step.gate() ? Color::None : Color::Bright);
             canvas.point(x + stepWidth - 5, y + 4);
         }
