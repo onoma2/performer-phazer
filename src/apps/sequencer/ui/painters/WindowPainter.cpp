@@ -118,8 +118,8 @@ void WindowPainter::drawAccumulatorValue(Canvas &canvas, int value, bool enabled
     canvas.setFont(Font::Small);
     canvas.setBlendMode(BlendMode::Set);
     canvas.setColor(Color::Medium);
-    // Position in footer area, to the right of NOTE (F4)
-    canvas.drawText(210, PageHeight - 3, FixedStringBuilder<8>("%+d", value));
+    // Position in header, aligned with step 12
+    canvas.drawText(176, 8 - 2, FixedStringBuilder<8>("%+d", value));
 }
 
 void WindowPainter::drawHeader(Canvas &canvas, const Model &model, const Engine &engine, const char *mode) {
