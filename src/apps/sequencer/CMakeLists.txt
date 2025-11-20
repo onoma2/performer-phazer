@@ -40,6 +40,7 @@ set(sources
     model/ModelUtils.cpp
     model/NoteSequence.cpp
     model/NoteTrack.cpp
+    model/TuesdayTrack.cpp
     model/PlayState.cpp
     model/Project.cpp
     model/Routing.cpp
