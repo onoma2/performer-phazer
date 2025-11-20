@@ -74,10 +74,14 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "STEPS");
     WindowPainter::drawActiveFunction(canvas, NoteSequence::layerName(layer()));
-    WindowPainter::drawFooter(canvas, functionNames, pageKeyState(), activeFunctionKey());
 
     const auto &trackEngine = _engine.selectedTrackEngine().as<NoteTrackEngine>();
     const auto &sequence = _project.selectedNoteSequence();
+
+    // Show accumulator value in header when enabled
+    WindowPainter::drawAccumulatorValue(canvas, sequence.accumulator().currentValue(), sequence.accumulator().enabled());
+
+    WindowPainter::drawFooter(canvas, functionNames, pageKeyState(), activeFunctionKey());
     const auto &scale = sequence.selectedScale(_project.scale());
     int currentStep = trackEngine.isActiveSequence(sequence) ? trackEngine.currentStep() : -1;
     int currentRecordStep = trackEngine.isActiveSequence(sequence) ? trackEngine.currentRecordStep() : -1;
@@ -121,6 +125,12 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
             canvas.fillRect(x + 4, y + 4, stepWidth - 8, stepWidth - 8);
         }
 
+        // accumulator trigger indicator (top-right corner dot)
+        if (step.isAccumulatorTrigger()) {
+            canvas.setColor(step.gate() ? Color::None : Color::Bright);
+            canvas.point(x + stepWidth - 5, y + 4);
+        }
+
         // record step
         if (stepIndex == currentRecordStep) {
             // draw circle
@@ -137,15 +147,7 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
         case Layer::Gate:
             break;
         case Layer::AccumulatorTrigger:
-            // Draw outline with playhead highlighting (like Gate layer)
-            canvas.setColor(stepIndex == currentStep ? Color::Bright : Color::Medium);
-            canvas.drawRect(x + 2, y + 2, stepWidth - 4, stepWidth - 4);
-
-            // Fill inner square if trigger enabled
-            if (step.isAccumulatorTrigger()) {
-                canvas.setColor(Color::Bright);
-                canvas.fillRect(x + 4, y + 4, stepWidth - 8, stepWidth - 8);
-            }
+            // Inherits gate squares, corner dot shows which steps have accum trigger
             break;
         case Layer::GateProbability:
             SequencePainter::drawProbability(

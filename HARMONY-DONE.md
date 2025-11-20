@@ -2,11 +2,15 @@
 
 **Date Started**: 2025-11-18
 **Date Completed**: 2025-11-20
-**Status**: ✅ **HARMONY FEATURE WITH PER-STEP OVERRIDES COMPLETE**
+**Status**: ✅ **HARMONY FEATURE FULLY COMPLETE - INVERSION & VOICING IMPLEMENTED**
 **Approach Used**: **Option B - Direct Integration**
 **Time Taken**: ~3 days
 
-**Latest Update (2025-11-20)**: Added per-step inversion/voicing overrides for Master tracks
+**Latest Update (2025-11-20)**:
+- Implemented inversion transformation algorithms (all 4 inversions working)
+- Implemented voicing transformation algorithms (Drop2, Drop3, Spread)
+- Fixed critical bug: sequence-level inversion/voicing now reads from master track
+- Added 41 new unit tests for inversion and voicing
 
 ---
 
@@ -45,8 +49,8 @@ Direct integration into `NoteTrackEngine::evalStepNote()` (NOT separate HarmonyT
 - Diatonic chord quality detection (Major7, Minor7, Dominant7, HalfDim7)
 - 4-voice chord generation (root, 3rd, 5th, 7th)
 - Transpose parameter (-24 to +24 semitones)
-- Inversion infrastructure (0-3, UI + storage + per-step overrides complete, ⚠️ transformation algorithms placeholders)
-- Voicing infrastructure (Close, Drop2, Drop3, Spread - UI + storage + per-step overrides complete, ⚠️ transformation algorithms placeholders)
+- Inversion (0-3) - FULLY IMPLEMENTED with transformation algorithms
+- Voicing (Close, Drop2, Drop3, Spread) - FULLY IMPLEMENTED with transformation algorithms
 
 **Test Coverage**: 13 passing unit tests
 - Scale interval lookups (7 modes)
@@ -441,28 +445,33 @@ Master tracks can define per-step inversion and voicing overrides that control h
 
 ---
 
-## What's NOT Implemented (Phase 3+)
+## What's NOW Implemented (Phase 2 Complete - 2025-11-20)
 
-These features from the original plan are **not yet implemented** but could be added incrementally:
+### Inversion & Voicing - FULLY IMPLEMENTED ✅
+- ✅ Inversion parameter (0-3) - transformation algorithms implemented
+- ✅ Voicing parameter (Close/Drop2/Drop3/Spread) - transformation algorithms implemented
+- ✅ Per-step inversion/voicing overrides from master track
+- ✅ Sequence-level inversion/voicing from master track
+- ✅ Bug fix: Now correctly reads from masterSequence (not follower sequence)
 
-### Inversion & Voicing Transformation Algorithms
-- ✅ Inversion parameter (0-3) exposed in UI (UI + storage complete)
-- ✅ Voicing parameter (Close/Drop2/Drop3/Spread) exposed in UI (UI + storage complete)
-- ✅ Per-step inversion/voicing override (UI + storage + engine reading complete)
-- ⚠️ Inversion transformation logic in HarmonyEngine::harmonize() - placeholder only
-- ⚠️ Voicing transformation logic in HarmonyEngine::harmonize() - placeholder only
+**Inversion Algorithm** (applyInversion in HarmonyEngine.cpp):
+- Root position (0): No change - root is bass
+- 1st inversion (1): Root +12 - third is bass
+- 2nd inversion (2): Root +12, third +12 - fifth is bass
+- 3rd inversion (3): Root +12, third +12, fifth +12 - seventh is bass
 
-**Status**: Full infrastructure complete (parameters, UI, serialization, engine wiring, per-step overrides), but transformation algorithms need implementation.
+**Voicing Algorithm** (applyVoicing in HarmonyEngine.cpp):
+- Close (0): No change - all notes within octave
+- Drop2 (1): 2nd highest note drops -12 semitones
+- Drop3 (2): 3rd highest note drops -12 semitones
+- Spread (3): 3rd, 5th, 7th all move +12 semitones (root stays bass)
 
-**Current Observed Behavior (Hardware Testing)**:
-- **Per-step inversion**: Has some harmonic effect (values influence harmonization)
-- **Per-step voicing**: No audible effect
-- **Sequence-level inversion**: No effect
-- **Sequence-level voicing**: No effect
+**Test Coverage**:
+- TestHarmonyVoicing.cpp: 17 tests for voicing algorithms
+- TestHarmonyInversionIssue.cpp: 24 tests for inversion investigation
+- TestHarmonyInversionBug.cpp: 10 tests demonstrating the fixed bug
 
-The per-step inversion parameter appears to influence the harmonization in some way, while voicing and global parameters have no effect. Full transformation algorithms need implementation.
-
-**Effort to add**: ~2-3 hours to implement actual transformation algorithms.
+## What's NOT Implemented (Future Enhancements)
 
 ### Advanced Features (Phase 3-5)
 - ❌ Manual chord quality selection (currently auto-diatonic only)

@@ -111,6 +111,17 @@ void WindowPainter::drawActiveFunction(Canvas &canvas, const char *function) {
     canvas.drawText(100, 8 - 2, function);
 }
 
+void WindowPainter::drawAccumulatorValue(Canvas &canvas, int value, bool enabled) {
+    if (!enabled) {
+        return;
+    }
+    canvas.setFont(Font::Tiny);
+    canvas.setBlendMode(BlendMode::Set);
+    canvas.setColor(Color::Medium);
+    // Position in header, aligned with step 12
+    canvas.drawText(176, 8 - 2, FixedStringBuilder<8>("%+d", value));
+}
+
 void WindowPainter::drawHeader(Canvas &canvas, const Model &model, const Engine &engine, const char *mode) {
     const auto &project = model.project();
     int track = project.selectedTrackIndex();

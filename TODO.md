@@ -1,5 +1,120 @@
 # TODO - PEW|FORMER Development
 
+## Completed Features
+
+### ✅ Harmony Feature (Phase 2 Complete - 2025-11-20)
+
+**Implementation Complete:**
+- Master/follower track relationships for harmonic sequencing
+- 7 Ionian modes (Ionian through Locrian)
+- 4-voice chord generation (Root, 3rd, 5th, 7th)
+- Inversion algorithm (Root, 1st, 2nd, 3rd inversions) - FULLY IMPLEMENTED
+- Voicing algorithm (Close, Drop2, Drop3, Spread) - FULLY IMPLEMENTED
+- Per-step inversion/voicing overrides for master tracks
+- HarmonyPage UI for role/master/scale selection
+
+**Test Coverage:**
+- TestHarmonyEngine.cpp - Core harmonization tests
+- TestHarmonyIntegration.cpp - Model coordination tests
+- TestHarmonyVoicing.cpp - 17 voicing algorithm tests
+- TestHarmonyInversionIssue.cpp - 24 inversion investigation tests
+- TestHarmonyInversionBug.cpp - 10 bug demonstration tests
+
+**Bug Fixes:**
+- Fixed sequence-level inversion reading from follower instead of master (NoteTrackEngine.cpp lines 118-119)
+
+**Key Files:**
+- `src/apps/sequencer/model/HarmonyEngine.h/cpp`
+- `src/apps/sequencer/engine/NoteTrackEngine.cpp`
+- `src/apps/sequencer/ui/pages/HarmonyPage.h/cpp`
+- `src/apps/sequencer/ui/model/HarmonyListModel.h`
+
+---
+
+### ✅ Accumulator UI Enhancements (2025-11-20)
+
+**Implementation Complete:**
+- Counter display in header (x=176, aligned with step 12)
+  - Font::Tiny to match step numbers
+  - Color::Medium for subtle display
+  - Format: "+5", "-12", "+0"
+  - Visible on all Note track pages when enabled
+- Corner dot indicator for accumulator-triggered steps
+  - Top-right corner position
+  - Contrasting colors (black when gate on, bright when gate off)
+  - Visible across all pages and layers
+  - AccumulatorTrigger layer inherits gate squares, shows corner dots only
+
+**Key Files:**
+- `src/apps/sequencer/ui/painters/WindowPainter.h/cpp` - drawAccumulatorValue()
+- `src/apps/sequencer/ui/pages/NoteSequenceEditPage.cpp` - Corner dot rendering
+
+---
+
+## Future Issues / Improvements
+
+### 🔧 Issue #1: Inversion/Voicing Parameter Naming
+
+**Problem**: Naming of inversions and voicing may not be consistent across all UI pages.
+
+**Tasks:**
+- [ ] Audit all UI pages for inversion/voicing parameter display
+- [ ] Ensure consistent naming (ROOT/1ST/2ND/3RD for inversions, CLOSE/DROP2/DROP3/SPREAD for voicings)
+- [ ] Verify abbreviations match across HarmonyPage and per-step override layers
+
+---
+
+### 🔧 Issue #2: Pitch Output Verification for Harmony Tracks
+
+**Problem**: Hard to verify actual pitch output on hardware with analog oscillators.
+
+**Tasks:**
+- [ ] Create test patches with known note values
+- [ ] Document expected CV voltages for each chord voice
+- [ ] Add debug mode or MIDI output to verify actual pitch values
+- [ ] Create hardware test cases for full pitch flow: base note → harmony → inversion → voicing → accumulator → output
+
+---
+
+### 🔧 Issue #3: Additional Harmony Modes
+
+**Problem**: Only Ionian modes implemented; original intention included more scales.
+
+**Tasks:**
+- [ ] Add Harmonic Minor modes
+- [ ] Add Melodic Minor modes
+- [ ] Consider adding blues scale, pentatonic variations
+- [ ] Update HarmonyEngine lookup tables for new scales
+- [ ] Update UI to display additional scale options
+
+---
+
+### 🔧 Issue #4: Extended Chord Tones (9th, 11th, 13th)
+
+**Problem**: Currently limited to 4-voice chords (Root, 3rd, 5th, 7th).
+
+**Tasks:**
+- [ ] Extend HarmonyRole enum to include Follower9th, Follower11th, Follower13th
+- [ ] Update HarmonyEngine::harmonize() to calculate extended intervals
+- [ ] Consider octave placement for extended tones
+- [ ] Update UI to allow selection of extended chord roles
+- [ ] Test voicing algorithms with 7-voice chords
+
+---
+
+### 🔧 Issue #5: Bright Square Size in Step Display
+
+**Problem**: The filled square size for gate-on steps seems slightly off.
+
+**Tasks:**
+- [ ] Review step drawing code in NoteSequenceEditPage.cpp
+- [ ] Compare outline rect (x+2, stepWidth-4) vs fill rect (x+4, stepWidth-8)
+- [ ] Verify 2px gap between outline and fill is intentional
+- [ ] Test on hardware OLED to confirm visual appearance
+- [ ] Adjust dimensions if needed for better visual balance
+
+---
+
 ## Active Tasks
 
 ### ✅ BUG FIX COMPLETE: Accumulator Serialization (Phases 1-2 Complete, Hardware Tested)
