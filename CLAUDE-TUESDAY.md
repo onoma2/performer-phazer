@@ -29,10 +29,12 @@ The 5 parameters are intentionally **high-level musical controls** rather than t
 | Parameter | Range | Musical Meaning |
 |-----------|-------|-----------------|
 | **Algorithm** | 0-31 | The "personality" - MARKOV (probabilistic), STOMPER (rhythmic), SCALEWALK (melodic), etc. |
-| **Flow** | 1-16 | How the sequence moves - smooth vs. jumpy, predictable vs. chaotic |
-| **Ornament** | 1-16 | Embellishments and fills - sparse vs. decorated |
-| **Intensity** | 1-16 | Activity/density - sparse gates vs. busy patterns |
+| **Flow** | 0-16 | How the sequence moves - 0=static, 16=chaotic |
+| **Ornament** | 0-16 | Embellishments and fills - 0=none, 16=heavily decorated |
+| **Power** | 0-16 | Activity/density - 0=silent, 16=maximum gates |
 | **LoopLength** | Inf, 1-16, 19, 21, 24, 32, 35, 42, 48, 64 | Pattern length (Inf = evolving/non-repeating) |
+
+**Default = 0**: All parameters default to 0, producing silence. Increase values to add activity.
 
 ### Why F0-F4 + Encoder Control
 
@@ -60,18 +62,17 @@ Unlike NoteTrack which uses step buttons (S1-S16) to select steps for editing, T
 │ T1  TUESDAY                              120.0 BPM  ▶ P01  │
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
-│                                                            │
 │  MARKOV       8          5         12         16           │
-│                                                            │
+│             ████░░░░   ███░░░░░   ████████░               │
 │                                                            │
 │                                                            │
 │                                                            │
 ├────────────────────────────────────────────────────────────┤
-│  ALGO       FLOW       ORN        INTEN      LOOP          │
+│  ALGO       FLOW       ORN        POWER      LOOP          │
 └────────────────────────────────────────────────────────────┘
 ```
 
-All 5 parameters displayed uniformly - value above F-button label. No bar graphs needed since ranges are small (1-16).
+Algorithm shows name only. Flow/Ornament/Power show value + bar graph. Loop shows value only.
 
 **Interaction Flow:**
 
@@ -79,16 +80,16 @@ All 5 parameters displayed uniformly - value above F-button label. No bar graphs
    - Turn encoder → Cycle through: MARKOV → STOMPER → SCALEWALK → WOBBLE → ...
 
 2. **Press F2** → Select FLOW parameter
-   - Turn encoder → Adjust 1-16
-   - Affects how sequence progresses
+   - Turn encoder → Adjust 0-16
+   - Bar graph updates in real-time
 
 3. **Press F3** → Select ORN (Ornament) parameter
-   - Turn encoder → Adjust 1-16
-   - Controls embellishments/fills
+   - Turn encoder → Adjust 0-16
+   - Bar graph updates in real-time
 
-4. **Press F4** → Select INTEN (Intensity) parameter
-   - Turn encoder → Adjust 1-16
-   - Controls gate density/activity
+4. **Press F4** → Select POWER parameter
+   - Turn encoder → Adjust 0-16
+   - Bar graph updates in real-time
 
 5. **Press F5** → Select LOOP parameter
    - Turn encoder → Cycle: Inf, 1-16, 19, 21, 24, 32, 35, 42, 48, 64
@@ -101,14 +102,13 @@ All 5 parameters displayed uniformly - value above F-button label. No bar graphs
 │ T1  TUESDAY                              120.0 BPM  ▶ P01  │
 ├────────────────────────────────────────────────────────────┤
 │                                              ┌──────────┐  │
-│                                              │ ●  C4    │  │
-│  STOMPER      16         3         14        │ CV: 2.1V │  │
+│  STOMPER      16         3         14        │ ●  C4    │  │
+│             ████████   ██░░░░░░   █████████  │ CV: 2.1V │  │
 │                                        Inf   │ GT: HIGH │  │
 │                                              └──────────┘  │
 │                                                            │
-│                                                            │
 ├────────────────────────────────────────────────────────────┤
-│ >ALGO       FLOW       ORN        INTEN      LOOP          │
+│ >ALGO       FLOW       ORN        POWER      LOOP          │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -122,7 +122,7 @@ The `>` indicator shows currently selected parameter. Activity box (top-right) s
 | Aspect | NoteTrack | Tuesday Track |
 |--------|-----------|---------------|
 | Main display | 16 step grid with notes | 5 parameter columns with values + bars |
-| F1-F5 | Gate/Retrig/Length/Note/Cond layers | ALGO/FLOW/ORN/INTEN/LOOP params |
+| F1-F5 | Gate/Retrig/Length/Note/Cond layers | ALGO/FLOW/ORN/POWER/LOOP params |
 | S1-S16 | Select/toggle steps | Not used (no steps) |
 | Encoder | Edit selected step value | Edit selected parameter |
 | Visual focus | Step data | Parameter values + output monitor |
@@ -269,8 +269,8 @@ public:
     uint8_t ornament() const { return _ornament; }
     void setOrnament(uint8_t) {}
 
-    uint8_t intensity() const { return _intensity; }
-    void setIntensity(uint8_t) {}
+    uint8_t power() const { return _power; }
+    void setPower(uint8_t) {}
 
     uint8_t loopLength() const { return _loopLength; }
     void setLoopLength(uint8_t) {}
@@ -284,9 +284,9 @@ private:
 
     int8_t _trackIndex = -1;
     uint8_t _algorithm = 0;
-    uint8_t _flow = 8;        // 1-16, default middle
-    uint8_t _ornament = 8;    // 1-16, default middle
-    uint8_t _intensity = 8;   // 1-16, default middle
+    uint8_t _flow = 0;        // 0-16, default silent
+    uint8_t _ornament = 0;    // 0-16, default none
+    uint8_t _power = 0;       // 0-16, default silent
     uint8_t _loopLength = 16; // Inf, 1-16, 19, 21, 24, 32, 35, 42, 48, 64
 
     friend class Track;
@@ -299,9 +299,9 @@ private:
 
 void TuesdayTrack::clear() {
     _algorithm = 0;
-    _flow = 8;
-    _ornament = 8;
-    _intensity = 8;
+    _flow = 0;
+    _ornament = 0;
+    _power = 0;
     _loopLength = 16;
 }
 
@@ -309,7 +309,7 @@ void TuesdayTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_algorithm);
     writer.write(_flow);
     writer.write(_ornament);
-    writer.write(_intensity);
+    writer.write(_power);
     writer.write(_loopLength);
 }
 
@@ -317,7 +317,7 @@ void TuesdayTrack::read(VersionedSerializedReader &reader) {
     reader.read(_algorithm);
     reader.read(_flow);
     reader.read(_ornament);
-    reader.read(_intensity);
+    reader.read(_power);
     reader.read(_loopLength);
 }
 ```
@@ -476,9 +476,9 @@ UNIT_TEST("TuesdayTrack") {
 CASE("default_values") {
     TuesdayTrack track;
     expectEqual(track.algorithm(), 0, "default algorithm should be 0");
-    expectEqual(track.flow(), 8, "default flow should be 8");
-    expectEqual(track.ornament(), 8, "default ornament should be 8");
-    expectEqual(track.intensity(), 8, "default intensity should be 8");
+    expectEqual(track.flow(), 0, "default flow should be 0");
+    expectEqual(track.ornament(), 0, "default ornament should be 0");
+    expectEqual(track.power(), 0, "default power should be 0");
     expectEqual(track.loopLength(), 16, "default loopLength should be 16");
 }
 
