@@ -675,25 +675,27 @@ Master tracks can define per-step inversion and voicing overrides that affect ho
 - Read in `evalStepNote()` from master step when harmonizing followers
 - Values passed to local HarmonyEngine with per-step overrides
 
-**Note**: The per-step override infrastructure is complete and values are passed to HarmonyEngine. However, HarmonyEngine::harmonize() transformation algorithms for inversion/voicing are not yet fully implemented (see "What's NOT Implemented" below).
+### Inversion Algorithm (applyInversion in HarmonyEngine.cpp)
 
-### Current Observed Behavior (Hardware Testing)
+All 4 inversions are **fully implemented** (as of 2025-11-20):
+- **Root position (0)**: No change - root is bass
+- **1st inversion (1)**: Root moves up octave (+12) - third becomes bass
+- **2nd inversion (2)**: Root and third move up (+12) - fifth becomes bass
+- **3rd inversion (3)**: Root, third, fifth move up (+12) - seventh becomes bass
 
-- **Per-step inversion**: Has some harmonic effect (values influence harmonization)
-- **Per-step voicing**: No audible effect
-- **Sequence-level inversion**: No effect
-- **Sequence-level voicing**: No effect
+### Voicing Algorithm (applyVoicing in HarmonyEngine.cpp)
 
-The per-step inversion parameter appears to influence the harmonization in some way, while voicing and global parameters have no effect. Full transformation algorithms need implementation.
+All 4 voicings are **fully implemented** using pitch-order ranking:
+- **Close (0)**: No change - notes stay in close position
+- **Drop2 (1)**: 2nd highest note drops down an octave (-12)
+- **Drop3 (2)**: 3rd highest note drops down an octave (-12)
+- **Spread (3)**: 3rd, 5th, 7th all move up an octave (+12), root stays as bass
 
 ### What's NOT Implemented (Optional)
 
 These features from the original plan are not yet implemented but could be added:
-- ⚠️ Inversion/Voicing transformation algorithms in HarmonyEngine::harmonize() - values are stored and passed but transformations not applied
 - ❌ Manual chord quality selection (currently auto-diatonic)
 - ❌ Additional scales (Harmonic Minor, Melodic Minor, etc.)
-
-**Note**: Sequence-level and per-step inversion/voicing parameters exist in UI and are stored/passed to HarmonyEngine, but `HarmonyEngine::harmonize()` does not yet apply the transformations - placeholder algorithms only. Current behavior: always outputs root position close voicing regardless of parameter settings. The infrastructure is in place for future implementation.
 
 ### Key Files
 
@@ -714,6 +716,9 @@ These features from the original plan are not yet implemented but could be added
 **Tests:**
 - `src/tests/unit/sequencer/TestHarmonyEngine.cpp` - HarmonyEngine unit tests
 - `src/tests/unit/sequencer/TestHarmonyIntegration.cpp` - Integration tests
+- `src/tests/unit/sequencer/TestHarmonyVoicing.cpp` - Voicing algorithm tests (17 tests)
+- `src/tests/unit/sequencer/TestHarmonyInversionIssue.cpp` - Inversion investigation tests (24 tests)
+- `src/tests/unit/sequencer/TestHarmonyInversionBug.cpp` - Bug demonstration tests (10 tests)
 - `src/tests/unit/sequencer/TestModel.cpp` - Model coordination tests
 
 **Documentation:**

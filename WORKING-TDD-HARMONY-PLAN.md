@@ -1,11 +1,11 @@
 # WORKING-TDD-HARMONY-PLAN.md - Phased TDD Implementation Plan
 
 **Date Started**: 2025-11-18
-**Last Updated**: 2025-11-19
-**Status**: 🟢 **PHASE 1 COMPLETE - BASIC HARMONY WORKING**
+**Last Updated**: 2025-11-20
+**Status**: 🟢 **PHASE 2 COMPLETE - INVERSION & VOICING FULLY IMPLEMENTED**
 **Approach Chosen**: ✅ **Option B - Direct Integration** (simplified from Option 4)
 **Original Estimate**: 7-11 weeks (to Phase 3 production-ready)
-**Actual Time**: ~2 days (Phase 1 basic implementation)
+**Actual Time**: ~3 days (Phase 1-2 complete implementation)
 
 ---
 
@@ -34,12 +34,13 @@
 - Synchronized step playback
 - Full UI integration
 
-**Optional Next Steps** (if desired):
-- ✅ Inversion parameter (0-3) - UI + infrastructure complete (commit c6792a6)
-- ✅ Voicing parameter (Close/Drop2/Drop3/Spread) - UI + infrastructure complete (commit c6792a6)
-- ❌ Inversion transformation logic in HarmonyEngine::harmonize() - NOT implemented (~1.5 hours)
-- ❌ Voicing transformation logic in HarmonyEngine::harmonize() - NOT implemented (~1.5 hours)
-- **Status**: Parameters exist and can be set in UI, but transformation algorithms never written (comment placeholders only)
+**Completed (Phase 2 - 2025-11-20)**:
+- ✅ Inversion parameter (0-3) - FULLY IMPLEMENTED with transformation algorithms
+- ✅ Voicing parameter (Close/Drop2/Drop3/Spread) - FULLY IMPLEMENTED with transformation algorithms
+- ✅ Bug fix: Sequence-level inversion/voicing now correctly reads from master track (not follower)
+- ✅ 17 additional unit tests for voicing (TestHarmonyVoicing.cpp)
+- ✅ 24 additional unit tests for inversion investigation (TestHarmonyInversionIssue.cpp)
+- **Status**: All transformation algorithms implemented and tested
 
 ---
 
