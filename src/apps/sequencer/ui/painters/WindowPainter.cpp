@@ -115,7 +115,7 @@ void WindowPainter::drawAccumulatorValue(Canvas &canvas, int value, bool enabled
     if (!enabled) {
         return;
     }
-    canvas.setFont(Font::Small);
+    canvas.setFont(Font::Tiny);
     canvas.setBlendMode(BlendMode::Set);
     canvas.setColor(Color::Medium);
     // Position in header, aligned with step 12
