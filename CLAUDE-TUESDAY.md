@@ -230,16 +230,24 @@ The name references the **Tuesday** Eurorack module - a generative algorithmic s
 | SQUAREPUSH | Run speed | Jazz balance | Articulations |
 | DAFT | Filter resonance | Sweep speed | Disco fills |
 
-### MVP Algorithm Set (6 algorithms)
+### MVP Algorithm Set (8 algorithms)
 
 | Priority | # | Name | Complexity | Why Include |
 |----------|---|------|------------|-------------|
 | **1** | 12 | RANDOM | Very Easy | Baseline test, no state needed |
-| **2** | 10 | SCALEWALK | Easy | Simple state, predictable output |
-| **3** | 7 | SNH | Easy | Classic S&H behavior, useful |
-| **4** | 11 | TOOEASY | Easy | Pre-made patterns, immediate results |
-| **5** | 3 | MARKOV | Medium | Classic Tuesday, intelligent transitions |
-| **6** | 2 | STOMPER | Medium | Rhythmic variety, slides, 14 actions |
+| **2** | 3 | MARKOV | Medium | Classic Tuesday, intelligent melodic transitions |
+| **3** | 2 | STOMPER | Medium | Rhythmic variety, slides, 14 actions |
+| **4** | 26 | ACID | Medium | Recognizable 303-style, slides + accents |
+| **5** | 30 | KRAFTWERK | Easy | Mechanical precision, robotic loops |
+| **6** | 25 | AMBIENT | Easy | Sparse textures, slow evolution |
+| **7** | 23 | TECHNO | Easy | Hypnotic repetition, locked grooves |
+| **8** | 10 | SCALEWALK | Easy | Predictable baseline, testing reference |
+
+**MVP Selection Rationale:**
+- **Classic Tuesday**: RANDOM, MARKOV, STOMPER, SCALEWALK (proven algorithms)
+- **Genre variety**: ACID (house), AMBIENT (drone), TECHNO (minimal)
+- **Artist reference**: KRAFTWERK (mechanical/robotic)
+- **Density spectrum**: AMBIENT (sparse) → TECHNO (medium) → STOMPER (dense)
 
 ### Deferred Algorithms (Post-MVP)
 
@@ -249,18 +257,31 @@ The name references the **Tuesday** Eurorack module - a generative algorithmic s
 | 1 | TRITRANCE | Need implementation analysis |
 | 4 | WOBBLE | Dual phase LFOs, moderate complexity |
 | 5-6 | CHIPARP1/2 | Chord awareness, arpeggiator logic |
+| 7 | SNH | Filter state, slew calculations |
 | 8-9 | SAIKO | Need implementation analysis |
-| 13 | CELLAUTO | Integer math but complex rules |
-| 14-22 | New algos | Float math, complex state structures |
+| 11 | TOOEASY | Pre-made patterns, less interesting |
+| 13-22 | Computational | Float math, complex state structures |
+| 24 | JUNGLE | Complex breakbeat logic |
+| 27 | FUNK | Groove template needed |
+| 28 | DRILL | Triplet math, modern style |
+| 29 | MINIMAL | Timing precision needed |
+| 31 | APHEX | Complex time signatures |
+| 32 | BOARDS | Detune/wobble LFO |
+| 33 | TANGERINE | Filter sweep logic |
+| 34 | AUTECHRE | Complex transformations |
+| 35 | SQUAREPUSH | Jazz theory needed |
+| 36 | DAFT | Filter sweep logic |
 
 ### Implementation Order
 
-1. **RANDOM** - No state, pure random, perfect for initial testing
-2. **SCALEWALK** - Minimal state (position), deterministic behavior
-3. **SNH** - Phase accumulator + slew, classic modular behavior
-4. **TOOEASY** - Pre-generated pattern playback
-5. **MARKOV** - Matrix-based transitions, well-documented
-6. **STOMPER** - State machine with 14 actions, adds rhythmic variety
+1. **RANDOM** - No state, pure random, baseline test
+2. **SCALEWALK** - Minimal state (position), deterministic
+3. **KRAFTWERK** - Simple loop + lock timer, mechanical
+4. **AMBIENT** - Hold timer + drift, sparse output
+5. **TECHNO** - Loop + variation timer, hypnotic
+6. **MARKOV** - Matrix transitions, classic Tuesday
+7. **ACID** - Sequence + slides + accents, 303-style
+8. **STOMPER** - State machine, 14 actions, rhythmic
 
 ### Algorithm Source Files
 
