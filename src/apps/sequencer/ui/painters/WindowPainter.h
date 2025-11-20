@@ -22,6 +22,7 @@ public:
     static void drawActiveState(Canvas &canvas, int track, int playPattern, int editPattern, bool snapshotActive, bool songActive);
     static void drawActiveMode(Canvas &canvas, const char *mode);
     static void drawActiveFunction(Canvas &canvas, const char *function);
+    static void drawAccumulatorValue(Canvas &canvas, int value, bool enabled);
 
     static void drawHeader(Canvas &canvas, const Model &model, const Engine &engine, const char *mode);
     static void drawFooter(Canvas &canvas);

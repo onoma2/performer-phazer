@@ -74,10 +74,14 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "STEPS");
     WindowPainter::drawActiveFunction(canvas, NoteSequence::layerName(layer()));
-    WindowPainter::drawFooter(canvas, functionNames, pageKeyState(), activeFunctionKey());
 
     const auto &trackEngine = _engine.selectedTrackEngine().as<NoteTrackEngine>();
     const auto &sequence = _project.selectedNoteSequence();
+
+    // Show accumulator value in header when enabled
+    WindowPainter::drawAccumulatorValue(canvas, sequence.accumulator().currentValue(), sequence.accumulator().enabled());
+
+    WindowPainter::drawFooter(canvas, functionNames, pageKeyState(), activeFunctionKey());
     const auto &scale = sequence.selectedScale(_project.scale());
     int currentStep = trackEngine.isActiveSequence(sequence) ? trackEngine.currentStep() : -1;
     int currentRecordStep = trackEngine.isActiveSequence(sequence) ? trackEngine.currentRecordStep() : -1;
