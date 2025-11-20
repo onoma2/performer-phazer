@@ -118,9 +118,8 @@ void WindowPainter::drawAccumulatorValue(Canvas &canvas, int value, bool enabled
     canvas.setFont(Font::Tiny);
     canvas.setBlendMode(BlendMode::Set);
     canvas.setColor(Color::Medium);
-    // Position to the left of the mode name (e.g., "STEPS")
-    FixedStringBuilder<8> str("%+d", value);
-    canvas.drawText(PageWidth - 45 - canvas.textWidth(str), 8 - 2, str);
+    // Position to the right of the layer name
+    canvas.drawText(125, 8 - 2, FixedStringBuilder<8>("%+d", value));
 }
 
 void WindowPainter::drawHeader(Canvas &canvas, const Model &model, const Engine &engine, const char *mode) {
