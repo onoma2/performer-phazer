@@ -51,6 +51,106 @@ Unlike NoteTrack which uses step buttons (S1-S16) to select steps for editing, T
 4. **Ambient CV** - Slowly evolving modulation sources
 5. **Live performance** - Tweak parameters to "play" the algorithm
 
+### UI Mockup - What It Looks Like
+
+**Main TuesdayPage (OLED 256x64):**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ T1  TUESDAY                              120.0 BPM  ▶ P01  │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│            ╔═══════════════════════════╗                   │
+│            ║       M A R K O V         ║                   │
+│            ╚═══════════════════════════╝                   │
+│                                                            │
+│   FLOW      ORNAMENT   INTENSITY   LOOP                    │
+│   ████░░░   ███░░░░░   ██████░░░   16                      │
+│   [127]     [ 85]      [200]       steps                   │
+│                                                            │
+├────────────────────────────────────────────────────────────┤
+│  ALGO       FLOW       ORN        INTEN      LOOP          │
+│   F1         F2         F3         F4         F5           │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Interaction Flow:**
+
+1. **Press F1** → Select ALGO parameter
+   - Turn encoder → Cycle through: MARKOV → STOMPER → SCALEWALK → WOBBLE → ...
+   - Algorithm name updates in center display
+
+2. **Press F2** → Select FLOW parameter
+   - Turn encoder → Adjust 0-255
+   - Bar graph updates in real-time
+   - Affects how sequence progresses
+
+3. **Press F3** → Select ORN (Ornament) parameter
+   - Turn encoder → Adjust 0-255
+   - Controls embellishments/fills
+
+4. **Press F4** → Select INTEN (Intensity) parameter
+   - Turn encoder → Adjust 0-255
+   - Controls gate density/activity
+
+5. **Press F5** → Select LOOP parameter
+   - Turn encoder → Adjust 1-64 (or ∞)
+   - Sets pattern loop length
+
+**Visual Feedback During Playback:**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ T1  TUESDAY                              120.0 BPM  ▶ P01  │
+├────────────────────────────────────────────────────────────┤
+│                                              ┌──────────┐  │
+│            ╔═══════════════════════════╗     │ ●  C4    │  │
+│            ║      S T O M P E R        ║     │ CV: 2.1V │  │
+│            ╚═══════════════════════════╝     │ GT: HIGH │  │
+│                                              └──────────┘  │
+│   FLOW      ORNAMENT   INTENSITY   LOOP                    │
+│   ████████  ██░░░░░░   █████████   ∞                       │
+│   [255]     [ 50]      [230]       inf                     │
+│                                                            │
+├────────────────────────────────────────────────────────────┤
+│ >ALGO       FLOW       ORN        INTEN      LOOP          │
+└────────────────────────────────────────────────────────────┘
+```
+
+The `>` indicator shows currently selected parameter. The activity box shows:
+- Current note (C4)
+- CV output voltage
+- Gate state (HIGH/LOW)
+
+**Comparison with NoteSequenceEditPage:**
+
+| Aspect | NoteTrack | Tuesday Track |
+|--------|-----------|---------------|
+| Main display | 16 step grid with notes | Algorithm name + parameter bars |
+| F1-F5 | Gate/Retrig/Length/Note/Cond layers | ALGO/FLOW/ORN/INTEN/LOOP params |
+| S1-S16 | Select/toggle steps | Not used (no steps) |
+| Encoder | Edit selected step value | Edit selected parameter |
+| Visual focus | Step data | Parameter knobs + output monitor |
+
+**Track Selection View (OverviewPage):**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ OVERVIEW                                                   │
+├────────────────────────────────────────────────────────────┤
+│ T1 ████████████████  Note    C maj                         │
+│ T2 ████░░░░████░░░░  Note    A min                         │
+│ T3 ▀▀▀▀▀▄▄▄▀▀▀▀▀▄▄▄  Curve   LFO                           │
+│ T4 ░░██░░██░░██░░██  Tuesday MARKOV                        │  ← Tuesday shows algorithm
+│ T5 ────────────────  --                                    │
+│ T6 ────────────────  --                                    │
+│ T7 ────────────────  --                                    │
+│ T8 ────────────────  --                                    │
+└────────────────────────────────────────────────────────────┘
+```
+
+Tuesday track in Overview shows algorithm name instead of scale/sequence info.
+
 ### Why "Tuesday"
 
 The name likely references the **Tuesday** generative music generator or similar algorithmic composition tools. It evokes the spirit of controlled randomness and emergent musical structures.
