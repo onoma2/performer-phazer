@@ -11,35 +11,6 @@ static const char *algorithmNames[] = {
     "GOACID",     // 5
     "SNH",        // 6
     "WOBBLE",     // 7
-    "SAIKO",      // 8
-    "SAIKOLEAD",  // 9
-    "SCALEWALK",  // 10
-    "TOOEASY",    // 11
-    "RANDOM",     // 12
-    "CELLAUTO",   // 13
-    "CHAOS",      // 14
-    "FRACTAL",    // 15
-    "WAVE",       // 16
-    "DNA",        // 17
-    "TURING",     // 18
-    "PARTICLE",   // 19
-    "NEURAL",     // 20
-    "QUANTUM",    // 21
-    "LSYSTEM",    // 22
-    "TECHNO",     // 23
-    "JUNGLE",     // 24
-    "AMBIENT",    // 25
-    "ACID",       // 26
-    "FUNK",       // 27
-    "DRILL",      // 28
-    "MINIMAL",    // 29
-    "KRAFTWERK",  // 30
-    "APHEX",      // 31
-    "BOARDS",     // 32
-    "TANGERINE",  // 33
-    "AUTECHRE",   // 34
-    "SQUAREPUSH", // 35
-    "DAFT",       // 36
 };
 
 // Loop length values: Inf (0), 1-16, 19, 21, 24, 32, 35, 42, 48, 56, 64
@@ -50,7 +21,7 @@ static const int loopLengthValues[] = {
 };
 
 void TuesdayTrack::printAlgorithm(StringBuilder &str) const {
-    if (_algorithm < 37) {
+    if (_algorithm < 8) {
         str(algorithmNames[_algorithm]);
     } else {
         str("???");

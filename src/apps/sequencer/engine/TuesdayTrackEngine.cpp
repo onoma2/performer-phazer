@@ -739,8 +739,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 if (_chipRng.nextRange(256) < 0x80) {
                     slide = _chipRng.nextRange(256) % 3;
                 }
-                if (_chipRng.nextRange(256) < 0xd0) {
-                    note = 0;  // Note off
+                if (_chipRng.nextRange(256) >= 0xd0) {
+                    note = 0;  // Note off (~19% chance)
                     gatePercent = 0;
                 } else {
                     note = (pos * 2) + _chipBase;
@@ -758,15 +758,16 @@ void TuesdayTrackEngine::generateBuffer() {
         case 5: // GOACID buffer generation
             {
                 gatePercent = 75;
-                _rng.nextRange(256);  // velocity
+                _rng.nextRange(256);  // velocity (consumed but not used)
                 bool accent = _extraRng.nextBinary();
 
                 int randNote = _rng.next() % 8;
+                // Original uses signed char: 0xf4=-12, 0xfe=-2, 0xf2=-14
                 switch (randNote) {
                 case 0:
                 case 2:
                     note = 0; break;
-                case 1: note = -12 + 12; break;  // 0xf4 = -12, normalized to 0
+                case 1: note = -12; break;  // 0xf4
                 case 3: note = 1; break;
                 case 4: note = 3; break;
                 case 5: note = 7; break;
@@ -779,26 +780,28 @@ void TuesdayTrackEngine::generateBuffer() {
                     case 0:
                     case 3:
                     case 7: note = 0; break;
-                    case 1: note = 0; break;  // -12+12
-                    case 2: note = -2 + 12; break;  // 0xfe = -2
+                    case 1: note = -12; break;  // 0xf4
+                    case 2: note = -2; break;   // 0xfe
                     case 4: note = 3; break;
-                    case 5: note = -14 + 24; break;  // 0xf2 = -14
+                    case 5: note = -14; break;  // 0xf2
                     case 6: note = 1; break;
                     }
                 }
 
                 // Apply pattern transpose
-                if (_goaB1 && step <= 7) {
+                if (_goaB1 && (step % 16) <= 7) {
                     note += 3;
                 }
-                if (_goaB2 && step <= 7) {
+                if (_goaB2 && (step % 16) <= 7) {
                     note -= 5;
                 }
+
+                // Add +24 semitones (2 octaves) as in original
+                note += 24;
 
                 // Convert to note/octave
                 while (note < 0) { note += 12; octave--; }
                 while (note >= 12) { note -= 12; octave++; }
-                octave += 2;  // Base octave offset
 
                 if (glide > 0 && _rng.nextRange(100) < glide) {
                     slide = (_rng.nextRange(3)) + 1;
@@ -1344,8 +1347,8 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 } else {
                     _slide = 0;
                 }
-                if (_chipRng.nextRange(256) < 0xd0) {
-                    shouldGate = false;  // Note off
+                if (_chipRng.nextRange(256) >= 0xd0) {
+                    shouldGate = false;  // Note off (~19% chance)
                     _gatePercent = 0;
                 } else {
                     note = (pos * 2) + _chipBase;
@@ -1368,20 +1371,21 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 _gatePercent = 75;
                 int glide = _tuesdayTrack.glide();
 
-                _rng.nextRange(256);  // velocity
+                _rng.nextRange(256);  // velocity (consumed but not used)
                 bool accent = _extraRng.nextBinary();
 
                 int randNote = _rng.next() % 8;
+                // Original uses signed char: 0xf4=-12, 0xfe=-2, 0xf2=-14
                 switch (randNote) {
                 case 0:
                 case 2:
                     note = 0; break;
-                case 1: note = 0; break;  // -12+12
+                case 1: note = -12; break;  // 0xf4
                 case 3: note = 1; break;
                 case 4: note = 3; break;
                 case 5: note = 7; break;
-                case 6: note = 12; break;
-                case 7: note = 13; break;
+                case 6: note = 12; break;  // 0xc
+                case 7: note = 13; break;  // 0xd
                 }
 
                 if (accent) {
@@ -1389,10 +1393,10 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     case 0:
                     case 3:
                     case 7: note = 0; break;
-                    case 1: note = 0; break;
-                    case 2: note = 10; break;  // -2+12
+                    case 1: note = -12; break;  // 0xf4
+                    case 2: note = -2; break;   // 0xfe
                     case 4: note = 3; break;
-                    case 5: note = 10; break;  // -14+24
+                    case 5: note = -14; break;  // 0xf2
                     case 6: note = 1; break;
                     }
                 }
@@ -1405,10 +1409,12 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     note -= 5;
                 }
 
+                // Add +24 semitones (2 octaves) as in original
+                note += 24;
+
                 // Convert to note/octave
                 while (note < 0) { note += 12; octave--; }
                 while (note >= 12) { note -= 12; octave++; }
-                octave += 2;
 
                 if (glide > 0 && _rng.nextRange(100) < glide) {
                     _slide = (_rng.nextRange(3)) + 1;
