@@ -197,15 +197,16 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         // Calculate position in loop (0.0 to 1.0)
         float position = (float)_stepIndex / (float)loopLength;
 
-        // Exponential curve: exponent ranges from 1.0 to 3.0
+        // Logarithmic curve: exponent ranges from 1.0 to 3.0
+        // Logarithmic rises fast then levels off
         float exponent = 1.0f + (float)abs(skew) / 4.0f;
 
         float curvedPos;
         if (skew > 0) {
-            // Build-up: sparse at start, dense at end
-            curvedPos = powf(position, exponent);
+            // Build-up: sparse at start, dense at end (logarithmic rise)
+            curvedPos = 1.0f - powf(1.0f - position, exponent);
         } else {
-            // Fade-out: dense at start, sparse at end
+            // Fade-out: dense at start, sparse at end (inverted logarithmic)
             curvedPos = powf(1.0f - position, exponent);
         }
 
