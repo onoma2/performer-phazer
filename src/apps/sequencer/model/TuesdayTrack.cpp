@@ -7,10 +7,10 @@ static const char *algorithmNames[] = {
     "TRITRANCE",  // 1
     "STOMPER",    // 2
     "MARKOV",     // 3
-    "WOBBLE",     // 4
-    "CHIPARP1",   // 5
-    "CHIPARP2",   // 6
-    "SNH",        // 7
+    "CHIPARP",    // 4
+    "GOACID",     // 5
+    "SNH",        // 6
+    "WOBBLE",     // 7
     "SAIKO",      // 8
     "SAIKOLEAD",  // 9
     "SCALEWALK",  // 10

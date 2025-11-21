@@ -824,9 +824,14 @@ Creates density curves across the loop:
 
 | # | Name | Type | Description |
 |---|------|------|-------------|
-| 0 | TEST | Utility | Calibration/test patterns |
-| 1 | TRITRANCE | Melodic | German minimal melodies |
-| 3 | MARKOV | Melodic | 3rd-order Markov transitions |
+| 0 | TEST | Utility | Calibration/test patterns (OCTSWEEPS/SCALEWALKER) |
+| 1 | TRITRANCE | Melodic | German minimal arpeggios with phase modulation |
+| 2 | STOMPER | Bass | Acid bass with 14-state machine, slides |
+| 3 | MARKOV | Melodic | 3rd-order Markov chain transitions |
+| 4 | CHIPARP | Melodic | 8-bit chiptune arpeggios with direction changes |
+| 5 | GOACID | Bass | Goa/psytrance acid patterns with transposes |
+| 6 | SNH | Melodic | Sample & Hold filtered random walk |
+| 7 | WOBBLE | Bass | Dual-phase LFO bass wobbles |
 
 ### UI Integration
 
@@ -845,7 +850,7 @@ Creates density curves across the loop:
 - Model layer with all parameters
 - Engine with dual RNG, cooldown, gate/CV output
 - UI page with parameter editing
-- TEST, TRITRANCE, MARKOV algorithms
+- 8 algorithms: TEST, TRITRANCE, STOMPER, MARKOV, CHIPARP, GOACID, SNH, WOBBLE
 - Glide, Scale, Skew features
 - Reseed via Shift+F5 and context menu
 - Long gates (200-400%)

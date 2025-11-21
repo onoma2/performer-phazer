@@ -73,6 +73,46 @@ void TuesdayTrackEngine::initAlgorithm() {
         }
         break;
 
+    case 4: // CHIPARP
+        // Flow seeds main RNG, Ornament seeds chord RNG
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _chipChordSeed = _rng.next();
+        _chipRng = Random(_chipChordSeed);
+        _chipBase = _rng.next() % 3;
+        _chipDir = _extraRng.nextBinary() ? 1 : 0;
+        break;
+
+    case 5: // GOACID
+        // Flow seeds main RNG, Ornament seeds extra RNG for transpose
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _goaB1 = _extraRng.nextBinary() ? 1 : 0;
+        _goaB2 = _extraRng.nextBinary() ? 1 : 0;
+        break;
+
+    case 6: // SNH (Sample & Hold)
+        // Flow seeds main RNG, Ornament seeds extra RNG
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _snhPhase = 0;
+        _snhPhaseSpeed = 0xffffffff / 16;  // Default speed based on 16 steps
+        _snhLastVal = 0;
+        _snhTarget = _snhCurrent = _rng.next() << 10;
+        _snhCurrentDelta = 0;
+        break;
+
+    case 7: // WOBBLE
+        // Flow seeds main RNG, Ornament seeds extra RNG
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _wobblePhase = 0;
+        _wobblePhaseSpeed = 0xffffffff / 16;  // Default based on 16 steps
+        _wobblePhase2 = 0;
+        _wobblePhaseSpeed2 = 0xcfffffff / 4;  // Faster second oscillator
+        _wobbleLastWasHigh = 0;
+        break;
+
     default:
         break;
     }
@@ -155,6 +195,31 @@ void TuesdayTrackEngine::reseed() {
                 _markovMatrix[i][j][1] = (_extraRng.next() % 8);
             }
         }
+        break;
+
+    case 4: // CHIPARP
+        _chipChordSeed = _rng.next();
+        _chipRng = Random(_chipChordSeed);
+        _chipBase = _rng.next() % 3;
+        _chipDir = _extraRng.nextBinary() ? 1 : 0;
+        break;
+
+    case 5: // GOACID
+        _goaB1 = _extraRng.nextBinary() ? 1 : 0;
+        _goaB2 = _extraRng.nextBinary() ? 1 : 0;
+        break;
+
+    case 6: // SNH
+        _snhPhase = 0;
+        _snhLastVal = 0;
+        _snhTarget = _snhCurrent = _rng.next() << 10;
+        _snhCurrentDelta = 0;
+        break;
+
+    case 7: // WOBBLE
+        _wobblePhase = 0;
+        _wobblePhase2 = 0;
+        _wobbleLastWasHigh = 0;
         break;
 
     default:
@@ -345,6 +410,89 @@ void TuesdayTrackEngine::generateBuffer() {
                 _markovHistory1 = _markovHistory3;
                 _markovHistory3 = note;
                 _rng.nextBinary();  // octave
+            }
+            break;
+
+        case 4: // CHIPARP warmup
+            {
+                int chordpos = step % 4;  // TPB=4 default
+                if (chordpos == 0) {
+                    _chipRng = Random(_chipChordSeed);
+                    if (_rng.nextRange(256) < 0x20) {
+                        _chipBase = _rng.next() % 3;
+                    }
+                    if (_rng.nextRange(256) < 0xf0) {
+                        _chipDir = _extraRng.nextBinary() ? 1 : 0;
+                    }
+                }
+                _chipRng.nextRange(256);  // accent check
+                _chipRng.nextRange(256);  // slide check
+                _chipRng.nextRange(256);  // noteoff check
+                _chipRng.nextRange(256);  // gate length
+                _extraRng.nextRange(256);  // velocity
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+            }
+            break;
+
+        case 5: // GOACID warmup
+            {
+                _rng.nextRange(256);  // velocity
+                _extraRng.nextBinary();  // accent
+                _rng.next();  // note selection
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+            }
+            break;
+
+        case 6: // SNH warmup
+            {
+                _snhPhase += _snhPhaseSpeed;
+                int v = _snhPhase >> 30;
+                if (v != _snhLastVal) {
+                    _snhLastVal = v;
+                    _snhTarget = _rng.next() << 10;
+                }
+                int newdelta = (_snhTarget - _snhCurrent) / 100;
+                _snhCurrentDelta += ((newdelta - _snhCurrentDelta) * 100) / 200;
+                _snhCurrent += _snhCurrentDelta * 100;
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+                _extraRng.next();  // velocity
+            }
+            break;
+
+        case 7: // WOBBLE warmup
+            {
+                _wobblePhase += _wobblePhaseSpeed;
+                _wobblePhase2 += _wobblePhaseSpeed2;
+
+                if (_rng.nextRange(256) >= 128) {  // PercChance analog
+                    if (_wobbleLastWasHigh == 0) {
+                        if (_rng.nextRange(256) >= 56) {
+                            _rng.next();  // slide
+                        }
+                    }
+                    _wobbleLastWasHigh = 1;
+                } else {
+                    if (_wobbleLastWasHigh == 1) {
+                        if (_rng.nextRange(256) >= 56) {
+                            _rng.next();  // slide
+                        }
+                    }
+                    _wobbleLastWasHigh = 0;
+                }
+                _extraRng.next();  // velocity
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
             }
             break;
 
@@ -562,6 +710,160 @@ void TuesdayTrackEngine::generateBuffer() {
                 _markovHistory1 = _markovHistory3;
                 _markovHistory3 = note;
                 octave = _rng.nextBinary() ? 1 : 0;
+            }
+            break;
+
+        case 4: // CHIPARP buffer generation
+            {
+                gatePercent = 75;
+                int chordpos = step % 4;
+
+                if (chordpos == 0) {
+                    _chipRng = Random(_chipChordSeed);
+                    if (_rng.nextRange(256) < 0x20) {
+                        _chipBase = _rng.next() % 3;
+                    }
+                    if (_rng.nextRange(256) < 0xf0) {
+                        _chipDir = _extraRng.nextBinary() ? 1 : 0;
+                    }
+                }
+
+                int pos = chordpos;
+                if (_chipDir == 1) {
+                    pos = 3 - chordpos;
+                }
+
+                if (_chipRng.nextRange(256) < 0x20) {
+                    // accent
+                }
+                if (_chipRng.nextRange(256) < 0x80) {
+                    slide = _chipRng.nextRange(256) % 3;
+                }
+                if (_chipRng.nextRange(256) < 0xd0) {
+                    note = 0;  // Note off
+                    gatePercent = 0;
+                } else {
+                    note = (pos * 2) + _chipBase;
+                    gatePercent = 50 + 25 * (_chipRng.nextRange(256) % 3);
+                }
+                octave = 0;
+                _extraRng.nextRange(256);  // velocity
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
+                }
+            }
+            break;
+
+        case 5: // GOACID buffer generation
+            {
+                gatePercent = 75;
+                _rng.nextRange(256);  // velocity
+                bool accent = _extraRng.nextBinary();
+
+                int randNote = _rng.next() % 8;
+                switch (randNote) {
+                case 0:
+                case 2:
+                    note = 0; break;
+                case 1: note = -12 + 12; break;  // 0xf4 = -12, normalized to 0
+                case 3: note = 1; break;
+                case 4: note = 3; break;
+                case 5: note = 7; break;
+                case 6: note = 12; break;  // 0xc
+                case 7: note = 13; break;  // 0xd
+                }
+
+                if (accent) {
+                    switch (randNote) {
+                    case 0:
+                    case 3:
+                    case 7: note = 0; break;
+                    case 1: note = 0; break;  // -12+12
+                    case 2: note = -2 + 12; break;  // 0xfe = -2
+                    case 4: note = 3; break;
+                    case 5: note = -14 + 24; break;  // 0xf2 = -14
+                    case 6: note = 1; break;
+                    }
+                }
+
+                // Apply pattern transpose
+                if (_goaB1 && step <= 7) {
+                    note += 3;
+                }
+                if (_goaB2 && step <= 7) {
+                    note -= 5;
+                }
+
+                // Convert to note/octave
+                while (note < 0) { note += 12; octave--; }
+                while (note >= 12) { note -= 12; octave++; }
+                octave += 2;  // Base octave offset
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
+                }
+            }
+            break;
+
+        case 6: // SNH buffer generation
+            {
+                gatePercent = 75;
+                _snhPhase += _snhPhaseSpeed;
+                int v = _snhPhase >> 30;
+
+                if (v != _snhLastVal) {
+                    _snhLastVal = v;
+                    _snhTarget = _rng.next() << 10;
+                }
+                int newdelta = (_snhTarget - _snhCurrent) / 100;
+                _snhCurrentDelta += ((newdelta - _snhCurrentDelta) * 100) / 200;
+                _snhCurrent += _snhCurrentDelta * 100;
+
+                // Convert filtered value to note
+                int absVal = _snhCurrent;
+                if (absVal < 0) absVal = -absVal;
+                note = (absVal >> 22) % 12;
+                octave = 0;
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
+                }
+                _extraRng.next();  // velocity
+            }
+            break;
+
+        case 7: // WOBBLE buffer generation
+            {
+                gatePercent = 75;
+                _wobblePhase += _wobblePhaseSpeed;
+                _wobblePhase2 += _wobblePhaseSpeed2;
+
+                if (_rng.nextRange(256) >= 128) {  // High phase
+                    int32_t pos2 = _wobblePhase2 >> 27;
+                    note = pos2 % 8;
+                    if (_wobbleLastWasHigh == 0) {
+                        if (_rng.nextRange(256) >= 56) {
+                            slide = _rng.next() % 3;
+                        }
+                    }
+                    _wobbleLastWasHigh = 1;
+                } else {  // Low phase
+                    int32_t pos = _wobblePhase >> 27;
+                    note = pos % 8;
+                    if (_wobbleLastWasHigh == 1) {
+                        if (_rng.nextRange(256) >= 56) {
+                            slide = _rng.next() % 3;
+                        }
+                    }
+                    _wobbleLastWasHigh = 0;
+                }
+                octave = 0;
+                _extraRng.next();  // velocity
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
+                }
             }
             break;
 
@@ -1006,6 +1308,190 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
                 // Random octave (0 or 1)
                 octave = _rng.nextBinary() ? 1 : 0;
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 4: // CHIPARP - Chiptune arpeggios
+            {
+                shouldGate = true;
+                _gatePercent = 75;
+                int glide = _tuesdayTrack.glide();
+
+                int chordpos = effectiveStep % 4;
+
+                if (chordpos == 0) {
+                    _chipRng = Random(_chipChordSeed);
+                    if (_rng.nextRange(256) < 0x20) {
+                        _chipBase = _rng.next() % 3;
+                    }
+                    if (_rng.nextRange(256) < 0xf0) {
+                        _chipDir = _extraRng.nextBinary() ? 1 : 0;
+                    }
+                }
+
+                int pos = chordpos;
+                if (_chipDir == 1) {
+                    pos = 3 - chordpos;
+                }
+
+                if (_chipRng.nextRange(256) < 0x20) {
+                    // accent - could affect velocity
+                }
+                if (_chipRng.nextRange(256) < 0x80) {
+                    _slide = _chipRng.nextRange(256) % 3;
+                } else {
+                    _slide = 0;
+                }
+                if (_chipRng.nextRange(256) < 0xd0) {
+                    shouldGate = false;  // Note off
+                    _gatePercent = 0;
+                } else {
+                    note = (pos * 2) + _chipBase;
+                    _gatePercent = 50 + 25 * (_chipRng.nextRange(256) % 3);
+                }
+                octave = 0;
+                _extraRng.nextRange(256);  // velocity
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = (_rng.nextRange(3)) + 1;
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 5: // GOACID - Goa/psytrance acid patterns
+            {
+                shouldGate = true;
+                _gatePercent = 75;
+                int glide = _tuesdayTrack.glide();
+
+                _rng.nextRange(256);  // velocity
+                bool accent = _extraRng.nextBinary();
+
+                int randNote = _rng.next() % 8;
+                switch (randNote) {
+                case 0:
+                case 2:
+                    note = 0; break;
+                case 1: note = 0; break;  // -12+12
+                case 3: note = 1; break;
+                case 4: note = 3; break;
+                case 5: note = 7; break;
+                case 6: note = 12; break;
+                case 7: note = 13; break;
+                }
+
+                if (accent) {
+                    switch (randNote) {
+                    case 0:
+                    case 3:
+                    case 7: note = 0; break;
+                    case 1: note = 0; break;
+                    case 2: note = 10; break;  // -2+12
+                    case 4: note = 3; break;
+                    case 5: note = 10; break;  // -14+24
+                    case 6: note = 1; break;
+                    }
+                }
+
+                // Apply pattern transpose
+                if (_goaB1 && (effectiveStep % 16) <= 7) {
+                    note += 3;
+                }
+                if (_goaB2 && (effectiveStep % 16) <= 7) {
+                    note -= 5;
+                }
+
+                // Convert to note/octave
+                while (note < 0) { note += 12; octave--; }
+                while (note >= 12) { note -= 12; octave++; }
+                octave += 2;
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = (_rng.nextRange(3)) + 1;
+                } else {
+                    _slide = 0;
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 6: // SNH - Sample & Hold random walk
+            {
+                shouldGate = true;
+                _gatePercent = 75;
+                int glide = _tuesdayTrack.glide();
+
+                _snhPhase += _snhPhaseSpeed;
+                int v = _snhPhase >> 30;
+
+                if (v != _snhLastVal) {
+                    _snhLastVal = v;
+                    _snhTarget = _rng.next() << 10;
+                }
+                int newdelta = (_snhTarget - _snhCurrent) / 100;
+                _snhCurrentDelta += ((newdelta - _snhCurrentDelta) * 100) / 200;
+                _snhCurrent += _snhCurrentDelta * 100;
+
+                // Convert filtered value to note
+                int absVal = _snhCurrent;
+                if (absVal < 0) absVal = -absVal;
+                note = (absVal >> 22) % 12;
+                octave = 0;
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = (_rng.nextRange(3)) + 1;
+                } else {
+                    _slide = 0;
+                }
+                _extraRng.next();  // velocity
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 7: // WOBBLE - Dual-phase LFO bass
+            {
+                shouldGate = true;
+                _gatePercent = 75;
+                int glide = _tuesdayTrack.glide();
+
+                _wobblePhase += _wobblePhaseSpeed;
+                _wobblePhase2 += _wobblePhaseSpeed2;
+
+                if (_rng.nextRange(256) >= 128) {  // High phase
+                    int32_t pos2 = _wobblePhase2 >> 27;
+                    note = pos2 % 8;
+                    if (_wobbleLastWasHigh == 0) {
+                        if (_rng.nextRange(256) >= 56) {
+                            _slide = _rng.next() % 3;
+                        } else {
+                            _slide = 0;
+                        }
+                    }
+                    _wobbleLastWasHigh = 1;
+                } else {  // Low phase
+                    int32_t pos = _wobblePhase >> 27;
+                    note = pos % 8;
+                    if (_wobbleLastWasHigh == 1) {
+                        if (_rng.nextRange(256) >= 56) {
+                            _slide = _rng.next() % 3;
+                        } else {
+                            _slide = 0;
+                        }
+                    }
+                    _wobbleLastWasHigh = 0;
+                }
+                octave = 0;
+                _extraRng.next();  // velocity
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = (_rng.nextRange(3)) + 1;
+                }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
             }

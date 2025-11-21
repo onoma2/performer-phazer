@@ -119,6 +119,31 @@ private:
     int16_t _markovHistory3 = 0;
     uint8_t _markovMatrix[8][8][2];
 
+    // CHIPARP algorithm state
+    uint32_t _chipChordSeed = 0;
+    Random _chipRng;
+    uint8_t _chipBase = 0;
+    uint8_t _chipDir = 0;
+
+    // GOACID algorithm state
+    uint8_t _goaB1 = 0;  // Pattern transpose flag 1
+    uint8_t _goaB2 = 0;  // Pattern transpose flag 2
+
+    // SNH (Sample & Hold) algorithm state
+    uint32_t _snhPhase = 0;
+    uint32_t _snhPhaseSpeed = 0;
+    uint8_t _snhLastVal = 0;
+    int32_t _snhTarget = 0;
+    int32_t _snhCurrent = 0;
+    int32_t _snhCurrentDelta = 0;
+
+    // WOBBLE algorithm state
+    uint32_t _wobblePhase = 0;
+    uint32_t _wobblePhaseSpeed = 0;
+    uint32_t _wobblePhase2 = 0;
+    uint32_t _wobblePhaseSpeed2 = 0;
+    uint8_t _wobbleLastWasHigh = 0;
+
     // Output state
     bool _activity = false;
     bool _gateOutput = false;
