@@ -48,7 +48,6 @@ private:
         Power,
         LoopLength,
         Glide,
-        Scale,
         Skew,
         CvUpdateMode,
         Last
@@ -62,7 +61,6 @@ private:
         case Power:         return "Power";
         case LoopLength:    return "Loop Length";
         case Glide:         return "Glide";
-        case Scale:         return "Scale";
         case Skew:          return "Skew";
         case CvUpdateMode:  return "CV Mode";
         case Last:          break;
@@ -94,9 +92,6 @@ private:
         case Glide:
             _track->printGlide(str);
             break;
-        case Scale:
-            _track->printUseScale(str);
-            break;
         case Skew:
             _track->printSkew(str);
             break;
@@ -127,9 +122,6 @@ private:
             break;
         case Glide:
             _track->editGlide(value, shift);
-            break;
-        case Scale:
-            _track->editUseScale(value, shift);
             break;
         case Skew:
             _track->editSkew(value, shift);
