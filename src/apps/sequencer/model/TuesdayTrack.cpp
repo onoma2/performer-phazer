@@ -92,6 +92,12 @@ void TuesdayTrack::clear() {
     _useScale = false;
     _skew = 0;
     _cvUpdateMode = Free;
+    _octave = 0;
+    _transpose = 0;
+    _divisor = 192;
+    _resetMeasure = 0;
+    _scale = -1;
+    _rootNote = -1;
 }
 
 void TuesdayTrack::write(VersionedSerializedWriter &writer) const {
@@ -104,6 +110,12 @@ void TuesdayTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_useScale);
     writer.write(_skew);
     writer.write(_cvUpdateMode);
+    writer.write(_octave);
+    writer.write(_transpose);
+    writer.write(_divisor);
+    writer.write(_resetMeasure);
+    writer.write(_scale);
+    writer.write(_rootNote);
 }
 
 void TuesdayTrack::read(VersionedSerializedReader &reader) {
@@ -115,5 +127,11 @@ void TuesdayTrack::read(VersionedSerializedReader &reader) {
     reader.read(_glide, 0);  // Default 0% for old projects
     reader.read(_useScale, false);  // Default free for old projects
     reader.read(_skew, 0);  // Default 0 for old projects
-    reader.read(_cvUpdateMode, Free);  // Default Free for old projects (backward compatible)
+    reader.read(_cvUpdateMode, Free);  // Default Free for old projects
+    reader.read(_octave, 0);  // Default 0 for old projects
+    reader.read(_transpose, 0);  // Default 0 for old projects
+    reader.read(_divisor, 192);  // Default 1/4 note for old projects
+    reader.read(_resetMeasure, 0);  // Default off for old projects
+    reader.read(_scale, -1);  // Default -1 (project) for old projects
+    reader.read(_rootNote, -1);  // Default -1 (project) for old projects
 }

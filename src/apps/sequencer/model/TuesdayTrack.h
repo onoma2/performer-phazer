@@ -159,6 +159,116 @@ public:
         str(_cvUpdateMode == Free ? "Free" : "Gated");
     }
 
+    // octave (-10 to +10)
+
+    int octave() const { return _octave; }
+    void setOctave(int octave) {
+        _octave = clamp(octave, -10, 10);
+    }
+
+    void editOctave(int value, bool shift) {
+        setOctave(this->octave() + value);
+    }
+
+    void printOctave(StringBuilder &str) const {
+        str("%+d", octave());
+    }
+
+    // transpose (-11 to +11)
+
+    int transpose() const { return _transpose; }
+    void setTranspose(int transpose) {
+        _transpose = clamp(transpose, -11, 11);
+    }
+
+    void editTranspose(int value, bool shift) {
+        setTranspose(this->transpose() + value);
+    }
+
+    void printTranspose(StringBuilder &str) const {
+        str("%+d", transpose());
+    }
+
+    // divisor
+
+    int divisor() const { return _divisor; }
+    void setDivisor(int divisor) {
+        _divisor = ModelUtils::clampDivisor(divisor);
+    }
+
+    int indexedDivisor() const { return ModelUtils::divisorToIndex(divisor()); }
+    void setIndexedDivisor(int index) {
+        int div = ModelUtils::indexToDivisor(index);
+        if (div > 0) {
+            setDivisor(div);
+        }
+    }
+
+    void editDivisor(int value, bool shift) {
+        setDivisor(ModelUtils::adjustedByDivisor(divisor(), value, shift));
+    }
+
+    void printDivisor(StringBuilder &str) const {
+        ModelUtils::printDivisor(str, divisor());
+    }
+
+    // resetMeasure (0-128)
+
+    int resetMeasure() const { return _resetMeasure; }
+    void setResetMeasure(int resetMeasure) {
+        _resetMeasure = clamp(resetMeasure, 0, 128);
+    }
+
+    void editResetMeasure(int value, bool shift) {
+        setResetMeasure(ModelUtils::adjustedByPowerOfTwo(resetMeasure(), value, shift));
+    }
+
+    void printResetMeasure(StringBuilder &str) const {
+        if (resetMeasure() == 0) {
+            str("off");
+        } else {
+            str("%d %s", resetMeasure(), resetMeasure() > 1 ? "bars" : "bar");
+        }
+    }
+
+    // scale (-1 = Default, 0+ = specific scale)
+
+    int scale() const { return _scale; }
+    void setScale(int scale) {
+        _scale = clamp(scale, -1, Scale::Count - 1);
+    }
+
+    void editScale(int value, bool shift) {
+        setScale(this->scale() + value);
+    }
+
+    void printScale(StringBuilder &str) const {
+        if (scale() == -1) {
+            str("Default");
+        } else {
+            str(Scale::name(scale()));
+        }
+    }
+
+    // rootNote (-1 = Default, 0-11 = C to B)
+
+    int rootNote() const { return _rootNote; }
+    void setRootNote(int rootNote) {
+        _rootNote = clamp(rootNote, -1, 11);
+    }
+
+    void editRootNote(int value, bool shift) {
+        setRootNote(this->rootNote() + value);
+    }
+
+    void printRootNote(StringBuilder &str) const {
+        if (rootNote() == -1) {
+            str("Default");
+        } else {
+            Types::printNote(str, rootNote());
+        }
+    }
+
     //----------------------------------------
     // Methods
     //----------------------------------------
@@ -188,6 +298,14 @@ private:
     bool _useScale = false;  // Default: free (chromatic)
     int8_t _skew = 0;  // Default: 0 (even distribution)
     uint8_t _cvUpdateMode = Free;  // Default: Free (CV updates every step)
+
+    // Sequence parameters
+    int8_t _octave = 0;  // Default: 0 (no transposition)
+    int8_t _transpose = 0;  // Default: 0 (no transposition)
+    uint16_t _divisor = 192;  // Default: 1/4 note (CONFIG_PPQN)
+    uint8_t _resetMeasure = 0;  // Default: off
+    int8_t _scale = -1;  // Default: -1 (use project scale)
+    int8_t _rootNote = -1;  // Default: -1 (use project root)
 
     friend class Track;
 };
