@@ -239,7 +239,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;  // Always gate in test mode
                 _gatePercent = 75;  // Default gate length
-                _slide = _testSweepSpeed;  // Slide from flow parameter
+
+                // Slide controlled by glide parameter
+                int glide = _tuesdayTrack.glide();
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = _testSweepSpeed + 1;  // Use sweep speed as slide amount
+                } else {
+                    _slide = 0;
+                }
 
                 switch (_testMode) {
                 case 0:  // OCTSWEEPS - sweep through octaves

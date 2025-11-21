@@ -75,7 +75,7 @@ public:
 
     int loopLength() const { return _loopLength; }
     void setLoopLength(int loopLength) {
-        _loopLength = clamp(loopLength, 0, 23);
+        _loopLength = clamp(loopLength, 0, 25);
     }
 
     void editLoopLength(int value, bool shift) {

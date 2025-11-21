@@ -42,11 +42,11 @@ static const char *algorithmNames[] = {
     "DAFT",       // 36
 };
 
-// Loop length values: Inf (0), 1-16, 19, 21, 24, 32, 35, 42, 48, 64
+// Loop length values: Inf (0), 1-16, 19, 21, 24, 32, 35, 42, 48, 56, 64
 static const int loopLengthValues[] = {
     0,   // Inf (infinite/evolving)
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-    19, 21, 24, 32, 35, 42, 48
+    19, 21, 24, 32, 35, 42, 48, 56, 64
 };
 
 void TuesdayTrack::printAlgorithm(StringBuilder &str) const {
@@ -60,7 +60,7 @@ void TuesdayTrack::printAlgorithm(StringBuilder &str) const {
 void TuesdayTrack::printLoopLength(StringBuilder &str) const {
     if (_loopLength == 0) {
         str("Inf");
-    } else if (_loopLength < 24) {
+    } else if (_loopLength < 26) {
         str("%d", loopLengthValues[_loopLength]);
     } else {
         str("???");
@@ -68,7 +68,7 @@ void TuesdayTrack::printLoopLength(StringBuilder &str) const {
 }
 
 int TuesdayTrack::actualLoopLength() const {
-    if (_loopLength < 24) {
+    if (_loopLength < 26) {
         return loopLengthValues[_loopLength];
     }
     return 16; // Default fallback
