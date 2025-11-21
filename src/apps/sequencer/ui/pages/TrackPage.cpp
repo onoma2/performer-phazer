@@ -57,11 +57,7 @@ void TrackPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
-    if (key.pageModifier()) {
-        return;
-    }
-
-    // Shift+F5: Reseed Tuesday track loop
+    // Shift+F5: Reseed Tuesday track loop (check before pageModifier)
     if (key.isFunction() && key.shiftModifier() && key.function() == 4) {
         auto &track = _project.selectedTrack();
         if (track.trackMode() == Track::TrackMode::Tuesday) {
@@ -73,6 +69,10 @@ void TrackPage::keyPress(KeyPressEvent &event) {
             event.consume();
             return;
         }
+    }
+
+    if (key.pageModifier()) {
+        return;
     }
 
     if (key.isTrackSelect()) {
