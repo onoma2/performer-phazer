@@ -86,6 +86,8 @@ public:
     int loopLength() const { return _loopLength; }
     void setLoopLength(int loopLength) {
         _loopLength = clamp(loopLength, 0, 25);
+        // Re-clamp rotate to new loop length
+        setRotate(_rotate);
     }
 
     void editLoopLength(int value, bool shift) {
@@ -284,11 +286,19 @@ public:
         str("%d", scan());
     }
 
-    // rotate (-64 to +63, bipolar shift for finite loops)
+    // rotate (bipolar shift for finite loops, limited by loop length)
 
     int rotate() const { return _rotate; }
     void setRotate(int rotate) {
-        _rotate = clamp(rotate, -64, 63);
+        int len = actualLoopLength();
+        if (len > 0) {
+            // Limit to loop length for easier use
+            int maxRot = len - 1;
+            _rotate = clamp(rotate, -maxRot, maxRot);
+        } else {
+            // Infinite loop: no rotation
+            _rotate = 0;
+        }
     }
 
     void editRotate(int value, bool shift) {
