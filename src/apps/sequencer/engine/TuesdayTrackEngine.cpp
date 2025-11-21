@@ -380,11 +380,12 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     uint32_t divisor = _tuesdayTrack.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
 
     // Calculate reset divisor from resetMeasure parameter
+    // For infinite loops (loopLength == 0), ignore reset measure to allow true infinite patterns
     int resetMeasure = _tuesdayTrack.resetMeasure();
-    uint32_t resetDivisor = resetMeasure > 0 ? resetMeasure * _engine.measureDivisor() : 0;
+    uint32_t resetDivisor = (resetMeasure > 0 && loopLength > 0) ? resetMeasure * _engine.measureDivisor() : 0;
     uint32_t relativeTick = resetDivisor == 0 ? tick : tick % resetDivisor;
 
-    // Reset on measure boundary (only if resetMeasure is enabled)
+    // Reset on measure boundary (only if resetMeasure is enabled and not infinite loop)
     if (resetDivisor > 0 && relativeTick == 0) {
         reset();
     }
