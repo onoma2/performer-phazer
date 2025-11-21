@@ -55,6 +55,13 @@ private:
     // Gate length (as fraction of divisor, 0-100%)
     int _gatePercent = 75;  // Default 75% gate length
 
+    // Slide/portamento state
+    int _slide = 0;           // Slide amount (0=instant, 1-3=glide)
+    float _cvTarget = 0.f;    // Target CV value
+    float _cvCurrent = 0.f;   // Current CV value (for glide)
+    float _cvDelta = 0.f;     // CV change per tick
+    int _slideCountDown = 0;  // Ticks remaining in slide
+
     // TEST algorithm state
     uint8_t _testMode = 0;      // 0=OCTSWEEPS, 1=SCALEWALKER
     uint8_t _testSweepSpeed = 0;

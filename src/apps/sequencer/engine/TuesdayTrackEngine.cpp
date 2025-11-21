@@ -81,6 +81,11 @@ void TuesdayTrackEngine::reset() {
     _gateLength = 0;
     _gateTicks = 0;
     _coolDown = 0;
+    _slide = 0;
+    _cvTarget = 0.f;
+    _cvCurrent = 0.f;
+    _cvDelta = 0.f;
+    _slideCountDown = 0;
     _activity = false;
     _gateOutput = false;
     _cvOutput = 0.f;
@@ -150,6 +155,16 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         }
     }
 
+    // Handle slide/portamento
+    if (_slideCountDown > 0) {
+        _cvCurrent += _cvDelta;
+        _slideCountDown--;
+        if (_slideCountDown == 0) {
+            _cvCurrent = _cvTarget;  // Ensure we hit target exactly
+        }
+        _cvOutput = _cvCurrent;
+    }
+
     if (stepTrigger) {
         // Generate output based on algorithm
         bool shouldGate = false;
@@ -164,6 +179,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;  // Always gate in test mode
                 _gatePercent = 75;  // Default gate length
+                _slide = _testSweepSpeed;  // Slide from flow parameter
 
                 switch (_testMode) {
                 case 0:  // OCTSWEEPS - sweep through octaves
@@ -194,6 +210,13 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
                 } else {
                     _gatePercent = 75;  // Default
+                }
+
+                // Random slide (like RandomSlideAndLength)
+                if (_rng.nextBinary() && _rng.nextBinary()) {
+                    _slide = (_rng.nextRange(3)) + 1;  // 1-3
+                } else {
+                    _slide = 0;
                 }
 
                 // Tritrance pattern based on step position mod 3
@@ -241,6 +264,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 int accentoffs = 0;
                 _gatePercent = 75;  // Default
+                _slide = 0;  // Default no slide
 
                 if (_stomperCountDown > 0) {
                     // Rest/note-off period - use countdown for gate length
@@ -278,6 +302,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     case 11:  // SLIDEDOWN2
                         octave = 0;
                         note = _stomperLowNote;
+                        _slide = (_rng.nextRange(3)) + 1;  // Slide 1-3
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;  // MAKENEW
                         break;
@@ -289,6 +314,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     case 13:  // SLIDEUP2
                         octave = 1;
                         note = _stomperHighNote[_rng.next() % 2];
+                        _slide = (_rng.nextRange(3)) + 1;  // Slide 1-3
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;  // MAKENEW
                         break;
@@ -371,6 +397,13 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     _gatePercent = 75;  // Default
                 }
 
+                // Random slide (like RandomSlideAndLength)
+                if (_rng.nextBinary() && _rng.nextBinary()) {
+                    _slide = (_rng.nextRange(3)) + 1;  // 1-3
+                } else {
+                    _slide = 0;
+                }
+
                 // Select from Markov matrix based on history
                 int idx = _rng.nextBinary() ? 1 : 0;
                 note = _markovMatrix[_markovHistory1][_markovHistory3][idx];
@@ -411,8 +444,19 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             _coolDown = _coolDownMax;
         }
 
-        // Apply CV (always update CV even if no gate)
-        _cvOutput = noteVoltage;
+        // Apply CV with slide/portamento
+        _cvTarget = noteVoltage;
+        if (_slide > 0) {
+            // Calculate slide time: slide * 12 ticks (scaled for our timing)
+            int slideTicks = _slide * 12;
+            _cvDelta = (_cvTarget - _cvCurrent) / slideTicks;
+            _slideCountDown = slideTicks;
+        } else {
+            // Instant change
+            _cvCurrent = _cvTarget;
+            _cvOutput = _cvTarget;
+            _slideCountDown = 0;
+        }
 
         // Advance step
         _stepIndex++;
