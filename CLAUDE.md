@@ -891,14 +891,15 @@ Creates density curves across the loop:
 
 **Bug 2: Serialization Missing Version Guards**
 - **Symptom**: "Failed to load (end_of_file)" when loading projects with Tuesday tracks
-- **Cause**: TuesdayTrack::read() had no version guards for first 5 fields
-- **Fix**: Added ProjectVersion::Version35, all read() calls now use version guards with defaults
-- **Commit**: `bcb12c9`
+- **Cause**: TuesdayTrack::read() had no version guards, causing EOF when loading projects
+- **Fix**: Added ProjectVersion::Version35, all read() calls use `reader.read(field, Version35)`
+- **Commits**: `bcb12c9`, `9ec74ad`
 
 **Lesson Learned**: New track types need:
 1. Safe default values for ALL state variables (avoid 0 for divisors)
 2. ProjectVersion entry for serialization
-3. Version guards on ALL read() calls with sensible defaults
+3. Version guards on ALL read() calls: `reader.read(field, ProjectVersion::VersionXX)`
+4. Defaults come from member initialization in .h file, NOT read() call arguments
 
 ### Key Files
 
