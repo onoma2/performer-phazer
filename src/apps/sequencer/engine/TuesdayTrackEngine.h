@@ -25,6 +25,11 @@ public:
     virtual bool activity() const override { return _activity; }
     virtual bool gateOutput(int index) const override { return _gateOutput; }
     virtual float cvOutput(int index) const override { return _cvOutput; }
+    virtual float sequenceProgress() const override {
+        int loopLength = _tuesdayTrack.actualLoopLength();
+        if (loopLength <= 0) return 0.f;  // Infinite loop shows no progress
+        return float(_stepIndex) / float(loopLength);
+    }
 
     // Reseed the algorithm (called from UI via Shift+F5)
     void reseed();
