@@ -94,11 +94,7 @@ private:
             _track->printLoopLength(str);
             break;
         case Scan:
-            if (_track->loopLength() != 0) {
-                str("N/A");
-            } else {
-                _track->printScan(str);
-            }
+            _track->printScan(str);
             break;
         case Rotate:
             if (_track->loopLength() == 0) {
@@ -139,9 +135,7 @@ private:
             _track->editLoopLength(value, shift);
             break;
         case Scan:
-            if (_track->loopLength() == 0) {
-                _track->editScan(value, shift);
-            }
+            _track->editScan(value, shift);
             break;
         case Rotate:
             if (_track->loopLength() != 0) {

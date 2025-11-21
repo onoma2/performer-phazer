@@ -278,17 +278,20 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         int octave = 0;
 
         // Calculate effective step index
-        // Scan: for infinite loops, offsets into pattern (0-127)
-        // Rotate: for finite loops, bipolar shift (-64 to +63)
+        // Scan: offsets where on the infinite tape we capture from (0-127)
+        // Rotate: for finite loops, shifts start point within the captured loop (-64 to +63)
+        int scan = _tuesdayTrack.scan();
         uint32_t effectiveStep = _stepIndex;
         if (loopLength > 0) {
-            // Finite loop: use rotate (bipolar, wraps with modulo)
+            // Finite loop: rotate shifts within loop, then scan offsets into infinite tape
             int rot = _tuesdayTrack.rotate();
             // Handle negative rotation with proper modulo
             effectiveStep = ((_stepIndex + rot) % loopLength + loopLength) % loopLength;
+            // Add scan offset to select which portion of infinite tape
+            effectiveStep += scan;
         } else {
-            // Infinite loop: use scan (just offsets position)
-            effectiveStep = _stepIndex + _tuesdayTrack.scan();
+            // Infinite loop: just use scan
+            effectiveStep = _stepIndex + scan;
         }
 
         switch (algorithm) {
