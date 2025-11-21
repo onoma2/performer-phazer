@@ -43,6 +43,7 @@ private:
     enum Item {
         Divisor,
         ResetMeasure,
+        Rotate,
         Scale,
         RootNote,
         Octave,
@@ -54,6 +55,7 @@ private:
         switch (item) {
         case Divisor:       return "Divisor";
         case ResetMeasure:  return "Reset Measure";
+        case Rotate:        return "Rotate";
         case Scale:         return "Scale";
         case RootNote:      return "Root Note";
         case Octave:        return "Octave";
@@ -74,6 +76,13 @@ private:
             break;
         case ResetMeasure:
             _track->printResetMeasure(str);
+            break;
+        case Rotate:
+            if (_track->loopLength() == 0) {
+                str("N/A");
+            } else {
+                _track->printRotate(str);
+            }
             break;
         case Scale:
             _track->printScale(str);
@@ -99,6 +108,11 @@ private:
             break;
         case ResetMeasure:
             _track->editResetMeasure(value, shift);
+            break;
+        case Rotate:
+            if (_track->loopLength() != 0) {
+                _track->editRotate(value, shift);
+            }
             break;
         case Scale:
             _track->editScale(value, shift);

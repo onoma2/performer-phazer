@@ -277,6 +277,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         int note = 0;
         int octave = 0;
 
+        // Calculate effective step index with rotation applied
+        // Rotation shifts the pattern start point
+        int rotate = _tuesdayTrack.rotate();
+        uint32_t effectiveStep = _stepIndex;
+        if (loopLength > 0 && rotate > 0) {
+            effectiveStep = (_stepIndex + rotate) % loopLength;
+        }
+
         switch (algorithm) {
         case 0: // TEST - Test patterns
             // Flow: Mode (OCTSWEEPS or SCALEWALKER) + SweepSpeed
@@ -295,7 +303,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
                 switch (_testMode) {
                 case 0:  // OCTSWEEPS - sweep through octaves
-                    octave = (_stepIndex % 5);  // 5 octaves
+                    octave = (effectiveStep % 5);  // 5 octaves
                     note = 0;
                     break;
                 case 1:  // SCALEWALKER - walk through notes
@@ -336,7 +344,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 }
 
                 // Tritrance pattern based on step position mod 3
-                int phase = (_stepIndex + _triB2) % 3;
+                int phase = (effectiveStep + _triB2) % 3;
                 switch (phase) {
                 case 0:
                     // Maybe change b3

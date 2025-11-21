@@ -269,6 +269,21 @@ public:
         }
     }
 
+    // rotate (0-63, shifts pattern start point)
+
+    int rotate() const { return _rotate; }
+    void setRotate(int rotate) {
+        _rotate = clamp(rotate, 0, 63);
+    }
+
+    void editRotate(int value, bool shift) {
+        setRotate(this->rotate() + value);
+    }
+
+    void printRotate(StringBuilder &str) const {
+        str("%d", rotate());
+    }
+
     //----------------------------------------
     // Methods
     //----------------------------------------
@@ -302,10 +317,11 @@ private:
     // Sequence parameters
     int8_t _octave = 0;  // Default: 0 (no transposition)
     int8_t _transpose = 0;  // Default: 0 (no transposition)
-    uint16_t _divisor = 192;  // Default: 1/4 note (CONFIG_PPQN)
-    uint8_t _resetMeasure = 0;  // Default: off
+    uint16_t _divisor = 12;  // Default: 1/16 note
+    uint8_t _resetMeasure = 8;  // Default: 8 bars
     int8_t _scale = -1;  // Default: -1 (use project scale)
     int8_t _rootNote = -1;  // Default: -1 (use project root)
+    uint8_t _rotate = 0;  // Default: 0 (no rotation)
 
     friend class Track;
 };
