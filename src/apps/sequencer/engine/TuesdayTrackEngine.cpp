@@ -192,7 +192,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     int baseCooldown = 17 - power;
 
     // Apply skew to cooldown based on loop position
-    // Skew value determines what fraction of loop reaches power 16:
+    // Skew value determines what fraction of loop is at power 16:
     // Skew 8 = last 50% at power 16, Skew 4 = last 25% at power 16
     int skew = _tuesdayTrack.skew();
     if (skew != 0 && loopLength > 0) {
@@ -202,37 +202,28 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         if (position < 0.0f) position = 0.0f;
 
         if (skew > 0) {
-            // Build-up: last (skew/16) of loop reaches power 16
-            // Skew 8 → ramp starts at 0.5, Skew 4 → starts at 0.75
-            float rampStart = 1.0f - (float)skew / 16.0f;
-            float denominator = 1.0f - rampStart;
+            // Build-up: last (skew/16) of loop at power 16
+            // Skew 8 → switch at 0.5, Skew 4 → switch at 0.75
+            float switchPoint = 1.0f - (float)skew / 16.0f;
 
-            if (position <= rampStart || denominator <= 0.0f) {
-                // Before ramp or invalid: use base power setting
+            if (position < switchPoint) {
+                // Before switch: use base power setting
                 _coolDownMax = baseCooldown;
             } else {
-                // During ramp: interpolate from base to cooldown 1 (power 16)
-                float rampProgress = (position - rampStart) / denominator;
-                if (rampProgress > 1.0f) rampProgress = 1.0f;
-                _coolDownMax = baseCooldown - (int)(rampProgress * (float)(baseCooldown - 1));
+                // After switch: full density (power 16)
+                _coolDownMax = 1;
             }
         } else {
-            // Fade-out: first (|skew|/16) of loop at power 16, then ramp down
-            // Skew -8 → first 50% at max, Skew -4 → first 25% at max
-            float rampEnd = (float)(-skew) / 16.0f;
-            float denominator = 1.0f - rampEnd;
+            // Fade-out: first (|skew|/16) of loop at power 16
+            // Skew -8 → switch at 0.5, Skew -4 → switch at 0.25
+            float switchPoint = (float)(-skew) / 16.0f;
 
-            if (position <= rampEnd) {
-                // Before ramp end: at power 16 (cooldown 1)
+            if (position < switchPoint) {
+                // Before switch: full density (power 16)
                 _coolDownMax = 1;
-            } else if (denominator <= 0.0f) {
-                // Safety: if denominator invalid, use base
-                _coolDownMax = baseCooldown;
             } else {
-                // After ramp end: interpolate from cooldown 1 to base
-                float rampProgress = (position - rampEnd) / denominator;
-                if (rampProgress > 1.0f) rampProgress = 1.0f;
-                _coolDownMax = 1 + (int)(rampProgress * (float)(baseCooldown - 1));
+                // After switch: base power setting
+                _coolDownMax = baseCooldown;
             }
         }
 
