@@ -5,6 +5,7 @@
 #include "ui/model/NoteTrackListModel.h"
 #include "ui/model/CurveTrackListModel.h"
 #include "ui/model/MidiCvTrackListModel.h"
+#include "ui/model/TuesdayTrackListModel.h"
 
 class TrackPage : public ListPage {
 public:
@@ -29,9 +30,11 @@ private:
     void copyTrackSetup();
     void pasteTrackSetup();
     void initRoute();
+    void reseedTuesday();
 
     RoutableListModel *_listModel;
     NoteTrackListModel _noteTrackListModel;
     CurveTrackListModel _curveTrackListModel;
     MidiCvTrackListModel _midiCvTrackListModel;
+    TuesdayTrackListModel _tuesdayTrackListModel;
 };

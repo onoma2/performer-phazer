@@ -433,6 +433,9 @@ void Engine::updateTrackSetups() {
             case Track::TrackMode::MidiCv:
                 trackEngine = trackContainer.create<MidiCvTrackEngine>(*this, _model, track, linkedTrackEngine);
                 break;
+            case Track::TrackMode::Tuesday:
+                trackEngine = trackContainer.create<TuesdayTrackEngine>(*this, _model, track, linkedTrackEngine);
+                break;
             case Track::TrackMode::Last:
                 break;
             }
