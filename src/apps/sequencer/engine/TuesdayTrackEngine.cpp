@@ -12,7 +12,7 @@ void TuesdayTrackEngine::reset() {
     _gateOutput = false;
     _cvOutput = 0.f;
     // Reseed RNG for deterministic loop playback
-    _rng.seed(_rngSeed);
+    _rng = Random(_rngSeed);
 }
 
 void TuesdayTrackEngine::restart() {
@@ -187,7 +187,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             _stepIndex = 0;
             _lastNote = 0.f;
             // Reseed RNG so loop repeats identically
-            _rng.seed(_rngSeed);
+            _rng = Random(_rngSeed);
         }
 
         return TickResult::CvUpdate | TickResult::GateUpdate;
