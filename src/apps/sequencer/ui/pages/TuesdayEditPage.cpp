@@ -308,8 +308,9 @@ void TuesdayEditPage::drawParam(Canvas &canvas, int x, int slot, int param) {
     }
 
     const int colWidth = 48;
-    const int valueY = 16;
-    const int barY = 24;  // Bar/algo name line
+    // Vertically center in content area (Y=10 to Y=54)
+    const int valueY = 26;  // Numbers
+    const int barY = 32;    // Bar/algo name line
     const int barHeight = 4;
     const int barWidth = 40;
     const int barX = x + (colWidth - barWidth) / 2;  // Center bar horizontally
