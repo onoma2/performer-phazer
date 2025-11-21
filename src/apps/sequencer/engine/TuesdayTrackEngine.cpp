@@ -265,11 +265,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;
 
-                // Random gate length (like RandomSlideAndLength)
-                if (_rng.nextRange(100) < 50) {
+                // Random gate length - can be very long (25% to 400% = up to 4 beats)
+                int gateLengthChoice = _rng.nextRange(100);
+                if (gateLengthChoice < 40) {
                     _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
+                } else if (gateLengthChoice < 70) {
+                    _gatePercent = 100 + (_rng.nextRange(4) * 25); // 100%, 125%, 150%, 175%
                 } else {
-                    _gatePercent = 75;  // Default
+                    _gatePercent = 200 + (_rng.nextRange(9) * 25); // 200% to 400%
                 }
 
                 // Random slide (like RandomSlideAndLength)
@@ -450,11 +453,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;
 
-                // Random gate length (like RandomSlideAndLength)
-                if (_rng.nextRange(100) < 50) {
+                // Random gate length - can be very long (25% to 400% = up to 4 beats)
+                int gateLengthChoice = _rng.nextRange(100);
+                if (gateLengthChoice < 40) {
                     _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
+                } else if (gateLengthChoice < 70) {
+                    _gatePercent = 100 + (_rng.nextRange(4) * 25); // 100%, 125%, 150%, 175%
                 } else {
-                    _gatePercent = 75;  // Default
+                    _gatePercent = 200 + (_rng.nextRange(9) * 25); // 200% to 400%
                 }
 
                 // Random slide (like RandomSlideAndLength)
