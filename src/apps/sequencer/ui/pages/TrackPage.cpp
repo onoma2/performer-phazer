@@ -83,6 +83,10 @@ void TrackPage::setTrack(Track &track) {
         _midiCvTrackListModel.setTrack(track.midiCvTrack());
         newListModel = &_midiCvTrackListModel;
         break;
+    case Track::TrackMode::Tuesday:
+        _tuesdayTrackListModel.setTrack(track.tuesdayTrack());
+        newListModel = &_tuesdayTrackListModel;
+        break;
     case Track::TrackMode::Last:
         ASSERT(false, "invalid track mode");
         break;

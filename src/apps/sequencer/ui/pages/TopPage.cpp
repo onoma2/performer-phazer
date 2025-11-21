@@ -292,6 +292,10 @@ void TopPage::setSequenceView(SequenceView view) {
     case Track::TrackMode::MidiCv:
         setMainPage(pages.track);
         break;
+    case Track::TrackMode::Tuesday:
+        // Tuesday tracks use TrackPage for parameter editing (no step sequences)
+        setMainPage(pages.track);
+        break;
     case Track::TrackMode::Last:
         break;
     }
@@ -337,6 +341,7 @@ void TopPage::setTrackView(TrackView view) {
         break;
     case Track::TrackMode::Curve:
     case Track::TrackMode::MidiCv:
+    case Track::TrackMode::Tuesday:
         // For non-note tracks, always show track page
         setMainPage(pages.track);
         break;
@@ -356,6 +361,10 @@ void TopPage::setSequenceEditPage() {
         setMainPage(pages.curveSequenceEdit);
         break;
     case Track::TrackMode::MidiCv:
+        setMainPage(pages.track);
+        break;
+    case Track::TrackMode::Tuesday:
+        // Tuesday tracks use TrackPage (no step sequence editor)
         setMainPage(pages.track);
         break;
     case Track::TrackMode::Last:
