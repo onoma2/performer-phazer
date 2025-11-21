@@ -175,9 +175,16 @@ void TuesdayEditPage::formatParamValue(int param, StringBuilder &str) const {
     const auto &track = tuesdayTrack();
 
     switch (param) {
-    case Algorithm:
-        track.printAlgorithm(str);
+    case Algorithm: {
+        // Truncate algorithm name to 7 chars max
+        FixedStringBuilder<16> fullName;
+        track.printAlgorithm(fullName);
+        const char *name = fullName;
+        int len = 0;
+        while (name[len] && len < 7) len++;
+        for (int i = 0; i < len; i++) str("%c", name[i]);
         break;
+    }
     case Flow:
         str("%d", track.flow());
         break;
@@ -302,10 +309,10 @@ void TuesdayEditPage::drawParam(Canvas &canvas, int x, int slot, int param) {
 
     const int colWidth = 48;
     const int valueY = 16;
-    const int barY = 26;
+    const int barY = 21;  // Closer to value text
     const int barHeight = 4;
     const int barWidth = 40;
-    const int barX = x + 4;
+    const int barX = x + (colWidth - barWidth) / 2;  // Center bar horizontally
 
     canvas.setFont(Font::Tiny);
     canvas.setBlendMode(BlendMode::Set);
