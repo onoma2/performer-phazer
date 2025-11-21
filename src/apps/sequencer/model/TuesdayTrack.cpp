@@ -98,6 +98,7 @@ void TuesdayTrack::clear() {
     _resetMeasure = 8;
     _scale = -1;
     _rootNote = -1;
+    _scan = 0;
     _rotate = 0;
 }
 
@@ -117,6 +118,7 @@ void TuesdayTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_resetMeasure);
     writer.write(_scale);
     writer.write(_rootNote);
+    writer.write(_scan);
     writer.write(_rotate);
 }
 
@@ -136,5 +138,6 @@ void TuesdayTrack::read(VersionedSerializedReader &reader) {
     reader.read(_resetMeasure, 8);  // Default 8 bars for old projects
     reader.read(_scale, -1);  // Default -1 (project) for old projects
     reader.read(_rootNote, -1);  // Default -1 (project) for old projects
+    reader.read(_scan, 0);  // Default 0 for old projects
     reader.read(_rotate, 0);  // Default 0 for old projects
 }

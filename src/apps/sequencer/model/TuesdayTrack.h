@@ -269,11 +269,26 @@ public:
         }
     }
 
-    // rotate (0-63, shifts pattern start point)
+    // scan (0-127, scans pattern position for infinite loops)
+
+    int scan() const { return _scan; }
+    void setScan(int scan) {
+        _scan = clamp(scan, 0, 127);
+    }
+
+    void editScan(int value, bool shift) {
+        setScan(this->scan() + value);
+    }
+
+    void printScan(StringBuilder &str) const {
+        str("%d", scan());
+    }
+
+    // rotate (-64 to +63, bipolar shift for finite loops)
 
     int rotate() const { return _rotate; }
     void setRotate(int rotate) {
-        _rotate = clamp(rotate, 0, 63);
+        _rotate = clamp(rotate, -64, 63);
     }
 
     void editRotate(int value, bool shift) {
@@ -281,7 +296,7 @@ public:
     }
 
     void printRotate(StringBuilder &str) const {
-        str("%d", rotate());
+        str("%+d", rotate());
     }
 
     //----------------------------------------
@@ -321,7 +336,8 @@ private:
     uint8_t _resetMeasure = 8;  // Default: 8 bars
     int8_t _scale = -1;  // Default: -1 (use project scale)
     int8_t _rootNote = -1;  // Default: -1 (use project root)
-    uint8_t _rotate = 0;  // Default: 0 (no rotation)
+    uint8_t _scan = 0;  // Default: 0 (no scan offset)
+    int8_t _rotate = 0;  // Default: 0 (no rotation)
 
     friend class Track;
 };

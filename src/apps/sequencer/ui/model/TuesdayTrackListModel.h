@@ -47,6 +47,7 @@ private:
         Ornament,
         Power,
         LoopLength,
+        Scan,
         Rotate,
         Glide,
         Skew,
@@ -61,6 +62,7 @@ private:
         case Ornament:      return "Ornament";
         case Power:         return "Power";
         case LoopLength:    return "Loop Length";
+        case Scan:          return "Scan";
         case Rotate:        return "Rotate";
         case Glide:         return "Glide";
         case Skew:          return "Skew";
@@ -90,6 +92,13 @@ private:
             break;
         case LoopLength:
             _track->printLoopLength(str);
+            break;
+        case Scan:
+            if (_track->loopLength() != 0) {
+                str("N/A");
+            } else {
+                _track->printScan(str);
+            }
             break;
         case Rotate:
             if (_track->loopLength() == 0) {
@@ -128,6 +137,11 @@ private:
             break;
         case LoopLength:
             _track->editLoopLength(value, shift);
+            break;
+        case Scan:
+            if (_track->loopLength() == 0) {
+                _track->editScan(value, shift);
+            }
             break;
         case Rotate:
             if (_track->loopLength() != 0) {
