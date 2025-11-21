@@ -227,6 +227,103 @@ void TuesdayTrackEngine::generateBuffer() {
             }
             break;
 
+        case 2: // STOMPER - warmup state machine
+            {
+                if (_stomperCountDown > 0) {
+                    _stomperCountDown--;
+                } else {
+                    if (_stomperMode >= 14) {
+                        _stomperMode = (_extraRng.next() % 7) * 2;
+                    }
+
+                    _rng.nextRange(100);
+                    _stomperLowNote = _rng.next() % 3;
+                    _rng.nextRange(100);
+                    _stomperHighNote[0] = _rng.next() % 7;
+                    _rng.nextRange(100);
+                    _stomperHighNote[1] = _rng.next() % 5;
+
+                    int maxticklen = 2;
+
+                    switch (_stomperMode) {
+                    case 10:
+                        _stomperLastNote = _stomperHighNote[_rng.next() % 2];
+                        _stomperLastOctave = 1;
+                        _stomperMode++;
+                        break;
+                    case 11:
+                        _stomperLastNote = _stomperLowNote;
+                        _stomperLastOctave = 0;
+                        // Match RNG pattern: nextRange(100) then conditional nextRange(3)
+                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                            _rng.nextRange(3);
+                        }
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 12:
+                        _stomperLastNote = _stomperLowNote;
+                        _stomperLastOctave = 0;
+                        _stomperMode++;
+                        break;
+                    case 13:
+                        _stomperLastNote = _stomperHighNote[_rng.next() % 2];
+                        _stomperLastOctave = 1;
+                        // Match RNG pattern: nextRange(100) then conditional nextRange(3)
+                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                            _rng.nextRange(3);
+                        }
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 4:
+                    case 5:
+                        _stomperLastNote = _stomperLowNote;
+                        _stomperLastOctave = 0;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 0:
+                    case 1:
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 6:
+                    case 7:
+                        _stomperLastNote = _stomperLowNote;
+                        _stomperLastOctave = 0;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 8:
+                        _stomperLastNote = _stomperHighNote[_rng.next() % 2];
+                        _stomperLastOctave = 1;
+                        _stomperMode++;
+                        break;
+                    case 9:
+                        _stomperLastNote = _stomperLowNote;
+                        _stomperLastOctave = 0;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 2:
+                        _stomperLastNote = _stomperLowNote;
+                        _stomperLastOctave = 0;
+                        _stomperMode++;
+                        break;
+                    case 3:
+                        _stomperLastNote = _stomperHighNote[_rng.next() % 2];
+                        _stomperLastOctave = 1;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+            break;
+
         case 3: // MARKOV
             {
                 // Gate length - must match exact consumption pattern
@@ -290,11 +387,11 @@ void TuesdayTrackEngine::generateBuffer() {
             {
                 int gateLengthChoice = _rng.nextRange(100);
                 if (gateLengthChoice < 40) {
-                    gatePercent = 25 + (_rng.nextRange(4) * 25);
+                    gatePercent = 50 + (_rng.nextRange(4) * 12);  // 50%, 62%, 74%, 86%
                 } else if (gateLengthChoice < 70) {
-                    gatePercent = 100 + (_rng.nextRange(4) * 25);
+                    gatePercent = 100 + (_rng.nextRange(4) * 25); // 100%, 125%, 150%, 175%
                 } else {
-                    gatePercent = 200 + (_rng.nextRange(9) * 25);
+                    gatePercent = 200 + (_rng.nextRange(9) * 25); // 200% to 400%
                 }
 
                 if (glide > 0 && _rng.nextRange(100) < glide) {
@@ -333,11 +430,123 @@ void TuesdayTrackEngine::generateBuffer() {
             }
             break;
 
+        case 2: // STOMPER - buffer generation
+            {
+                gatePercent = 75;
+                slide = 0;
+
+                if (_stomperCountDown > 0) {
+                    gatePercent = _stomperCountDown * 25;
+                    _stomperCountDown--;
+                    // Still generate a note but mark as rest
+                    note = _stomperLastNote;
+                    octave = _stomperLastOctave;
+                } else {
+                    if (_stomperMode >= 14) {
+                        _stomperMode = (_extraRng.next() % 7) * 2;
+                    }
+
+                    _rng.nextRange(100);
+                    _stomperLowNote = _rng.next() % 3;
+                    _rng.nextRange(100);
+                    _stomperHighNote[0] = _rng.next() % 7;
+                    _rng.nextRange(100);
+                    _stomperHighNote[1] = _rng.next() % 5;
+
+                    int maxticklen = 2;
+
+                    switch (_stomperMode) {
+                    case 10:
+                        octave = 1;
+                        note = _stomperHighNote[_rng.next() % 2];
+                        _stomperMode++;
+                        break;
+                    case 11:
+                        octave = 0;
+                        note = _stomperLowNote;
+                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                            slide = (_rng.nextRange(3)) + 1;
+                        }
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 12:
+                        octave = 0;
+                        note = _stomperLowNote;
+                        _stomperMode++;
+                        break;
+                    case 13:
+                        octave = 1;
+                        note = _stomperHighNote[_rng.next() % 2];
+                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                            slide = (_rng.nextRange(3)) + 1;
+                        }
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 4:
+                    case 5:
+                        octave = 0;
+                        note = _stomperLowNote;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 0:
+                    case 1:
+                        octave = _stomperLastOctave;
+                        note = _stomperLastNote;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 6:
+                    case 7:
+                        octave = 0;
+                        note = _stomperLowNote;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 8:
+                        octave = 1;
+                        note = _stomperHighNote[_rng.next() % 2];
+                        _stomperMode++;
+                        break;
+                    case 9:
+                        octave = 0;
+                        note = _stomperLowNote;
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    case 2:
+                        octave = 0;
+                        note = _stomperLowNote;
+                        _stomperMode++;
+                        break;
+                    case 3:
+                        octave = 1;
+                        note = _stomperHighNote[_rng.next() % 2];
+                        if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
+                        _stomperMode = 14;
+                        break;
+                    default:
+                        octave = _stomperLastOctave;
+                        note = _stomperLastNote;
+                        break;
+                    }
+
+                    _stomperLastNote = note;
+                    _stomperLastOctave = octave;
+                }
+
+                if (note < 0) note = 0;
+                if (note > 11) note = 11;
+            }
+            break;
+
         case 3: // MARKOV
             {
                 int gateLengthChoice = _rng.nextRange(100);
                 if (gateLengthChoice < 40) {
-                    gatePercent = 25 + (_rng.nextRange(4) * 25);
+                    gatePercent = 50 + (_rng.nextRange(4) * 12);
                 } else if (gateLengthChoice < 70) {
                     gatePercent = 100 + (_rng.nextRange(4) * 25);
                 } else {
@@ -570,10 +779,10 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;
 
-                // Random gate length - can be very long (25% to 400% = up to 4 beats)
+                // Random gate length - min 50%, up to 400%
                 int gateLengthChoice = _rng.nextRange(100);
                 if (gateLengthChoice < 40) {
-                    _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
+                    _gatePercent = 50 + (_rng.nextRange(4) * 12);  // 50%, 62%, 74%, 86%
                 } else if (gateLengthChoice < 70) {
                     _gatePercent = 100 + (_rng.nextRange(4) * 25); // 100%, 125%, 150%, 175%
                 } else {
@@ -769,10 +978,10 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;
 
-                // Random gate length - can be very long (25% to 400% = up to 4 beats)
+                // Random gate length - min 50%, up to 400%
                 int gateLengthChoice = _rng.nextRange(100);
                 if (gateLengthChoice < 40) {
-                    _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
+                    _gatePercent = 50 + (_rng.nextRange(4) * 12);  // 50%, 62%, 74%, 86%
                 } else if (gateLengthChoice < 70) {
                     _gatePercent = 100 + (_rng.nextRange(4) * 25); // 100%, 125%, 150%, 175%
                 } else {
