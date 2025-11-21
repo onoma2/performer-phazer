@@ -92,6 +92,7 @@ void TuesdayTrackEngine::reset() {
     _gateOutput = false;
     _cvOutput = 0.f;
     _lastGatedCv = 0.f;
+    _bufferValid = false;
 
     // Re-initialize algorithm with current seeds
     initAlgorithm();
@@ -161,6 +162,131 @@ void TuesdayTrackEngine::reseed() {
     }
 }
 
+void TuesdayTrackEngine::generateBuffer() {
+    // Initialize algorithm fresh to get deterministic pattern
+    initAlgorithm();
+
+    int algorithm = _tuesdayTrack.algorithm();
+    int glide = _tuesdayTrack.glide();
+
+    // Generate 128 steps into buffer
+    for (int step = 0; step < BUFFER_SIZE; step++) {
+        int note = 0;
+        int octave = 0;
+        uint8_t gatePercent = 75;
+        uint8_t slide = 0;
+
+        switch (algorithm) {
+        case 0: // TEST
+            {
+                gatePercent = 75;
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = _testSweepSpeed + 1;
+                }
+
+                switch (_testMode) {
+                case 0:  // OCTSWEEPS
+                    octave = (step % 5);
+                    note = 0;
+                    break;
+                case 1:  // SCALEWALKER
+                default:
+                    octave = 0;
+                    note = _testNote;
+                    _testNote = (_testNote + 1) % 12;
+                    break;
+                }
+            }
+            break;
+
+        case 1: // TRITRANCE
+            {
+                int gateLengthChoice = _rng.nextRange(100);
+                if (gateLengthChoice < 40) {
+                    gatePercent = 25 + (_rng.nextRange(4) * 25);
+                } else if (gateLengthChoice < 70) {
+                    gatePercent = 100 + (_rng.nextRange(4) * 25);
+                } else {
+                    gatePercent = 200 + (_rng.nextRange(9) * 25);
+                }
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
+                }
+
+                int phase = (step + _triB2) % 3;
+                switch (phase) {
+                case 0:
+                    if (_extraRng.nextBinary() && _extraRng.nextBinary()) {
+                        _triB3 = (_extraRng.next() & 0x15);
+                        if (_triB3 >= 7) _triB3 -= 7; else _triB3 = 0;
+                        _triB3 -= 4;
+                    }
+                    octave = 0;
+                    note = _triB3 + 4;
+                    break;
+                case 1:
+                    octave = 1;
+                    note = _triB3 + 4;
+                    if (_rng.nextBinary()) {
+                        _triB2 = (_rng.next() & 0x7);
+                    }
+                    break;
+                case 2:
+                    octave = 2;
+                    note = _triB1;
+                    if (_rng.nextBinary()) {
+                        _triB1 = ((_rng.next() >> 5) & 0x7);
+                    }
+                    break;
+                }
+
+                if (note < 0) note = 0;
+                if (note > 11) note = 11;
+            }
+            break;
+
+        case 3: // MARKOV
+            {
+                int gateLengthChoice = _rng.nextRange(100);
+                if (gateLengthChoice < 40) {
+                    gatePercent = 25 + (_rng.nextRange(4) * 25);
+                } else if (gateLengthChoice < 70) {
+                    gatePercent = 100 + (_rng.nextRange(4) * 25);
+                } else {
+                    gatePercent = 200 + (_rng.nextRange(9) * 25);
+                }
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
+                }
+
+                int idx = _rng.nextBinary() ? 1 : 0;
+                note = _markovMatrix[_markovHistory1][_markovHistory3][idx];
+                _markovHistory1 = _markovHistory3;
+                _markovHistory3 = note;
+                octave = _rng.nextBinary() ? 1 : 0;
+            }
+            break;
+
+        default:
+            note = 0;
+            octave = 0;
+            break;
+        }
+
+        _buffer[step].note = note;
+        _buffer[step].octave = octave;
+        _buffer[step].gatePercent = gatePercent;
+        _buffer[step].slide = slide;
+    }
+
+    _bufferValid = true;
+
+    // Reinitialize algorithm for live playback
+    initAlgorithm();
+}
+
 TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     // Check mute
     if (mute()) {
@@ -183,9 +309,15 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         return TickResult::NoUpdate;
     }
 
-    // Check if parameters changed - if so, reinitialize
+    // Check if parameters changed - if so, reinitialize and invalidate buffer
     if (_cachedFlow != _tuesdayTrack.flow() || _cachedOrnament != _tuesdayTrack.ornament()) {
         initAlgorithm();
+        _bufferValid = false;
+    }
+
+    // Generate buffer for finite loops if needed
+    if (loopLength > 0 && !_bufferValid) {
+        generateBuffer();
     }
 
     // Calculate base cooldown from power
@@ -279,7 +411,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
         // Calculate effective step index
         // Scan: offsets where on the infinite tape we capture from (0-127)
-        // Rotate: for finite loops, shifts start point within the captured loop (-64 to +63)
+        // Rotate: for finite loops, shifts start point within the captured loop
         int scan = _tuesdayTrack.scan();
         uint32_t effectiveStep = _stepIndex;
         if (loopLength > 0) {
@@ -289,12 +421,20 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             effectiveStep = ((_stepIndex + rot) % loopLength + loopLength) % loopLength;
             // Add scan offset to select which portion of infinite tape
             effectiveStep += scan;
-        } else {
-            // Infinite loop: just use scan
-            effectiveStep = _stepIndex + scan;
-        }
 
-        switch (algorithm) {
+            // Read from pre-generated buffer
+            if (effectiveStep < BUFFER_SIZE) {
+                note = _buffer[effectiveStep].note;
+                octave = _buffer[effectiveStep].octave;
+                _gatePercent = _buffer[effectiveStep].gatePercent;
+                _slide = _buffer[effectiveStep].slide;
+                shouldGate = true;
+            }
+        } else {
+            // Infinite loop: live generation with scan offset
+            effectiveStep = _stepIndex + scan;
+
+            switch (algorithm) {
         case 0: // TEST - Test patterns
             // Flow: Mode (OCTSWEEPS or SCALEWALKER) + SweepSpeed
             // Ornament: Accent + Velocity
@@ -570,7 +710,8 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             shouldGate = false;
             noteVoltage = 0.f;
             break;
-        }
+            }
+        } // End else (infinite loop)
 
         // Apply octave and transpose from sequence parameters
         int trackOctave = _tuesdayTrack.octave();

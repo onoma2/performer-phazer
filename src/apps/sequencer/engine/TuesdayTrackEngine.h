@@ -36,8 +36,24 @@ public:
     // Reseed the algorithm (called from UI via Shift+F5)
     void reseed();
 
+    // Generate pattern buffer for finite loops
+    void generateBuffer();
+
 private:
     void initAlgorithm();
+
+    // Structure for pre-generated step data
+    struct BufferedStep {
+        int8_t note;
+        int8_t octave;
+        uint8_t gatePercent;
+        uint8_t slide;
+    };
+
+    // Pattern buffer for finite loops (128 steps)
+    static const int BUFFER_SIZE = 128;
+    BufferedStep _buffer[BUFFER_SIZE];
+    bool _bufferValid = false;
 
     const TuesdayTrack &_tuesdayTrack;
 
