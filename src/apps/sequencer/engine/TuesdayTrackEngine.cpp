@@ -169,7 +169,94 @@ void TuesdayTrackEngine::generateBuffer() {
     int algorithm = _tuesdayTrack.algorithm();
     int glide = _tuesdayTrack.glide();
 
-    // Generate 128 steps into buffer
+    // Warmup phase: run algorithm for 256 steps to get mature pattern
+    // This allows capturing evolved patterns instead of initial state
+    // Must match exact RNG consumption pattern of buffer generation
+    const int WARMUP_STEPS = 256;
+    for (int step = 0; step < WARMUP_STEPS; step++) {
+        switch (algorithm) {
+        case 0: // TEST
+            {
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    // consume RNG for slide
+                }
+                switch (_testMode) {
+                case 1:  // SCALEWALKER
+                    _testNote = (_testNote + 1) % 12;
+                    break;
+                }
+            }
+            break;
+
+        case 1: // TRITRANCE
+            {
+                // Gate length - must match exact consumption pattern
+                int gateLengthChoice = _rng.nextRange(100);
+                if (gateLengthChoice < 40) {
+                    _rng.nextRange(4);
+                } else if (gateLengthChoice < 70) {
+                    _rng.nextRange(4);
+                } else {
+                    _rng.nextRange(9);
+                }
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+
+                int phase = (step + _triB2) % 3;
+                switch (phase) {
+                case 0:
+                    if (_extraRng.nextBinary() && _extraRng.nextBinary()) {
+                        _triB3 = (_extraRng.next() & 0x15);
+                        if (_triB3 >= 7) _triB3 -= 7; else _triB3 = 0;
+                        _triB3 -= 4;
+                    }
+                    break;
+                case 1:
+                    if (_rng.nextBinary()) {
+                        _triB2 = (_rng.next() & 0x7);
+                    }
+                    break;
+                case 2:
+                    if (_rng.nextBinary()) {
+                        _triB1 = ((_rng.next() >> 5) & 0x7);
+                    }
+                    break;
+                }
+            }
+            break;
+
+        case 3: // MARKOV
+            {
+                // Gate length - must match exact consumption pattern
+                int gateLengthChoice = _rng.nextRange(100);
+                if (gateLengthChoice < 40) {
+                    _rng.nextRange(4);
+                } else if (gateLengthChoice < 70) {
+                    _rng.nextRange(4);
+                } else {
+                    _rng.nextRange(9);
+                }
+
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+
+                int idx = _rng.nextBinary() ? 1 : 0;
+                int note = _markovMatrix[_markovHistory1][_markovHistory3][idx];
+                _markovHistory1 = _markovHistory3;
+                _markovHistory3 = note;
+                _rng.nextBinary();  // octave
+            }
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    // Generate 128 steps into buffer (now capturing mature pattern)
     for (int step = 0; step < BUFFER_SIZE; step++) {
         int note = 0;
         int octave = 0;
