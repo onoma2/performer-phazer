@@ -48,6 +48,7 @@ private:
         Power,
         LoopLength,
         Glide,
+        Scale,
         Last
     };
 
@@ -59,6 +60,7 @@ private:
         case Power:         return "Power";
         case LoopLength:    return "Loop Length";
         case Glide:         return "Glide";
+        case Scale:         return "Scale";
         case Last:          break;
         }
         return nullptr;
@@ -88,6 +90,9 @@ private:
         case Glide:
             _track->printGlide(str);
             break;
+        case Scale:
+            _track->printUseScale(str);
+            break;
         case Last:
             break;
         }
@@ -112,6 +117,9 @@ private:
             break;
         case Glide:
             _track->editGlide(value, shift);
+            break;
+        case Scale:
+            _track->editUseScale(value, shift);
             break;
         case Last:
             break;

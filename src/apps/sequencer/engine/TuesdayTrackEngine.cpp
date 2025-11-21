@@ -510,6 +510,15 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             break;
         }
 
+        // Apply project scale if enabled
+        if (_tuesdayTrack.useScale()) {
+            const auto &scale = _model.project().scale();
+            int rootNote = _model.project().rootNote();
+            // Treat note as scale degree, convert to voltage
+            int scaleNote = note + octave * scale.notesPerOctave();
+            noteVoltage = scale.noteToVolts(scaleNote) + (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f);
+        }
+
         // Decrement cooldown
         if (_coolDown > 0) {
             _coolDown--;

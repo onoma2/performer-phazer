@@ -102,6 +102,21 @@ public:
         str("%d%%", glide());
     }
 
+    // useScale (use project scale for note quantization)
+
+    bool useScale() const { return _useScale; }
+    void setUseScale(bool useScale) {
+        _useScale = useScale;
+    }
+
+    void editUseScale(int value, bool shift) {
+        setUseScale(value > 0 ? !_useScale : _useScale);
+    }
+
+    void printUseScale(StringBuilder &str) const {
+        str(_useScale ? "Project" : "Free");
+    }
+
     //----------------------------------------
     // Methods
     //----------------------------------------
@@ -128,6 +143,7 @@ private:
     uint8_t _power = 0;
     uint8_t _loopLength = 16;
     uint8_t _glide = 0;  // Default 0% (no slides)
+    bool _useScale = false;  // Default: free (chromatic)
 
     friend class Track;
 };
