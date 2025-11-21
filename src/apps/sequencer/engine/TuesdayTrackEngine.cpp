@@ -236,15 +236,16 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     }
 
     // Calculate step timing with clock sync
-    // Use 16th notes as base timing
-    uint32_t divisor = CONFIG_PPQN / 4;  // 48 ticks per 16th note
+    // Use track divisor (converts from PPQN to actual ticks)
+    uint32_t divisor = _tuesdayTrack.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
 
-    // Calculate reset divisor for clock sync (reset every 4 measures)
-    uint32_t resetDivisor = 4 * _engine.measureDivisor();
+    // Calculate reset divisor from resetMeasure parameter
+    int resetMeasure = _tuesdayTrack.resetMeasure();
+    uint32_t resetDivisor = resetMeasure > 0 ? resetMeasure * _engine.measureDivisor() : 0;
     uint32_t relativeTick = resetDivisor == 0 ? tick : tick % resetDivisor;
 
-    // Reset on measure boundary
-    if (relativeTick == 0) {
+    // Reset on measure boundary (only if resetMeasure is enabled)
+    if (resetDivisor > 0 && relativeTick == 0) {
         reset();
     }
 
@@ -554,14 +555,31 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             break;
         }
 
-        // Apply project scale if enabled
-        if (_tuesdayTrack.useScale()) {
-            const Scale &scale = _model.project().selectedScale();
-            int rootNote = _model.project().rootNote();
+        // Apply octave and transpose from sequence parameters
+        int trackOctave = _tuesdayTrack.octave();
+        int trackTranspose = _tuesdayTrack.transpose();
+
+        // Get scale and root note (use track settings if not Default, otherwise project)
+        int trackScaleIdx = _tuesdayTrack.scale();
+        int trackRootNote = _tuesdayTrack.rootNote();
+
+        const Scale &scale = (trackScaleIdx >= 0) ? Scale::get(trackScaleIdx) : _model.project().selectedScale();
+        int rootNote = (trackRootNote >= 0) ? trackRootNote : _model.project().rootNote();
+
+        // Apply scale quantization if useScale is enabled or track has specific scale
+        if (_tuesdayTrack.useScale() || trackScaleIdx >= 0) {
             // Treat note as scale degree, convert to voltage
             int scaleNote = note + octave * scale.notesPerOctave();
+            // Add transpose (in semitones for chromatic, scale degrees otherwise)
+            scaleNote += trackTranspose;
             noteVoltage = scale.noteToVolts(scaleNote) + (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f);
+        } else {
+            // Free (chromatic) mode - apply transpose directly
+            noteVoltage = (note + trackTranspose + (octave * 12)) / 12.0f;
         }
+
+        // Apply octave offset (1V per octave)
+        noteVoltage += trackOctave;
 
         // Decrement cooldown
         if (_coolDown > 0) {

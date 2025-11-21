@@ -33,6 +33,7 @@
 #include "AccumulatorPage.h"
 #include "AccumulatorStepsPage.h"
 #include "HarmonyPage.h"
+#include "TuesdaySequencePage.h"
 
 #ifdef CONFIG_ENABLE_INTRO
 #include "IntroPage.h"
@@ -61,6 +62,7 @@ struct Pages {
     AccumulatorPage accumulator;
     AccumulatorStepsPage accumulatorSteps;
     HarmonyPage harmony;
+    TuesdaySequencePage tuesdaySequence;
     SystemPage system;
     // modal pages
     TempoPage tempo;
@@ -105,6 +107,7 @@ struct Pages {
         accumulator(manager, context),
         accumulatorSteps(manager, context),
         harmony(manager, context),
+        tuesdaySequence(manager, context),
         system(manager, context),
         // modal pages
         tempo(manager, context),
