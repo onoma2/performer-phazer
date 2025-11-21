@@ -59,17 +59,20 @@ void TrackPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
-    // Shift+F5: Reseed Tuesday track loop (check before pageModifier)
-    if (key.isFunction() && globalKeyState()[Key::Shift] && key.function() == 4) {
-        auto &track = _project.selectedTrack();
-        if (track.trackMode() == Track::TrackMode::Tuesday) {
-            int trackIndex = _project.selectedTrackIndex();
-            auto &trackEngine = _engine.trackEngine(trackIndex);
-            auto *tuesdayEngine = static_cast<TuesdayTrackEngine *>(&trackEngine);
-            tuesdayEngine->reseed();
-            showMessage("LOOP RESEEDED");
-            event.consume();
-            return;
+    // Handle function keys exactly like NoteSequenceEditPage
+    if (key.isFunction()) {
+        // Shift+F5: Reseed Tuesday track loop
+        if (key.shiftModifier() && key.function() == 4) {
+            auto &track = _project.selectedTrack();
+            if (track.trackMode() == Track::TrackMode::Tuesday) {
+                int trackIndex = _project.selectedTrackIndex();
+                auto &trackEngine = _engine.trackEngine(trackIndex);
+                auto *tuesdayEngine = static_cast<TuesdayTrackEngine *>(&trackEngine);
+                tuesdayEngine->reseed();
+                showMessage("LOOP RESEEDED");
+                event.consume();
+                return;
+            }
         }
     }
 
