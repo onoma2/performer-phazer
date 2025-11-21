@@ -28,7 +28,9 @@ public:
     virtual float sequenceProgress() const override {
         int loopLength = _tuesdayTrack.actualLoopLength();
         if (loopLength <= 0) return 0.f;  // Infinite loop shows no progress
-        return float(_stepIndex) / float(loopLength);
+        // Use modulo to ensure step is always within bounds
+        uint32_t step = _stepIndex % loopLength;
+        return float(step) / float(loopLength);
     }
 
     // Reseed the algorithm (called from UI via Shift+F5)
