@@ -111,7 +111,7 @@ CASE("loopLength_setter_getter") {
 CASE("loopLength_clamping_upper") {
     TuesdayTrack track;
     track.setLoopLength(30);
-    expectEqual(track.loopLength(), 23, "loopLength should clamp to 23 (max index)");
+    expectEqual(track.loopLength(), 25, "loopLength should clamp to 25 (max index)");
 }
 
 CASE("actualLoopLength_infinite") {
@@ -137,7 +137,7 @@ CASE("actualLoopLength_standard_values") {
 CASE("actualLoopLength_extended_values") {
     TuesdayTrack track;
 
-    // Test extended values: 19, 21, 24, 32, 35, 42, 48, 64
+    // Test extended values: 19, 21, 24, 32, 35, 42, 48, 56, 64
     track.setLoopLength(17);
     expectEqual(track.actualLoopLength(), 19, "index 17 = 19");
 
@@ -158,6 +158,12 @@ CASE("actualLoopLength_extended_values") {
 
     track.setLoopLength(23);
     expectEqual(track.actualLoopLength(), 48, "index 23 = 48");
+
+    track.setLoopLength(24);
+    expectEqual(track.actualLoopLength(), 56, "index 24 = 56");
+
+    track.setLoopLength(25);
+    expectEqual(track.actualLoopLength(), 64, "index 25 = 64");
 }
 
 //----------------------------------------
