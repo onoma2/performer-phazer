@@ -4,6 +4,7 @@
 #include "Types.h"
 #include "Serialize.h"
 #include "ModelUtils.h"
+#include "Scale.h"
 
 #include "core/math/Math.h"
 

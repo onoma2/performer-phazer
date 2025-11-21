@@ -267,4 +267,155 @@ CASE("cvUpdateMode_clear_resets") {
     expectEqual(static_cast<int>(track.cvUpdateMode()), 0, "cvUpdateMode should reset to Free after clear");
 }
 
+//----------------------------------------
+// Octave Parameter (-10 to +10)
+//----------------------------------------
+
+CASE("octave_default_value") {
+    TuesdayTrack track;
+    expectEqual(track.octave(), 0, "default octave should be 0");
+}
+
+CASE("octave_setter_getter") {
+    TuesdayTrack track;
+    track.setOctave(5);
+    expectEqual(track.octave(), 5, "octave should be 5");
+    track.setOctave(-3);
+    expectEqual(track.octave(), -3, "octave should be -3");
+}
+
+CASE("octave_clamping") {
+    TuesdayTrack track;
+    track.setOctave(15);
+    expectEqual(track.octave(), 10, "octave should clamp to 10");
+    track.setOctave(-15);
+    expectEqual(track.octave(), -10, "octave should clamp to -10");
+}
+
+//----------------------------------------
+// Transpose Parameter (-11 to +11)
+//----------------------------------------
+
+CASE("transpose_default_value") {
+    TuesdayTrack track;
+    expectEqual(track.transpose(), 0, "default transpose should be 0");
+}
+
+CASE("transpose_setter_getter") {
+    TuesdayTrack track;
+    track.setTranspose(7);
+    expectEqual(track.transpose(), 7, "transpose should be 7");
+    track.setTranspose(-5);
+    expectEqual(track.transpose(), -5, "transpose should be -5");
+}
+
+CASE("transpose_clamping") {
+    TuesdayTrack track;
+    track.setTranspose(20);
+    expectEqual(track.transpose(), 11, "transpose should clamp to 11");
+    track.setTranspose(-20);
+    expectEqual(track.transpose(), -11, "transpose should clamp to -11");
+}
+
+//----------------------------------------
+// Divisor Parameter
+//----------------------------------------
+
+CASE("divisor_default_value") {
+    TuesdayTrack track;
+    expectEqual(track.divisor(), 192, "default divisor should be 192 (1/4 note)");
+}
+
+CASE("divisor_setter_getter") {
+    TuesdayTrack track;
+    track.setDivisor(96);
+    expectEqual(track.divisor(), 96, "divisor should be 96");
+}
+
+//----------------------------------------
+// ResetMeasure Parameter (0-128)
+//----------------------------------------
+
+CASE("resetMeasure_default_value") {
+    TuesdayTrack track;
+    expectEqual(track.resetMeasure(), 0, "default resetMeasure should be 0 (off)");
+}
+
+CASE("resetMeasure_setter_getter") {
+    TuesdayTrack track;
+    track.setResetMeasure(8);
+    expectEqual(track.resetMeasure(), 8, "resetMeasure should be 8");
+}
+
+CASE("resetMeasure_clamping") {
+    TuesdayTrack track;
+    track.setResetMeasure(200);
+    expectEqual(track.resetMeasure(), 128, "resetMeasure should clamp to 128");
+}
+
+//----------------------------------------
+// Scale Parameter (-1 to ScaleCount)
+//----------------------------------------
+
+CASE("scale_default_value") {
+    TuesdayTrack track;
+    expectEqual(track.scale(), -1, "default scale should be -1 (Default/Project)");
+}
+
+CASE("scale_setter_getter") {
+    TuesdayTrack track;
+    track.setScale(3);
+    expectEqual(track.scale(), 3, "scale should be 3");
+    track.setScale(-1);
+    expectEqual(track.scale(), -1, "scale should be -1 (Default)");
+}
+
+//----------------------------------------
+// RootNote Parameter (-1 to 11)
+//----------------------------------------
+
+CASE("rootNote_default_value") {
+    TuesdayTrack track;
+    expectEqual(track.rootNote(), -1, "default rootNote should be -1 (Default/Project)");
+}
+
+CASE("rootNote_setter_getter") {
+    TuesdayTrack track;
+    track.setRootNote(5);
+    expectEqual(track.rootNote(), 5, "rootNote should be 5 (F)");
+    track.setRootNote(-1);
+    expectEqual(track.rootNote(), -1, "rootNote should be -1 (Default)");
+}
+
+CASE("rootNote_clamping") {
+    TuesdayTrack track;
+    track.setRootNote(15);
+    expectEqual(track.rootNote(), 11, "rootNote should clamp to 11");
+    track.setRootNote(-5);
+    expectEqual(track.rootNote(), -1, "rootNote should clamp to -1");
+}
+
+//----------------------------------------
+// Sequence Parameters Clear
+//----------------------------------------
+
+CASE("sequence_params_clear") {
+    TuesdayTrack track;
+    track.setOctave(5);
+    track.setTranspose(-3);
+    track.setDivisor(96);
+    track.setResetMeasure(16);
+    track.setScale(2);
+    track.setRootNote(7);
+
+    track.clear();
+
+    expectEqual(track.octave(), 0, "octave should reset to 0");
+    expectEqual(track.transpose(), 0, "transpose should reset to 0");
+    expectEqual(track.divisor(), 192, "divisor should reset to 192");
+    expectEqual(track.resetMeasure(), 0, "resetMeasure should reset to 0");
+    expectEqual(track.scale(), -1, "scale should reset to -1");
+    expectEqual(track.rootNote(), -1, "rootNote should reset to -1");
+}
+
 } // UNIT_TEST("TuesdayTrack")
