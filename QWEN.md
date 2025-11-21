@@ -871,6 +871,212 @@ These features from the original plan are not yet implemented but could be added
 
 ---
 
-Document Version: 4.0
+# Part 6: Tuesday Track (Generative Algorithmic Sequencing)
+
+## Feature Specification
+
+### Overview
+The Tuesday track is a new track type that provides generative/algorithmic sequencing. Instead of manually programming steps, users set high-level parameters and algorithms generate musical patterns in real-time.
+
+**Inspired by:**
+- Mutable Instruments Marbles
+- Noise Engineering Mimetic Digitalis
+- Intellijel Metropolix
+- Tuesday Eurorack module
+
+### Core Parameters
+
+| Parameter | Range | Musical Meaning |
+|-----------|-------|-----------------|
+| **Algorithm** | 0-31 | Pattern personality (MARKOV, STOMPER, TRITRANCE, etc.) |
+| **Flow** | 0-16 | Sequence movement/variation |
+| **Ornament** | 0-16 | Embellishments and fills |
+| **Power** | 0-16 | Note density (0=silent, 16=maximum) |
+| **LoopLength** | Inf, 1-64 | Pattern length |
+| **Glide** | 0-100% | Slide probability |
+| **Scale** | Free/Project | Note quantization mode |
+| **Skew** | -8 to +8 | Density curve across loop |
+
+## Implementation Architecture
+
+### Model Layer (`src/apps/sequencer/model/`)
+- **TuesdayTrack.h/cpp**: Data model with all parameters
+  - Algorithm selection and parameter storage
+  - Serialization support (Version35+)
+  - Default values (all 0 = silent)
+
+### Engine Layer (`src/apps/sequencer/engine/`)
+- **TuesdayTrackEngine.h/cpp**: Core generation logic
+  - Dual RNG seeding from Flow/Ornament
+  - Cooldown-based density control
+  - Algorithm dispatch and state management
+  - Gate/CV output generation
+
+### UI Layer (`src/apps/sequencer/ui/pages/`)
+- **TuesdayPage.h/cpp**: Parameter editing interface
+  - F1-F5 parameter selection
+  - Encoder value adjustment
+  - Visual bar graphs for parameters
+
+## Key Features
+
+### Power: Cooldown-Based Density
+Power controls note density through a cooldown mechanism:
+
+```cpp
+_coolDownMax = 17 - power;  // power 16 → cooldown 1
+
+if (_coolDown > 0) {
+    _coolDown--;
+}
+
+if (shouldGate && _coolDown == 0) {
+    _gateOutput = true;
+    _coolDown = _coolDownMax;
+}
+```
+
+- **Power 1** → Very sparse (16 steps between notes)
+- **Power 16** → Maximum density (every step)
+
+### Flow & Ornament: Dual RNG Seeding
+Flow and Ornament seed RNGs that generate algorithm-specific parameters:
+
+```cpp
+_rng = Random((flow - 1) << 4);
+_extraRng = Random((ornament - 1) << 4);
+```
+
+Same Flow/Ornament values always produce identical patterns (deterministic).
+
+### Gate Lengths with Long Gates
+Gate lengths support multi-beat sustains (up to 400%):
+
+- **Short gates (40%)**: 25-100%
+- **Medium gates (30%)**: 100-175%
+- **Long gates (30%)**: 200-400%
+
+### Glide Parameter
+Controls slide/portamento probability (0-100%):
+
+- **0%**: No slides (default)
+- **50%**: Half the notes slide
+- **100%**: Always slide
+
+### Scale Quantization
+Toggle between chromatic and project scale:
+
+- **Free**: All 12 semitones
+- **Project**: Quantize to project scale
+
+### Skew Parameter
+Creates density curves across the loop:
+
+**Positive (build-up):**
+- Skew 8: Last 50% at power 16
+- Skew 4: Last 25% at power 16
+
+**Negative (fade-out):**
+- Skew -8: First 50% at power 16
+- Skew -4: First 25% at power 16
+
+**Formula:** `|skew|/16 = fraction at maximum density`
+
+### Reseed Functionality
+**Shift+F5** generates new random pattern:
+
+```cpp
+void TuesdayTrackEngine::reseed() {
+    _stepIndex = 0;
+    uint32_t newSeed1 = _rng.next();
+    uint32_t newSeed2 = _extraRng.next();
+    _rng = Random(newSeed1);
+    _extraRng = Random(newSeed2);
+    initAlgorithm();
+}
+```
+
+Also available via context menu RESEED option.
+
+## Implemented Algorithms
+
+| # | Name | Type | Description |
+|---|------|------|-------------|
+| 0 | TEST | Utility | Calibration/test patterns |
+| 1 | TRITRANCE | Melodic | German minimal melodies |
+| 3 | MARKOV | Melodic | 3rd-order Markov transitions |
+
+### Algorithm Implementation Pattern
+
+1. Seed RNGs from Flow/Ornament in `initAlgorithm()`
+2. Generate note/gate in `tick()` switch statement
+3. Set `_gatePercent` for gate length
+4. Set `_slide` for portamento
+5. Apply cooldown for density control
+
+## UI Integration
+
+### TrackPage
+- **Shift+F5**: Reseed loop shortcut
+- **Context Menu**: RESEED option for Tuesday tracks
+
+### TuesdayPage
+- F1-F5 select parameters
+- Encoder adjusts selected parameter
+- Visual bar graphs show values 0-16
+
+### Parameter Display
+```
+ALGO: MARKOV  FLOW: ████░░░░  ORN: ███░░░░░  POWER: █████████
+```
+
+## Testing Status
+
+✅ **Implemented and verified:**
+- Model layer with all parameters
+- Engine with dual RNG, cooldown, gate/CV output
+- UI page with parameter editing
+- TEST, TRITRANCE, MARKOV algorithms
+- Glide, Scale, Skew features
+- Reseed via Shift+F5 and context menu
+- Long gates (200-400%)
+- Loop lengths 56 and 64
+
+## Key Files
+
+### Model
+- `src/apps/sequencer/model/TuesdayTrack.h/cpp`
+
+### Engine
+- `src/apps/sequencer/engine/TuesdayTrackEngine.h/cpp`
+
+### UI
+- `src/apps/sequencer/ui/pages/TuesdayPage.h/cpp`
+- `src/apps/sequencer/ui/pages/TrackPage.cpp` (Shift+F5, context menu)
+- `src/apps/sequencer/ui/model/TuesdayTrackListModel.h`
+
+### Documentation
+- `CLAUDE-TUESDAY.md` - Complete implementation reference
+- `ALGO-RESEARCH/` - Algorithm research and source code
+
+## Future Extensions
+
+### Planned Algorithms
+- STOMPER (rhythmic state machine)
+- SCALEWALK (scale degree walking)
+- AMBIENT (sparse, slow drift)
+- TECHNO (hypnotic repetition)
+- ACID (303-style patterns)
+- KRAFTWERK (mechanical precision)
+
+### Potential Features
+- CV input modulation of parameters
+- Additional scale modes
+- Per-algorithm parameter pages
+- Pattern recording/snapshots
+
+---
+
+Document Version: 5.0
 Last Updated: November 2025
-Project: PEW|FORMER Feature Implementation (Accumulator, Pulse Count, Gate Mode)
+Project: PEW|FORMER Feature Implementation (Accumulator, Pulse Count, Gate Mode, Harmony, Tuesday Track)

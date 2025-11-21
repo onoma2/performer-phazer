@@ -32,9 +32,39 @@ The 5 parameters are intentionally **high-level musical controls** rather than t
 | **Flow** | 0-16 | How the sequence moves - 0=static, 16=chaotic |
 | **Ornament** | 0-16 | Embellishments and fills - 0=none, 16=heavily decorated |
 | **Power** | 0-16 | Activity/density - 0=silent, 16=maximum gates |
-| **LoopLength** | Inf, 1-16, 19, 21, 24, 32, 35, 42, 48, 64 | Pattern length (Inf = evolving/non-repeating) |
+| **LoopLength** | Inf, 1-16, 19, 21, 24, 32, 35, 42, 48, 56, 64 | Pattern length (Inf = evolving/non-repeating) |
+| **Glide** | 0-100% | Slide probability - 0=no slides, 100=always slide |
+| **Scale** | Free/Project | Note quantization - Free=chromatic, Project=use project scale |
+| **Skew** | -8 to +8 | Density curve across loop - 0=flat, positive=build-up, negative=fade-out |
 
 **Default = 0**: All parameters default to 0, producing silence. Increase values to add activity.
+
+### Skew Parameter Behavior
+
+The Skew parameter creates density variations across the loop length:
+
+**Positive Skew (build-up):**
+- **Skew 8**: First 50% uses Power setting, last 50% at power 16 (maximum density)
+- **Skew 4**: First 75% uses Power setting, last 25% at power 16
+- **Skew 2**: First 87.5% uses Power setting, last 12.5% at power 16
+
+**Negative Skew (fade-out):**
+- **Skew -8**: First 50% at power 16, last 50% uses Power setting
+- **Skew -4**: First 25% at power 16, last 75% uses Power setting
+
+**Formula:** `|skew|/16 = fraction at maximum density`
+
+### Reseed Functionality
+
+**Shift+F5**: Reseeds the loop with new random values while preserving current parameters.
+
+**Context Menu**: TRACK page context menu includes RESEED option for Tuesday tracks.
+
+The reseed operation:
+1. Resets step index to 0
+2. Generates new random seeds from current RNG state
+3. Reinitializes algorithm with new seeds
+4. Produces completely new pattern with same Flow/Ornament values
 
 ### Why F0-F4 + Encoder Control
 
@@ -1134,10 +1164,17 @@ _gatePercent = 75;  // 75% of step duration
 
 #### Random Gate Length (RandomSlideAndLength pattern)
 ```cpp
-if (_rng.nextRange(100) < 50) {
+// Short gates (40% chance)
+if (gateLengthChoice < 40) {
     _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
-} else {
-    _gatePercent = 75;  // Default
+}
+// Medium gates (30% chance)
+else if (gateLengthChoice < 70) {
+    _gatePercent = 100 + (_rng.nextRange(4) * 25); // 100%, 125%, 150%, 175%
+}
+// Long gates (30% chance) - 3-4 beat sustains
+else {
+    _gatePercent = 200 + (_rng.nextRange(9) * 25); // 200%-400%
 }
 ```
 
@@ -1145,9 +1182,11 @@ if (_rng.nextRange(100) < 50) {
 | Algorithm | Gate Length |
 |-----------|-------------|
 | TEST | Fixed 75% |
-| TRITRANCE | Random (25/50/75/100%) |
+| TRITRANCE | Random (25-400%) with long gates |
 | STOMPER | 75% default, varies with countdown |
-| MARKOV | Random (25/50/75/100%) |
+| MARKOV | Random (25-400%) with long gates |
+
+**Long Gates (200-400%)**: Enable multi-beat sustained notes for melodic algorithms. At 120 BPM with 16th note divisor, 400% = 4 beats.
 
 **Application:**
 ```cpp
@@ -1233,6 +1272,104 @@ Location: `ALGO-RESEARCH/Tuesday/Sources/`
 | **Accent Output** | Would require additional gate output per track |
 
 PEW|FORMER tracks have single CV/gate pairs. Original Tuesday has dedicated VEL and ACCENT jacks.
+
+### Glide Parameter
+
+The Glide parameter (0-100%) controls the probability of slide/portamento being applied to notes.
+
+```cpp
+// Check glide parameter before applying slide
+if (_tuesdayTrack.glide() > 0) {
+    if (_rng.nextRange(100) < _tuesdayTrack.glide()) {
+        _slide = (_rng.nextRange(3)) + 1;  // 1-3
+    } else {
+        _slide = 0;
+    }
+} else {
+    _slide = 0;  // Glide 0% = never slide
+}
+```
+
+**Effect:**
+- **Glide 0%**: No slides ever (default)
+- **Glide 50%**: 50% chance of slide on each note
+- **Glide 100%**: Always slide between notes
+
+### Scale Parameter
+
+The Scale parameter toggles between chromatic (Free) and project scale quantization.
+
+```cpp
+if (_tuesdayTrack.useScale()) {
+    const Scale &scale = _model.project().selectedScale();
+    int rootNote = _model.project().rootNote();
+    int scaleNote = note + octave * scale.notesPerOctave();
+    noteVoltage = scale.noteToVolts(scaleNote) +
+        (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f);
+} else {
+    // Free mode - use chromatic scale
+    noteVoltage = (note + octave * 12) * (1.f / 12.f);
+}
+```
+
+**Effect:**
+- **Free**: Notes are chromatic (all 12 semitones)
+- **Project**: Notes quantized to project scale (set in PROJECT page)
+
+### Skew Implementation
+
+The Skew parameter creates a step function for density variation across the loop.
+
+```cpp
+int skew = _tuesdayTrack.skew();
+if (skew != 0 && loopLength > 0) {
+    float position = (float)_stepIndex / (float)loopLength;
+
+    if (skew > 0) {
+        // Build-up: last (skew/16) at power 16
+        float switchPoint = 1.0f - (float)skew / 16.0f;
+        if (position < switchPoint) {
+            _coolDownMax = baseCooldown;  // Use power setting
+        } else {
+            _coolDownMax = 1;  // Maximum density
+        }
+    } else {
+        // Fade-out: first (|skew|/16) at power 16
+        float switchPoint = (float)(-skew) / 16.0f;
+        if (position < switchPoint) {
+            _coolDownMax = 1;  // Maximum density
+        } else {
+            _coolDownMax = baseCooldown;  // Use power setting
+        }
+    }
+}
+```
+
+### Reseed Implementation
+
+The reseed() function generates new random patterns while preserving parameters.
+
+```cpp
+void TuesdayTrackEngine::reseed() {
+    _stepIndex = 0;
+    _coolDown = 0;
+
+    // Generate new seeds from current RNG state
+    uint32_t newSeed1 = _rng.next();
+    uint32_t newSeed2 = _extraRng.next();
+
+    // Reinitialize RNGs with new seeds
+    _rng = Random(newSeed1);
+    _extraRng = Random(newSeed2);
+
+    // Reinitialize algorithm with new seeds
+    initAlgorithm();
+}
+```
+
+**Access:**
+- **Shift+F5**: Keyboard shortcut on TrackPage
+- **Context Menu**: RESEED option in TrackPage context menu (Tuesday tracks only)
 
 ### Adding New Algorithms
 
