@@ -26,6 +26,9 @@ public:
     virtual bool gateOutput(int index) const override { return _gateOutput; }
     virtual float cvOutput(int index) const override { return _cvOutput; }
 
+    // Reseed the algorithm (called from UI via Shift+F5)
+    void reseed();
+
 private:
     void initAlgorithm();
 

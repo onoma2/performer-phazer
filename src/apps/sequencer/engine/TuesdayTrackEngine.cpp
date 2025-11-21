@@ -98,6 +98,14 @@ void TuesdayTrackEngine::restart() {
     reset();
 }
 
+void TuesdayTrackEngine::reseed() {
+    // Reset step to beginning and reinitialize algorithm
+    // This gives a fresh pattern start while keeping parameters
+    _stepIndex = 0;
+    _coolDown = 0;
+    initAlgorithm();
+}
+
 TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     // Check mute
     if (mute()) {

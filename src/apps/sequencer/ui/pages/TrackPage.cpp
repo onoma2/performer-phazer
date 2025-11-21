@@ -5,6 +5,8 @@
 #include "ui/LedPainter.h"
 #include "ui/painters/WindowPainter.h"
 
+#include "engine/TuesdayTrackEngine.h"
+
 #include "core/utils/StringBuilder.h"
 
 enum class ContextAction {
@@ -57,6 +59,20 @@ void TrackPage::keyPress(KeyPressEvent &event) {
 
     if (key.pageModifier()) {
         return;
+    }
+
+    // Shift+F5: Reseed Tuesday track loop
+    if (key.isFunction() && key.shiftModifier() && key.function() == 4) {
+        auto &track = _project.selectedTrack();
+        if (track.trackMode() == Track::TrackMode::Tuesday) {
+            int trackIndex = _project.selectedTrackIndex();
+            auto &trackEngine = _engine.trackEngine(trackIndex);
+            auto *tuesdayEngine = static_cast<TuesdayTrackEngine *>(&trackEngine);
+            tuesdayEngine->reseed();
+            showMessage("LOOP RESEEDED");
+            event.consume();
+            return;
+        }
     }
 
     if (key.isTrackSelect()) {
