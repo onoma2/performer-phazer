@@ -43,7 +43,8 @@ void TuesdayEditPage::draw(Canvas &canvas) {
     canvas.drawText(232, 6, pageStr);
 
     // Draw 4 parameters for current page
-    const int colWidth = 48;
+    // Use 51px columns to match F-key spacing (256/5 ≈ 51)
+    const int colWidth = 51;
     for (int slot = 0; slot < ParamsPerPage; ++slot) {
         int param = paramForPage(_currentPage, slot);
         int x = slot * colWidth;
@@ -307,7 +308,7 @@ void TuesdayEditPage::drawParam(Canvas &canvas, int x, int slot, int param) {
         return;
     }
 
-    const int colWidth = 48;
+    const int colWidth = 51;  // Match F-key spacing
     // Vertically center in content area (Y=10 to Y=54)
     const int valueY = 26;  // Numbers
     const int barY = 32;    // Bar/algo name line
@@ -390,9 +391,9 @@ void TuesdayEditPage::drawBar(Canvas &canvas, int x, int y, int width, int heigh
 }
 
 void TuesdayEditPage::drawStatusBox(Canvas &canvas) {
-    const int boxX = 196;
+    const int boxX = 204;  // Start after 4 columns (51*4=204)
     const int boxY = 14;
-    const int boxW = 56;
+    const int boxW = 48;   // Narrower box
     const int boxH = 32;
 
     // Draw box outline
