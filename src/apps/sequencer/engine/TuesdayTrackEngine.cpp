@@ -196,33 +196,42 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     // Skew 8 = last 50% at power 16, Skew 4 = last 25% at power 16
     int skew = _tuesdayTrack.skew();
     if (skew != 0 && loopLength > 0) {
-        // Calculate position in loop (0.0 to 1.0)
+        // Calculate position in loop (0.0 to 1.0), clamped for safety
         float position = (float)_stepIndex / (float)loopLength;
+        if (position > 1.0f) position = 1.0f;
+        if (position < 0.0f) position = 0.0f;
 
         if (skew > 0) {
             // Build-up: last (skew/16) of loop reaches power 16
             // Skew 8 → ramp starts at 0.5, Skew 4 → starts at 0.75
             float rampStart = 1.0f - (float)skew / 16.0f;
+            float denominator = 1.0f - rampStart;
 
-            if (position <= rampStart) {
-                // Before ramp: use base power setting
+            if (position <= rampStart || denominator <= 0.0f) {
+                // Before ramp or invalid: use base power setting
                 _coolDownMax = baseCooldown;
             } else {
                 // During ramp: interpolate from base to cooldown 1 (power 16)
-                float rampProgress = (position - rampStart) / (1.0f - rampStart);
+                float rampProgress = (position - rampStart) / denominator;
+                if (rampProgress > 1.0f) rampProgress = 1.0f;
                 _coolDownMax = baseCooldown - (int)(rampProgress * (float)(baseCooldown - 1));
             }
         } else {
             // Fade-out: first (|skew|/16) of loop at power 16, then ramp down
             // Skew -8 → first 50% at max, Skew -4 → first 25% at max
             float rampEnd = (float)(-skew) / 16.0f;
+            float denominator = 1.0f - rampEnd;
 
             if (position <= rampEnd) {
                 // Before ramp end: at power 16 (cooldown 1)
                 _coolDownMax = 1;
+            } else if (denominator <= 0.0f) {
+                // Safety: if denominator invalid, use base
+                _coolDownMax = baseCooldown;
             } else {
                 // After ramp end: interpolate from cooldown 1 to base
-                float rampProgress = (position - rampEnd) / (1.0f - rampEnd);
+                float rampProgress = (position - rampEnd) / denominator;
+                if (rampProgress > 1.0f) rampProgress = 1.0f;
                 _coolDownMax = 1 + (int)(rampProgress * (float)(baseCooldown - 1));
             }
         }
