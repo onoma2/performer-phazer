@@ -163,6 +163,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             // Ornament: Accent + Velocity
             {
                 shouldGate = true;  // Always gate in test mode
+                _gatePercent = 75;  // Default gate length
 
                 switch (_testMode) {
                 case 0:  // OCTSWEEPS - sweep through octaves
@@ -187,6 +188,13 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             // Ornament: Seeds RNG for b3 (note offset)
             {
                 shouldGate = true;
+
+                // Random gate length (like RandomSlideAndLength)
+                if (_rng.nextRange(100) < 50) {
+                    _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
+                } else {
+                    _gatePercent = 75;  // Default
+                }
 
                 // Tritrance pattern based on step position mod 3
                 int phase = (_stepIndex + _triB2) % 3;
@@ -232,10 +240,12 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             // Ornament: Seeds RNG for note choices
             {
                 int accentoffs = 0;
+                _gatePercent = 75;  // Default
 
                 if (_stomperCountDown > 0) {
-                    // Rest/note-off period
+                    // Rest/note-off period - use countdown for gate length
                     shouldGate = false;
+                    _gatePercent = _stomperCountDown * 25;  // Shorter gates during countdown
                     _stomperCountDown--;
                 } else {
                     shouldGate = true;
@@ -354,6 +364,13 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;
 
+                // Random gate length (like RandomSlideAndLength)
+                if (_rng.nextRange(100) < 50) {
+                    _gatePercent = 25 + (_rng.nextRange(4) * 25);  // 25%, 50%, 75%, 100%
+                } else {
+                    _gatePercent = 75;  // Default
+                }
+
                 // Select from Markov matrix based on history
                 int idx = _rng.nextBinary() ? 1 : 0;
                 note = _markovMatrix[_markovHistory1][_markovHistory3][idx];
@@ -386,8 +403,9 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         // Velocity (from algorithm) must beat current cooldown value
         if (shouldGate && _coolDown == 0) {
             _gateOutput = true;
-            // Gate length: 50% of step duration
-            _gateTicks = divisor / 2;
+            // Gate length: use algorithm-determined percentage
+            _gateTicks = (divisor * _gatePercent) / 100;
+            if (_gateTicks < 1) _gateTicks = 1;  // Minimum 1 tick
             _activity = true;
             // Reset cooldown after triggering
             _coolDown = _coolDownMax;

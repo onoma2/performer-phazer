@@ -52,6 +52,9 @@ private:
     int _coolDown = 0;
     int _coolDownMax = 0;
 
+    // Gate length (as fraction of divisor, 0-100%)
+    int _gatePercent = 75;  // Default 75% gate length
+
     // TEST algorithm state
     uint8_t _testMode = 0;      // 0=OCTSWEEPS, 1=SCALEWALKER
     uint8_t _testSweepSpeed = 0;
