@@ -1391,6 +1391,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         _gateTicks--;
         if (_gateTicks == 0) {
             _gateOutput = false;
+            _activity = false;
         }
     }
 
