@@ -703,25 +703,26 @@ void TuesdayTrackEngine::generateBuffer() {
             {
                 // Drift counter and direction change
                 _ambientDriftCounter++;
-                if (_ambientDriftCounter >= 4) {
+                if (_ambientDriftCounter >= 8) {
                     _ambientDriftCounter = 0;
                     _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
                     if (_rng.next() % 8 == 0) {
                         _ambientDriftDir = -_ambientDriftDir;
                     }
                 }
-                // Hold timer and gate decision
-                if (_ambientHoldTimer > 0) {
-                    _ambientHoldTimer--;
+                // Silence counter creates sparse triggers
+                if (_ambientSilenceCount > 0) {
+                    _ambientSilenceCount--;
+                    _rng.next();  // consume for determinism
+                    _extraRng.next();
                 } else {
                     _rng.next();  // note selection
-                    _ambientHoldTimer = (_rng.next() % 8) + 4;
-                }
-                // Harmonic selection
-                _extraRng.next();
-                // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
+                    _ambientSilenceCount = 8 + (_rng.next() % 17);  // silence period
+                    _extraRng.next();  // harmonic
+                    // Glide check
+                    if (glide > 0 && _rng.nextRange(100) < glide) {
+                        _rng.nextRange(3);
+                    }
                 }
             }
             break;
@@ -1310,12 +1311,9 @@ void TuesdayTrackEngine::generateBuffer() {
 
         case 13: // AMBIENT buffer generation - Slow evolving pads
             {
-                // Very long gates for ambient pads
-                gatePercent = 90;
-
                 // Drift counter for slow pitch evolution
                 _ambientDriftCounter++;
-                if (_ambientDriftCounter >= 4) {
+                if (_ambientDriftCounter >= 8) {  // Slower drift
                     _ambientDriftCounter = 0;
                     _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
                     // Occasionally change drift direction
@@ -1324,30 +1322,40 @@ void TuesdayTrackEngine::generateBuffer() {
                     }
                 }
 
-                // Hold timer controls when new notes are generated
-                if (_ambientHoldTimer > 0) {
-                    _ambientHoldTimer--;
+                // Silence counter creates sparse triggers
+                if (_ambientSilenceCount > 0) {
+                    _ambientSilenceCount--;
+                    // During silence, still consume RNG for determinism
+                    _rng.next();
+                    _extraRng.next();
+                    gatePercent = 0;  // No gate during silence
                     note = _ambientLastNote;
+                    octave = 0;
                 } else {
-                    // Generate new note with consonant intervals
+                    // Generate new note
                     int interval = _rng.next() % 12;
                     _ambientLastNote = interval;
                     note = _ambientLastNote;
-                    _ambientHoldTimer = (_rng.next() % 8) + 4;  // 4-11 steps hold
-                }
 
-                // Add harmonics based on ornament parameter
-                int harmonicType = _extraRng.next() % 4;
-                switch (harmonicType) {
-                case 0: octave = 0; break;  // Unison
-                case 1: octave = 0; note = (note + 5) % 12; break;  // Fourth
-                case 2: octave = 0; note = (note + 7) % 12; break;  // Fifth
-                case 3: octave = 1; break;  // Octave up
-                }
+                    // Very long gates for ambient pads
+                    gatePercent = 95;
 
-                // Long, slow glides for ambient feel
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                    // Set long silence after this note (8-24 steps)
+                    _ambientSilenceCount = 8 + (_rng.next() % 17);
+
+                    // Add harmonics based on ornament parameter
+                    int harmonicType = _extraRng.next() % 4;
+                    switch (harmonicType) {
+                    case 0: octave = 0; break;  // Unison
+                    case 1: octave = 0; note = (note + 5) % 12; break;  // Fourth
+                    case 2: octave = 0; note = (note + 7) % 12; break;  // Fifth
+                    case 3: octave = 1; break;  // Octave up
+                    }
+
+                    // Long, slow glides for ambient feel
+                    if (glide > 0 && _rng.nextRange(100) < glide) {
+                        slide = (_rng.nextRange(3)) + 1;
+                    }
                 }
             }
             break;
@@ -2261,13 +2269,11 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
         case 13: // AMBIENT - Slow evolving pads (infinite loop)
             {
-                shouldGate = true;
-                _gatePercent = 90;  // Very long gates for pads
                 int glide = _tuesdayTrack.glide();
 
                 // Drift counter for slow pitch evolution
                 _ambientDriftCounter++;
-                if (_ambientDriftCounter >= 4) {
+                if (_ambientDriftCounter >= 8) {
                     _ambientDriftCounter = 0;
                     _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
                     // Occasionally change drift direction
@@ -2276,32 +2282,43 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     }
                 }
 
-                // Hold timer controls when new notes are generated
-                if (_ambientHoldTimer > 0) {
-                    _ambientHoldTimer--;
+                // Silence counter creates sparse triggers
+                if (_ambientSilenceCount > 0) {
+                    _ambientSilenceCount--;
+                    // During silence, still consume RNG for determinism
+                    _rng.next();
+                    _extraRng.next();
+                    shouldGate = false;  // No gate during silence
+                    _gatePercent = 0;
                     note = _ambientLastNote;
+                    octave = 0;
                 } else {
                     // Generate new note
                     int interval = _rng.next() % 12;
                     _ambientLastNote = interval;
                     note = _ambientLastNote;
-                    _ambientHoldTimer = (_rng.next() % 8) + 4;
-                }
 
-                // Add harmonics based on ornament
-                int harmonicType = _extraRng.next() % 4;
-                switch (harmonicType) {
-                case 0: octave = 0; break;
-                case 1: octave = 0; note = (note + 5) % 12; break;
-                case 2: octave = 0; note = (note + 7) % 12; break;
-                case 3: octave = 1; break;
-                }
+                    shouldGate = true;
+                    _gatePercent = 95;  // Very long gates for pads
 
-                // Glide for smooth transitions
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
-                } else {
-                    _slide = 0;
+                    // Set long silence after this note (8-24 steps)
+                    _ambientSilenceCount = 8 + (_rng.next() % 17);
+
+                    // Add harmonics based on ornament
+                    int harmonicType = _extraRng.next() % 4;
+                    switch (harmonicType) {
+                    case 0: octave = 0; break;
+                    case 1: octave = 0; note = (note + 5) % 12; break;
+                    case 2: octave = 0; note = (note + 7) % 12; break;
+                    case 3: octave = 1; break;
+                    }
+
+                    // Glide for smooth transitions
+                    if (glide > 0 && _rng.nextRange(100) < glide) {
+                        _slide = (_rng.nextRange(3)) + 1;
+                    } else {
+                        _slide = 0;
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
