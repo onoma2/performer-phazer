@@ -187,6 +187,100 @@ void TuesdayTrackEngine::initAlgorithm() {
         _ragaOrnament = _extraRng.next() % 3;  // Ornament type
         break;
 
+    case 13: // AMBIENT - slow evolving pads
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _ambientLastNote = _rng.next() % 12;
+        _ambientHoldTimer = (_rng.next() % 8) + 4;  // 4-11 steps
+        _ambientDriftDir = (_rng.next() % 2) ? 1 : -1;
+        _ambientDriftAmount = flow;  // Flow controls drift speed
+        _ambientHarmonic = _extraRng.next() % 4;  // Harmonic interval type
+        _ambientSilenceCount = 0;
+        _ambientDriftCounter = 0;
+        break;
+
+    case 15: // DRILL - UK Drill hi-hat rolls and bass slides
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _drillHiHatPattern = 0b10101010;  // Basic hi-hat pattern
+        _drillSlideTarget = _rng.next() % 12;
+        _drillTripletMode = (ornament > 8) ? 1 : 0;  // High ornament = triplets
+        _drillRollCount = 0;
+        _drillLastNote = _rng.next() % 5;  // Low bass notes
+        _drillStepInBar = 0;
+        _drillSubdivision = 1;
+        break;
+
+    case 16: // MINIMAL - staccato bursts and silence
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _minimalBurstLength = 2 + (_rng.next() % 7);  // 2-8 steps
+        _minimalSilenceLength = 4 + (flow % 13);  // 4-16 steps
+        _minimalClickDensity = ornament * 16;  // 0-255 scale
+        _minimalBurstTimer = 0;
+        _minimalSilenceTimer = _minimalSilenceLength;  // Start in silence
+        _minimalNoteIndex = 0;
+        _minimalMode = 0;  // 0=silence, 1=burst
+        break;
+
+    case 14: // ACID - 303-style patterns with slides
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        // Generate 8-step acid sequence
+        for (int i = 0; i < 8; i++) {
+            _acidSequence[i] = _rng.next() % 12;
+        }
+        _acidPosition = 0;
+        _acidAccentPattern = _extraRng.next();  // Random accent pattern
+        _acidOctaveMask = _extraRng.next() & 0x33;  // Sparse octave jumps
+        _acidLastNote = _acidSequence[0];
+        _acidSlideTarget = 0;
+        _acidStepCount = 0;
+        break;
+
+    case 17: // KRAFT - precise mechanical sequences
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        // Generate repetitive mechanical pattern
+        _kraftBaseNote = _rng.next() % 12;
+        for (int i = 0; i < 8; i++) {
+            // Kraftwerk patterns often alternate between 2-3 notes
+            _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+        }
+        _kraftPosition = 0;
+        _kraftLockTimer = 16 + (_rng.next() % 16);  // Lock for 16-32 steps
+        _kraftTranspose = 0;
+        _kraftTranspCount = 0;
+        _kraftGhostMask = _extraRng.next() & 0x55;  // Every other step ghost
+        break;
+
+    case 18: // APHEX - complex polyrhythmic patterns
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        // Generate polyrhythmic pattern
+        for (int i = 0; i < 8; i++) {
+            _aphexPattern[i] = _rng.next() % 12;
+        }
+        _aphexTimeSigNum = 3 + (flow % 5);  // 3, 4, 5, 6, 7
+        _aphexGlitchProb = ornament * 16;  // 0-255 scale
+        _aphexPosition = 0;
+        _aphexNoteIndex = 0;
+        _aphexLastNote = _aphexPattern[0];
+        _aphexStepCounter = 0;
+        break;
+
+    case 19: // AUTECH - constantly evolving abstract patterns
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _autechreTransformState[0] = _rng.next();
+        _autechreTransformState[1] = _extraRng.next();
+        _autechreMutationRate = flow * 16;  // 0-255 scale
+        _autechreChaosSeed = _rng.next();
+        _autechreStepCount = 0;
+        _autechreCurrentNote = _rng.next() % 12;
+        _autechrePatternShift = 0;
+        break;
+
     default:
         break;
     }
@@ -353,6 +447,81 @@ void TuesdayTrackEngine::reseed() {
         _ragaDirection = 0;
         _ragaPosition = 0;
         _ragaOrnament = _extraRng.next() % 3;
+        break;
+
+    case 13: // AMBIENT
+        _ambientLastNote = _rng.next() % 12;
+        _ambientHoldTimer = (_rng.next() % 8) + 4;
+        _ambientDriftDir = (_rng.next() % 2) ? 1 : -1;
+        _ambientHarmonic = _extraRng.next() % 4;
+        _ambientSilenceCount = 0;
+        _ambientDriftCounter = 0;
+        break;
+
+    case 15: // DRILL
+        _drillHiHatPattern = 0b10101010 | (_rng.next() & 0x55);  // Vary pattern
+        _drillSlideTarget = _rng.next() % 12;
+        _drillTripletMode = _extraRng.nextBinary();
+        _drillRollCount = 0;
+        _drillLastNote = _rng.next() % 5;
+        _drillStepInBar = 0;
+        _drillSubdivision = 1;
+        break;
+
+    case 16: // MINIMAL
+        _minimalBurstLength = 2 + (_rng.next() % 7);
+        _minimalSilenceLength = 4 + (_rng.next() % 13);
+        _minimalClickDensity = _extraRng.next();
+        _minimalBurstTimer = 0;
+        _minimalSilenceTimer = _minimalSilenceLength;
+        _minimalNoteIndex = 0;
+        _minimalMode = 0;
+        break;
+
+    case 14: // ACID
+        for (int i = 0; i < 8; i++) {
+            _acidSequence[i] = _rng.next() % 12;
+        }
+        _acidPosition = 0;
+        _acidAccentPattern = _extraRng.next();
+        _acidOctaveMask = _extraRng.next() & 0x33;
+        _acidLastNote = _acidSequence[0];
+        _acidSlideTarget = 0;
+        _acidStepCount = 0;
+        break;
+
+    case 17: // KRAFT
+        _kraftBaseNote = _rng.next() % 12;
+        for (int i = 0; i < 8; i++) {
+            _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+        }
+        _kraftPosition = 0;
+        _kraftLockTimer = 16 + (_rng.next() % 16);
+        _kraftTranspose = 0;
+        _kraftTranspCount = 0;
+        _kraftGhostMask = _extraRng.next() & 0x55;
+        break;
+
+    case 18: // APHEX
+        for (int i = 0; i < 8; i++) {
+            _aphexPattern[i] = _rng.next() % 12;
+        }
+        _aphexTimeSigNum = 3 + (_rng.next() % 5);
+        _aphexGlitchProb = _extraRng.next();
+        _aphexPosition = 0;
+        _aphexNoteIndex = 0;
+        _aphexLastNote = _aphexPattern[0];
+        _aphexStepCounter = 0;
+        break;
+
+    case 19: // AUTECH
+        _autechreTransformState[0] = _rng.next();
+        _autechreTransformState[1] = _extraRng.next();
+        _autechreMutationRate = _rng.next();
+        _autechreChaosSeed = _rng.next();
+        _autechreStepCount = 0;
+        _autechreCurrentNote = _rng.next() % 12;
+        _autechrePatternShift = 0;
         break;
 
     default:
@@ -675,6 +844,193 @@ void TuesdayTrackEngine::generateBuffer() {
                 if (glide > 0 && _rng.nextRange(100) < glide) {
                     _rng.nextRange(3);
                 }
+            }
+            break;
+
+        case 13: // AMBIENT warmup (DRONE-style)
+            {
+                // Slow pitch change rate based on flow
+                int changeRate = 8 + (16 - _ambientDriftAmount);
+                if (changeRate < 8) changeRate = 8;
+
+                if ((step % changeRate) == 0) {
+                    _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
+                    if (_rng.next() % 8 == 0) {
+                        _ambientDriftDir = -_ambientDriftDir;
+                    }
+                }
+
+                // Consume RNG for harmonics
+                _extraRng.next();
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    // Just consume, no need for range
+                }
+            }
+            break;
+
+        case 15: // DRILL warmup
+            {
+                // Hi-hat pattern step
+                _drillStepInBar = (_drillStepInBar + 1) % 8;
+
+                // Consume RNG for pattern variation
+                if (_rng.nextRange(16) < 4) {
+                    _drillHiHatPattern ^= (1 << (_drillStepInBar % 8));  // Toggle bit
+                }
+
+                // Slide probability (flow controlled)
+                if (_extraRng.nextRange(16) < 8) {
+                    _drillSlideTarget = _rng.next() % 12;
+                }
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+            }
+            break;
+
+        case 16: // MINIMAL warmup
+            {
+                // Mode state machine: silence → burst → silence
+                if (_minimalMode == 0) {
+                    // Silence mode
+                    if (_minimalSilenceTimer > 0) {
+                        _minimalSilenceTimer--;
+                        _rng.next();  // consume for determinism
+                    } else {
+                        _minimalMode = 1;  // Switch to burst
+                        _minimalBurstTimer = _minimalBurstLength;
+                        _minimalNoteIndex = 0;
+                    }
+                } else {
+                    // Burst mode
+                    if (_minimalBurstTimer > 0) {
+                        _minimalBurstTimer--;
+                        _minimalNoteIndex++;
+                        _rng.next();  // note selection
+                        _extraRng.next();  // glitch check
+                    } else {
+                        _minimalMode = 0;  // Switch to silence
+                        _minimalSilenceTimer = _minimalSilenceLength;
+                    }
+                }
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+            }
+            break;
+
+        case 14: // ACID warmup
+            {
+                // Advance through sequence
+                _acidPosition = (_acidPosition + 1) % 8;
+                _acidStepCount++;
+
+                // Consume RNG for accent and octave checks
+                _rng.next();  // note variation
+                if (_acidAccentPattern & (1 << _acidPosition)) {
+                    _extraRng.next();  // accent
+                }
+                if (_acidOctaveMask & (1 << _acidPosition)) {
+                    _extraRng.next();  // octave
+                }
+
+                // Slide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+
+                // Pattern mutation
+                if (_rng.nextRange(128) < 2) {
+                    _acidSequence[_rng.next() % 8] = _rng.next() % 12;
+                }
+            }
+            break;
+
+        case 17: // KRAFT warmup
+            {
+                // Advance through sequence
+                _kraftPosition = (_kraftPosition + 1) % 8;
+
+                // Lock timer countdown
+                if (_kraftLockTimer > 0) {
+                    _kraftLockTimer--;
+                } else {
+                    // Regenerate pattern when lock expires
+                    _kraftLockTimer = 16 + (_rng.next() % 16);
+                    _kraftBaseNote = (_kraftBaseNote + _rng.nextRange(5)) % 12;
+                }
+
+                // Transpose check
+                if (_rng.nextRange(16) < 4) {
+                    _kraftTranspose = _rng.next() % 12;
+                    _kraftTranspCount++;
+                }
+
+                // Ghost note check
+                _extraRng.next();
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+            }
+            break;
+
+        case 18: // APHEX warmup
+            {
+                // Advance position with odd time signature
+                _aphexPosition = (_aphexPosition + 1) % _aphexTimeSigNum;
+
+                // Update note index
+                if (_aphexPosition == 0) {
+                    _aphexNoteIndex = (_aphexNoteIndex + 1) % 8;
+                }
+
+                // Glitch probability check
+                if (_extraRng.nextRange(256) < _aphexGlitchProb) {
+                    _extraRng.next();  // Additional randomness for glitch
+                }
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+
+                _aphexStepCounter++;
+            }
+            break;
+
+        case 19: // AUTECH warmup
+            {
+                // Transform state evolution
+                if (_rng.nextRange(256) < _autechreMutationRate) {
+                    _autechreTransformState[0] = _rng.next();
+                    _autechreTransformState[1] = _extraRng.next();
+                }
+
+                // Pattern shift
+                if (_rng.nextRange(16) < 4) {
+                    _autechrePatternShift = (_autechrePatternShift + 1) % 12;
+                }
+
+                // Current note update
+                _autechreCurrentNote = (_autechreCurrentNote + _rng.nextRange(5) - 2 + 12) % 12;
+
+                // Micro-timing check
+                _extraRng.next();
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+
+                _autechreStepCount++;
             }
             break;
 
@@ -1257,6 +1613,303 @@ void TuesdayTrackEngine::generateBuffer() {
                 } else if (glide > 0 && _rng.nextRange(100) < glide) {
                     slide = (_rng.nextRange(3)) + 1;
                 }
+            }
+            break;
+
+        case 13: // AMBIENT buffer generation - Slow evolving pads (DRONE-style)
+            {
+                // Very long gates like DRONE - let cooldown handle density
+                gatePercent = 200;  // Long sustained notes (200% = ties over)
+
+                // Slow pitch change rate based on flow (every 8-32 steps)
+                int changeRate = 8 + (16 - _ambientDriftAmount);  // Higher flow = faster changes
+                if (changeRate < 8) changeRate = 8;
+
+                if ((step % changeRate) == 0) {
+                    // Change note slowly via drift
+                    _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
+
+                    // Occasionally change drift direction
+                    if (_rng.next() % 8 == 0) {
+                        _ambientDriftDir = -_ambientDriftDir;
+                    }
+                }
+
+                note = _ambientLastNote;
+                octave = 0;
+
+                // Add harmonics based on ornament parameter
+                int harmonicType = _extraRng.next() % 4;
+                switch (harmonicType) {
+                case 0: break;  // Unison - no change
+                case 1: note = (note + 5) % 12; break;  // Fourth
+                case 2: note = (note + 7) % 12; break;  // Fifth
+                case 3: octave = 1; break;  // Octave up
+                }
+
+                // Long, slow glides for ambient feel
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = 3;  // Long slide like DRONE
+                }
+            }
+            break;
+
+        case 15: // DRILL buffer generation - UK Drill hi-hat rolls and bass slides
+            {
+                // Advance step in bar
+                _drillStepInBar = (_drillStepInBar + 1) % 8;
+
+                // Check hi-hat pattern
+                bool hihatHit = (_drillHiHatPattern & (1 << _drillStepInBar)) != 0;
+
+                if (hihatHit) {
+                    // Hi-hat hit - high note, short gate
+                    note = 7 + (_rng.next() % 5);  // High notes for hi-hat
+                    octave = 1;
+                    gatePercent = 25;  // Short staccato for hi-hat
+
+                    // Check for roll (rapid repeats)
+                    if (_extraRng.nextRange(16) < 4) {
+                        _drillRollCount = 2 + (_rng.next() % 3);  // 2-4 repeats
+                    }
+                } else if (_drillRollCount > 0) {
+                    // Continue roll
+                    _drillRollCount--;
+                    note = 7 + (_rng.next() % 5);
+                    octave = 1;
+                    gatePercent = 20;  // Very short for roll notes
+                } else {
+                    // Bass note - low octave
+                    note = _drillLastNote;
+                    octave = -1;  // Deep bass
+                    gatePercent = 75;
+
+                    // Occasional bass note change
+                    if (_rng.nextRange(8) < 2) {
+                        _drillLastNote = _rng.next() % 5;
+                    }
+
+                    // Slide to target
+                    if (_extraRng.nextRange(16) < 8) {
+                        slide = 2;  // Medium glide for bass slides
+                        _drillSlideTarget = _rng.next() % 12;
+                    } else if (glide > 0 && _rng.nextRange(100) < glide) {
+                        slide = (_rng.nextRange(3)) + 1;
+                    }
+                }
+            }
+            break;
+
+        case 16: // MINIMAL buffer generation - staccato bursts and silence
+            {
+                // Mode state machine: silence → burst → silence
+                if (_minimalMode == 0) {
+                    // Silence mode - no gate
+                    if (_minimalSilenceTimer > 0) {
+                        _minimalSilenceTimer--;
+                        gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                        _rng.next();  // consume for determinism
+                    } else {
+                        // Switch to burst mode
+                        _minimalMode = 1;
+                        _minimalBurstTimer = _minimalBurstLength;
+                        _minimalNoteIndex = 0;
+                        // Generate first note of burst
+                        note = _rng.next() % 12;
+                        octave = 0;
+                        gatePercent = 25;  // Short staccato gates
+                    }
+                } else {
+                    // Burst mode - generate notes
+                    if (_minimalBurstTimer > 0) {
+                        _minimalBurstTimer--;
+                        _minimalNoteIndex++;
+
+                        // Generate note based on pattern
+                        int baseNote = _rng.next() % 12;
+
+                        // Glitch repeats based on ornament
+                        if (_extraRng.nextRange(256) < _minimalClickDensity) {
+                            // Glitch - repeat previous note or create click
+                            note = baseNote;
+                            gatePercent = 15;  // Very short click
+                        } else {
+                            note = baseNote;
+                            gatePercent = 25;  // Normal staccato
+                        }
+                        octave = 0;
+                    } else {
+                        // Switch to silence mode
+                        _minimalMode = 0;
+                        _minimalSilenceTimer = _minimalSilenceLength;
+                        gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                    }
+                }
+
+                // Glide check
+                if (gatePercent > 0 && glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
+                }
+            }
+            break;
+
+        case 14: // ACID buffer generation - 303-style patterns
+            {
+                // Get note from sequence
+                note = _acidSequence[_acidPosition];
+                octave = 0;
+
+                // Check for accent
+                bool hasAccent = (_acidAccentPattern & (1 << _acidPosition)) != 0;
+                gatePercent = hasAccent ? 95 : 65;  // Punchy 303 gates
+
+                // Check for octave jump
+                if (_acidOctaveMask & (1 << _acidPosition)) {
+                    octave = 1;
+                }
+
+                // Slide based on flow
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = 2;  // 303-style slide
+                }
+
+                // Advance position
+                _acidPosition = (_acidPosition + 1) % 8;
+                _acidLastNote = note;
+                _acidStepCount++;
+
+                // Occasional pattern mutation
+                if (_rng.nextRange(128) < 2) {
+                    int mutatePos = _rng.next() % 8;
+                    _acidSequence[mutatePos] = _rng.next() % 12;
+                }
+
+                // Consume extra RNG
+                _extraRng.next();
+            }
+            break;
+
+        case 17: // KRAFT buffer generation - precise mechanical sequences
+            {
+                // Get note from sequence with transpose
+                note = (_kraftSequence[_kraftPosition] + _kraftTranspose) % 12;
+                octave = 0;
+
+                // Check for ghost note
+                bool isGhost = (_kraftGhostMask & (1 << _kraftPosition)) != 0;
+                gatePercent = isGhost ? 25 : 50;  // Precise, mechanical gates
+
+                // Lock timer controls pattern stability
+                if (_kraftLockTimer > 0) {
+                    _kraftLockTimer--;
+                } else {
+                    // Pattern evolution when lock expires
+                    _kraftLockTimer = 16 + (_rng.next() % 16);
+                    _kraftBaseNote = (_kraftBaseNote + _rng.nextRange(5)) % 12;
+                    // Regenerate pattern
+                    for (int i = 0; i < 8; i++) {
+                        _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+                    }
+                }
+
+                // Transpose based on flow
+                if (_rng.nextRange(16) < 4) {
+                    _kraftTranspose = _rng.next() % 12;
+                    _kraftTranspCount++;
+                }
+
+                // Advance position
+                _kraftPosition = (_kraftPosition + 1) % 8;
+
+                // Glide check (rare for mechanical feel)
+                if (glide > 0 && _rng.nextRange(100) < glide / 2) {
+                    slide = 1;  // Short slide
+                }
+
+                _extraRng.next();
+            }
+            break;
+
+        case 18: // APHEX buffer generation - complex polyrhythmic patterns
+            {
+                // Get note from pattern with polyrhythmic position
+                note = _aphexPattern[_aphexNoteIndex];
+                octave = 0;
+
+                // Varied gate lengths (Aphex Twin style)
+                gatePercent = 25 + (_extraRng.next() % 75);  // 25-100%
+
+                // Glitch effect
+                if (_extraRng.nextRange(256) < _aphexGlitchProb) {
+                    // Glitch can repeat, shift, or mutate
+                    int glitchType = _extraRng.next() % 3;
+                    if (glitchType == 0) {
+                        note = _aphexLastNote;  // Repeat
+                    } else if (glitchType == 1) {
+                        note = (note + 7) % 12;  // Fifth shift
+                    } else {
+                        gatePercent = 15 + (_extraRng.next() % 30);  // Short stutter
+                    }
+                }
+
+                _aphexLastNote = note;
+
+                // Advance position with odd time signature
+                _aphexPosition = (_aphexPosition + 1) % _aphexTimeSigNum;
+
+                // Update note index when position wraps
+                if (_aphexPosition == 0) {
+                    _aphexNoteIndex = (_aphexNoteIndex + 1) % 8;
+                }
+
+                // Glide check (more common for Aphex style)
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = 1 + _rng.nextRange(2);
+                }
+
+                _aphexStepCounter++;
+            }
+            break;
+
+        case 19: // AUTECH buffer generation - constantly evolving abstract patterns
+            {
+                // Note from transform state
+                note = (_autechreCurrentNote + _autechrePatternShift) % 12;
+                octave = 0;
+
+                // Irregular gates (15-100%)
+                gatePercent = 15 + (_extraRng.next() % 85);
+
+                // Transform state evolution based on mutation rate
+                if (_rng.nextRange(256) < _autechreMutationRate) {
+                    _autechreTransformState[0] = _rng.next();
+                    _autechreTransformState[1] = _extraRng.next();
+                    // Update chaos seed
+                    _autechreChaosSeed = _autechreTransformState[0] ^ _autechreTransformState[1];
+                }
+
+                // Pattern shift evolution
+                if (_rng.nextRange(16) < 4) {
+                    _autechrePatternShift = (_autechrePatternShift + 1) % 12;
+                }
+
+                // Current note evolution (more chaotic)
+                int noteShift = (_rng.nextRange(5) - 2);  // -2 to +2
+                _autechreCurrentNote = (_autechreCurrentNote + noteShift + 12) % 12;
+
+                // Micro-timing check for ornament
+                _extraRng.next();
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = 1 + _rng.nextRange(3);  // Variable slide length
+                }
+
+                _autechreStepCount++;
             }
             break;
 
@@ -2163,6 +2816,346 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     _slide = 0;
                 }
 
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 13: // AMBIENT - Slow evolving pads (infinite loop, DRONE-style)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Very long gates like DRONE - let cooldown handle density
+                _gatePercent = 200;  // Long sustained notes (200% = ties over)
+                shouldGate = true;
+
+                // Slow pitch change rate based on flow (every 8-32 steps)
+                int changeRate = 8 + (16 - _ambientDriftAmount);
+                if (changeRate < 8) changeRate = 8;
+
+                // Use step counter for pitch changes
+                _ambientDriftCounter++;
+                if (_ambientDriftCounter >= changeRate) {
+                    _ambientDriftCounter = 0;
+                    // Change note slowly via drift
+                    _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
+
+                    // Occasionally change drift direction
+                    if (_rng.next() % 8 == 0) {
+                        _ambientDriftDir = -_ambientDriftDir;
+                    }
+                }
+
+                note = _ambientLastNote;
+                octave = 0;
+
+                // Add harmonics based on ornament
+                int harmonicType = _extraRng.next() % 4;
+                switch (harmonicType) {
+                case 0: break;  // Unison
+                case 1: note = (note + 5) % 12; break;  // Fourth
+                case 2: note = (note + 7) % 12; break;  // Fifth
+                case 3: octave = 1; break;  // Octave up
+                }
+
+                // Long, slow glides for ambient feel
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = 3;  // Long slide like DRONE
+                } else {
+                    _slide = 0;
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 15: // DRILL - UK Drill hi-hat rolls and bass slides (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Advance step in bar
+                _drillStepInBar = (_drillStepInBar + 1) % 8;
+
+                // Check hi-hat pattern
+                bool hihatHit = (_drillHiHatPattern & (1 << _drillStepInBar)) != 0;
+
+                if (hihatHit) {
+                    // Hi-hat hit
+                    note = 7 + (_rng.next() % 5);
+                    octave = 1;
+                    _gatePercent = 25;
+                    shouldGate = true;
+
+                    // Check for roll
+                    if (_extraRng.nextRange(16) < 4) {
+                        _drillRollCount = 2 + (_rng.next() % 3);
+                    }
+                    _slide = 0;
+                } else if (_drillRollCount > 0) {
+                    // Continue roll
+                    _drillRollCount--;
+                    note = 7 + (_rng.next() % 5);
+                    octave = 1;
+                    _gatePercent = 20;
+                    shouldGate = true;
+                    _slide = 0;
+                } else {
+                    // Bass note
+                    note = _drillLastNote;
+                    octave = -1;
+                    _gatePercent = 75;
+                    shouldGate = true;
+
+                    // Occasional bass note change
+                    if (_rng.nextRange(8) < 2) {
+                        _drillLastNote = _rng.next() % 5;
+                    }
+
+                    // Slide
+                    if (_extraRng.nextRange(16) < 8) {
+                        _slide = 2;
+                        _drillSlideTarget = _rng.next() % 12;
+                    } else if (glide > 0 && _rng.nextRange(100) < glide) {
+                        _slide = (_rng.nextRange(3)) + 1;
+                    } else {
+                        _slide = 0;
+                    }
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 16: // MINIMAL - staccato bursts and silence (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Mode state machine
+                if (_minimalMode == 0) {
+                    // Silence mode
+                    if (_minimalSilenceTimer > 0) {
+                        _minimalSilenceTimer--;
+                        _rng.next();
+                        shouldGate = false;
+                        _gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                    } else {
+                        // Switch to burst
+                        _minimalMode = 1;
+                        _minimalBurstTimer = _minimalBurstLength;
+                        _minimalNoteIndex = 0;
+                        note = _rng.next() % 12;
+                        octave = 0;
+                        _gatePercent = 25;
+                        shouldGate = true;
+                    }
+                } else {
+                    // Burst mode
+                    if (_minimalBurstTimer > 0) {
+                        _minimalBurstTimer--;
+                        _minimalNoteIndex++;
+                        int baseNote = _rng.next() % 12;
+
+                        if (_extraRng.nextRange(256) < _minimalClickDensity) {
+                            note = baseNote;
+                            _gatePercent = 15;
+                        } else {
+                            note = baseNote;
+                            _gatePercent = 25;
+                        }
+                        octave = 0;
+                        shouldGate = true;
+                    } else {
+                        // Switch to silence
+                        _minimalMode = 0;
+                        _minimalSilenceTimer = _minimalSilenceLength;
+                        shouldGate = false;
+                        _gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                    }
+                }
+
+                // Glide
+                if (shouldGate && glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = (_rng.nextRange(3)) + 1;
+                } else {
+                    _slide = 0;
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 14: // ACID - 303-style patterns (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Get note from sequence
+                note = _acidSequence[_acidPosition];
+                octave = 0;
+
+                // Check for accent
+                bool hasAccent = (_acidAccentPattern & (1 << _acidPosition)) != 0;
+                _gatePercent = hasAccent ? 95 : 65;
+                shouldGate = true;
+
+                // Check for octave jump
+                if (_acidOctaveMask & (1 << _acidPosition)) {
+                    octave = 1;
+                }
+
+                // Slide based on flow
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = 2;
+                } else {
+                    _slide = 0;
+                }
+
+                // Advance position
+                _acidPosition = (_acidPosition + 1) % 8;
+                _acidLastNote = note;
+                _acidStepCount++;
+
+                // Occasional pattern mutation
+                if (_rng.nextRange(128) < 2) {
+                    int mutatePos = _rng.next() % 8;
+                    _acidSequence[mutatePos] = _rng.next() % 12;
+                }
+
+                _extraRng.next();
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 17: // KRAFT - precise mechanical sequences (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Get note from sequence with transpose
+                note = (_kraftSequence[_kraftPosition] + _kraftTranspose) % 12;
+                octave = 0;
+
+                // Check for ghost note
+                bool isGhost = (_kraftGhostMask & (1 << _kraftPosition)) != 0;
+                _gatePercent = isGhost ? 25 : 50;
+                shouldGate = true;
+
+                // Lock timer
+                if (_kraftLockTimer > 0) {
+                    _kraftLockTimer--;
+                } else {
+                    _kraftLockTimer = 16 + (_rng.next() % 16);
+                    _kraftBaseNote = (_kraftBaseNote + _rng.nextRange(5)) % 12;
+                    for (int i = 0; i < 8; i++) {
+                        _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+                    }
+                }
+
+                // Transpose
+                if (_rng.nextRange(16) < 4) {
+                    _kraftTranspose = _rng.next() % 12;
+                    _kraftTranspCount++;
+                }
+
+                // Advance position
+                _kraftPosition = (_kraftPosition + 1) % 8;
+
+                // Glide (rare)
+                if (glide > 0 && _rng.nextRange(100) < glide / 2) {
+                    _slide = 1;
+                } else {
+                    _slide = 0;
+                }
+
+                _extraRng.next();
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 18: // APHEX - complex polyrhythmic patterns (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Get note from pattern
+                note = _aphexPattern[_aphexNoteIndex];
+                octave = 0;
+
+                // Varied gate lengths
+                _gatePercent = 25 + (_extraRng.next() % 75);
+                shouldGate = true;
+
+                // Glitch effect
+                if (_extraRng.nextRange(256) < _aphexGlitchProb) {
+                    int glitchType = _extraRng.next() % 3;
+                    if (glitchType == 0) {
+                        note = _aphexLastNote;  // Repeat
+                    } else if (glitchType == 1) {
+                        note = (note + 7) % 12;  // Fifth shift
+                    } else {
+                        _gatePercent = 15 + (_extraRng.next() % 30);  // Short stutter
+                    }
+                }
+
+                _aphexLastNote = note;
+
+                // Advance position with odd time signature
+                _aphexPosition = (_aphexPosition + 1) % _aphexTimeSigNum;
+
+                // Update note index when position wraps
+                if (_aphexPosition == 0) {
+                    _aphexNoteIndex = (_aphexNoteIndex + 1) % 8;
+                }
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = 1 + _rng.nextRange(2);
+                } else {
+                    _slide = 0;
+                }
+
+                _aphexStepCounter++;
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 19: // AUTECH - constantly evolving abstract patterns (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Note from transform state
+                note = (_autechreCurrentNote + _autechrePatternShift) % 12;
+                octave = 0;
+
+                // Irregular gates
+                _gatePercent = 15 + (_extraRng.next() % 85);
+                shouldGate = true;
+
+                // Transform state evolution
+                if (_rng.nextRange(256) < _autechreMutationRate) {
+                    _autechreTransformState[0] = _rng.next();
+                    _autechreTransformState[1] = _extraRng.next();
+                    _autechreChaosSeed = _autechreTransformState[0] ^ _autechreTransformState[1];
+                }
+
+                // Pattern shift evolution
+                if (_rng.nextRange(16) < 4) {
+                    _autechrePatternShift = (_autechrePatternShift + 1) % 12;
+                }
+
+                // Current note evolution
+                int noteShift = (_rng.nextRange(5) - 2);
+                _autechreCurrentNote = (_autechreCurrentNote + noteShift + 12) % 12;
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = 1 + _rng.nextRange(3);
+                } else {
+                    _slide = 0;
+                }
+
+                _extraRng.next();
+                _autechreStepCount++;
                 noteVoltage = (note + (octave * 12)) / 12.0f;
             }
             break;
