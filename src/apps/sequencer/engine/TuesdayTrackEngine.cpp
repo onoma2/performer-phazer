@@ -223,6 +223,37 @@ void TuesdayTrackEngine::initAlgorithm() {
         _minimalMode = 0;  // 0=silence, 1=burst
         break;
 
+    case 14: // ACID - 303-style patterns with slides
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        // Generate 8-step acid sequence
+        for (int i = 0; i < 8; i++) {
+            _acidSequence[i] = _rng.next() % 12;
+        }
+        _acidPosition = 0;
+        _acidAccentPattern = _extraRng.next();  // Random accent pattern
+        _acidOctaveMask = _extraRng.next() & 0x33;  // Sparse octave jumps
+        _acidLastNote = _acidSequence[0];
+        _acidSlideTarget = 0;
+        _acidStepCount = 0;
+        break;
+
+    case 17: // KRAFT - precise mechanical sequences
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        // Generate repetitive mechanical pattern
+        _kraftBaseNote = _rng.next() % 12;
+        for (int i = 0; i < 8; i++) {
+            // Kraftwerk patterns often alternate between 2-3 notes
+            _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+        }
+        _kraftPosition = 0;
+        _kraftLockTimer = 16 + (_rng.next() % 16);  // Lock for 16-32 steps
+        _kraftTranspose = 0;
+        _kraftTranspCount = 0;
+        _kraftGhostMask = _extraRng.next() & 0x55;  // Every other step ghost
+        break;
+
     default:
         break;
     }
@@ -418,6 +449,30 @@ void TuesdayTrackEngine::reseed() {
         _minimalSilenceTimer = _minimalSilenceLength;
         _minimalNoteIndex = 0;
         _minimalMode = 0;
+        break;
+
+    case 14: // ACID
+        for (int i = 0; i < 8; i++) {
+            _acidSequence[i] = _rng.next() % 12;
+        }
+        _acidPosition = 0;
+        _acidAccentPattern = _extraRng.next();
+        _acidOctaveMask = _extraRng.next() & 0x33;
+        _acidLastNote = _acidSequence[0];
+        _acidSlideTarget = 0;
+        _acidStepCount = 0;
+        break;
+
+    case 17: // KRAFT
+        _kraftBaseNote = _rng.next() % 12;
+        for (int i = 0; i < 8; i++) {
+            _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+        }
+        _kraftPosition = 0;
+        _kraftLockTimer = 16 + (_rng.next() % 16);
+        _kraftTranspose = 0;
+        _kraftTranspCount = 0;
+        _kraftGhostMask = _extraRng.next() & 0x55;
         break;
 
     default:
@@ -813,6 +868,63 @@ void TuesdayTrackEngine::generateBuffer() {
                         _minimalSilenceTimer = _minimalSilenceLength;
                     }
                 }
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+            }
+            break;
+
+        case 14: // ACID warmup
+            {
+                // Advance through sequence
+                _acidPosition = (_acidPosition + 1) % 8;
+                _acidStepCount++;
+
+                // Consume RNG for accent and octave checks
+                _rng.next();  // note variation
+                if (_acidAccentPattern & (1 << _acidPosition)) {
+                    _extraRng.next();  // accent
+                }
+                if (_acidOctaveMask & (1 << _acidPosition)) {
+                    _extraRng.next();  // octave
+                }
+
+                // Slide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+
+                // Pattern mutation
+                if (_rng.nextRange(128) < 2) {
+                    _acidSequence[_rng.next() % 8] = _rng.next() % 12;
+                }
+            }
+            break;
+
+        case 17: // KRAFT warmup
+            {
+                // Advance through sequence
+                _kraftPosition = (_kraftPosition + 1) % 8;
+
+                // Lock timer countdown
+                if (_kraftLockTimer > 0) {
+                    _kraftLockTimer--;
+                } else {
+                    // Regenerate pattern when lock expires
+                    _kraftLockTimer = 16 + (_rng.next() % 16);
+                    _kraftBaseNote = (_kraftBaseNote + _rng.nextRange(5)) % 12;
+                }
+
+                // Transpose check
+                if (_rng.nextRange(16) < 4) {
+                    _kraftTranspose = _rng.next() % 12;
+                    _kraftTranspCount++;
+                }
+
+                // Ghost note check
+                _extraRng.next();
 
                 // Glide check
                 if (glide > 0 && _rng.nextRange(100) < glide) {
@@ -1541,6 +1653,83 @@ void TuesdayTrackEngine::generateBuffer() {
                 if (gatePercent > 0 && glide > 0 && _rng.nextRange(100) < glide) {
                     slide = (_rng.nextRange(3)) + 1;
                 }
+            }
+            break;
+
+        case 14: // ACID buffer generation - 303-style patterns
+            {
+                // Get note from sequence
+                note = _acidSequence[_acidPosition];
+                octave = 0;
+
+                // Check for accent
+                bool hasAccent = (_acidAccentPattern & (1 << _acidPosition)) != 0;
+                gatePercent = hasAccent ? 95 : 65;  // Punchy 303 gates
+
+                // Check for octave jump
+                if (_acidOctaveMask & (1 << _acidPosition)) {
+                    octave = 1;
+                }
+
+                // Slide based on flow
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = 2;  // 303-style slide
+                }
+
+                // Advance position
+                _acidPosition = (_acidPosition + 1) % 8;
+                _acidLastNote = note;
+                _acidStepCount++;
+
+                // Occasional pattern mutation
+                if (_rng.nextRange(128) < 2) {
+                    int mutatePos = _rng.next() % 8;
+                    _acidSequence[mutatePos] = _rng.next() % 12;
+                }
+
+                // Consume extra RNG
+                _extraRng.next();
+            }
+            break;
+
+        case 17: // KRAFT buffer generation - precise mechanical sequences
+            {
+                // Get note from sequence with transpose
+                note = (_kraftSequence[_kraftPosition] + _kraftTranspose) % 12;
+                octave = 0;
+
+                // Check for ghost note
+                bool isGhost = (_kraftGhostMask & (1 << _kraftPosition)) != 0;
+                gatePercent = isGhost ? 25 : 50;  // Precise, mechanical gates
+
+                // Lock timer controls pattern stability
+                if (_kraftLockTimer > 0) {
+                    _kraftLockTimer--;
+                } else {
+                    // Pattern evolution when lock expires
+                    _kraftLockTimer = 16 + (_rng.next() % 16);
+                    _kraftBaseNote = (_kraftBaseNote + _rng.nextRange(5)) % 12;
+                    // Regenerate pattern
+                    for (int i = 0; i < 8; i++) {
+                        _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+                    }
+                }
+
+                // Transpose based on flow
+                if (_rng.nextRange(16) < 4) {
+                    _kraftTranspose = _rng.next() % 12;
+                    _kraftTranspCount++;
+                }
+
+                // Advance position
+                _kraftPosition = (_kraftPosition + 1) % 8;
+
+                // Glide check (rare for mechanical feel)
+                if (glide > 0 && _rng.nextRange(100) < glide / 2) {
+                    slide = 1;  // Short slide
+                }
+
+                _extraRng.next();
             }
             break;
 
@@ -2614,6 +2803,92 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     _slide = 0;
                 }
 
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 14: // ACID - 303-style patterns (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Get note from sequence
+                note = _acidSequence[_acidPosition];
+                octave = 0;
+
+                // Check for accent
+                bool hasAccent = (_acidAccentPattern & (1 << _acidPosition)) != 0;
+                _gatePercent = hasAccent ? 95 : 65;
+                shouldGate = true;
+
+                // Check for octave jump
+                if (_acidOctaveMask & (1 << _acidPosition)) {
+                    octave = 1;
+                }
+
+                // Slide based on flow
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = 2;
+                } else {
+                    _slide = 0;
+                }
+
+                // Advance position
+                _acidPosition = (_acidPosition + 1) % 8;
+                _acidLastNote = note;
+                _acidStepCount++;
+
+                // Occasional pattern mutation
+                if (_rng.nextRange(128) < 2) {
+                    int mutatePos = _rng.next() % 8;
+                    _acidSequence[mutatePos] = _rng.next() % 12;
+                }
+
+                _extraRng.next();
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 17: // KRAFT - precise mechanical sequences (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Get note from sequence with transpose
+                note = (_kraftSequence[_kraftPosition] + _kraftTranspose) % 12;
+                octave = 0;
+
+                // Check for ghost note
+                bool isGhost = (_kraftGhostMask & (1 << _kraftPosition)) != 0;
+                _gatePercent = isGhost ? 25 : 50;
+                shouldGate = true;
+
+                // Lock timer
+                if (_kraftLockTimer > 0) {
+                    _kraftLockTimer--;
+                } else {
+                    _kraftLockTimer = 16 + (_rng.next() % 16);
+                    _kraftBaseNote = (_kraftBaseNote + _rng.nextRange(5)) % 12;
+                    for (int i = 0; i < 8; i++) {
+                        _kraftSequence[i] = (_kraftBaseNote + ((i % 2) ? 7 : 0)) % 12;
+                    }
+                }
+
+                // Transpose
+                if (_rng.nextRange(16) < 4) {
+                    _kraftTranspose = _rng.next() % 12;
+                    _kraftTranspCount++;
+                }
+
+                // Advance position
+                _kraftPosition = (_kraftPosition + 1) % 8;
+
+                // Glide (rare)
+                if (glide > 0 && _rng.nextRange(100) < glide / 2) {
+                    _slide = 1;
+                } else {
+                    _slide = 0;
+                }
+
+                _extraRng.next();
                 noteVoltage = (note + (octave * 12)) / 12.0f;
             }
             break;

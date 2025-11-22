@@ -40,3 +40,5 @@ register_sequencer_test(TestTuesdayAlgorithmBuffers TestTuesdayAlgorithmBuffers.
 register_sequencer_test(TestTuesdayAmbient TestTuesdayAmbient.cpp)
 register_sequencer_test(TestTuesdayMinimal TestTuesdayMinimal.cpp)
 register_sequencer_test(TestTuesdayDrill TestTuesdayDrill.cpp)
+register_sequencer_test(TestTuesdayAcid TestTuesdayAcid.cpp)
+register_sequencer_test(TestTuesdayKraft TestTuesdayKraft.cpp)
