@@ -701,23 +701,28 @@ void TuesdayTrackEngine::generateBuffer() {
 
         case 13: // AMBIENT warmup
             {
-                // Drift counter and direction change
+                // Drift counter for very slow pitch evolution (every 16 steps)
                 _ambientDriftCounter++;
-                if (_ambientDriftCounter >= 8) {
+                if (_ambientDriftCounter >= 16) {
                     _ambientDriftCounter = 0;
                     _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
                     if (_rng.next() % 8 == 0) {
                         _ambientDriftDir = -_ambientDriftDir;
                     }
                 }
-                // Silence counter creates sparse triggers
-                if (_ambientSilenceCount > 0) {
+                // Three-state machine: hold → silence → new note
+                if (_ambientHoldTimer > 0) {
+                    _ambientHoldTimer--;
+                    _rng.next();  // consume for determinism
+                    _extraRng.next();
+                } else if (_ambientSilenceCount > 0) {
                     _ambientSilenceCount--;
                     _rng.next();  // consume for determinism
                     _extraRng.next();
                 } else {
                     _rng.next();  // note selection
-                    _ambientSilenceCount = 8 + (_rng.next() % 17);  // silence period
+                    _ambientHoldTimer = 4 + (_rng.next() % 13);  // hold 4-16 steps
+                    _ambientSilenceCount = 16 + (_rng.next() % 17);  // silence 16-32 steps
                     _extraRng.next();  // harmonic
                     // Glide check
                     if (glide > 0 && _rng.nextRange(100) < glide) {
@@ -1311,9 +1316,9 @@ void TuesdayTrackEngine::generateBuffer() {
 
         case 13: // AMBIENT buffer generation - Slow evolving pads
             {
-                // Drift counter for slow pitch evolution
+                // Drift counter for very slow pitch evolution (every 16+ steps)
                 _ambientDriftCounter++;
-                if (_ambientDriftCounter >= 8) {  // Slower drift
+                if (_ambientDriftCounter >= 16) {
                     _ambientDriftCounter = 0;
                     _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
                     // Occasionally change drift direction
@@ -1322,17 +1327,27 @@ void TuesdayTrackEngine::generateBuffer() {
                     }
                 }
 
-                // Silence counter creates sparse triggers
-                if (_ambientSilenceCount > 0) {
-                    _ambientSilenceCount--;
-                    // During silence, still consume RNG for determinism
+                // Hold timer controls gate length (4-16 steps)
+                if (_ambientHoldTimer > 0) {
+                    _ambientHoldTimer--;
+                    // During hold, gate stays high with same note
+                    gatePercent = 95;
+                    note = _ambientLastNote;
+                    octave = 0;
+                    // Consume RNG for determinism
                     _rng.next();
                     _extraRng.next();
+                } else if (_ambientSilenceCount > 0) {
+                    // Silence period between notes (16-32 steps)
+                    _ambientSilenceCount--;
                     gatePercent = 0;  // No gate during silence
                     note = _ambientLastNote;
                     octave = 0;
+                    // Consume RNG for determinism
+                    _rng.next();
+                    _extraRng.next();
                 } else {
-                    // Generate new note
+                    // Generate new note (pitch changes only here, every 20-48 steps)
                     int interval = _rng.next() % 12;
                     _ambientLastNote = interval;
                     note = _ambientLastNote;
@@ -1340,8 +1355,11 @@ void TuesdayTrackEngine::generateBuffer() {
                     // Very long gates for ambient pads
                     gatePercent = 95;
 
-                    // Set long silence after this note (8-24 steps)
-                    _ambientSilenceCount = 8 + (_rng.next() % 17);
+                    // Set gate hold length (4-16 steps)
+                    _ambientHoldTimer = 4 + (_rng.next() % 13);
+
+                    // Set silence after gate (16-32 steps)
+                    _ambientSilenceCount = 16 + (_rng.next() % 17);
 
                     // Add harmonics based on ornament parameter
                     int harmonicType = _extraRng.next() % 4;
@@ -2271,9 +2289,9 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 int glide = _tuesdayTrack.glide();
 
-                // Drift counter for slow pitch evolution
+                // Drift counter for very slow pitch evolution (every 16 steps)
                 _ambientDriftCounter++;
-                if (_ambientDriftCounter >= 8) {
+                if (_ambientDriftCounter >= 16) {
                     _ambientDriftCounter = 0;
                     _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
                     // Occasionally change drift direction
@@ -2282,18 +2300,27 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     }
                 }
 
-                // Silence counter creates sparse triggers
-                if (_ambientSilenceCount > 0) {
-                    _ambientSilenceCount--;
-                    // During silence, still consume RNG for determinism
+                // Three-state machine: hold → silence → new note
+                if (_ambientHoldTimer > 0) {
+                    _ambientHoldTimer--;
+                    // During hold, gate stays high with same note
                     _rng.next();
                     _extraRng.next();
-                    shouldGate = false;  // No gate during silence
+                    shouldGate = true;
+                    _gatePercent = 95;
+                    note = _ambientLastNote;
+                    octave = 0;
+                } else if (_ambientSilenceCount > 0) {
+                    _ambientSilenceCount--;
+                    // During silence, no gate
+                    _rng.next();
+                    _extraRng.next();
+                    shouldGate = false;
                     _gatePercent = 0;
                     note = _ambientLastNote;
                     octave = 0;
                 } else {
-                    // Generate new note
+                    // Generate new note (pitch changes only here, every 20-48 steps)
                     int interval = _rng.next() % 12;
                     _ambientLastNote = interval;
                     note = _ambientLastNote;
@@ -2301,8 +2328,11 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     shouldGate = true;
                     _gatePercent = 95;  // Very long gates for pads
 
-                    // Set long silence after this note (8-24 steps)
-                    _ambientSilenceCount = 8 + (_rng.next() % 17);
+                    // Set gate hold length (4-16 steps)
+                    _ambientHoldTimer = 4 + (_rng.next() % 13);
+
+                    // Set silence after gate (16-32 steps)
+                    _ambientSilenceCount = 16 + (_rng.next() % 17);
 
                     // Add harmonics based on ornament
                     int harmonicType = _extraRng.next() % 4;
