@@ -187,17 +187,21 @@ void TuesdayTrackEngine::initAlgorithm() {
         _ragaOrnament = _extraRng.next() % 3;  // Ornament type
         break;
 
-    case 13: // AMBIENT - slow evolving pads
-        _rng = Random((flow - 1) << 4);
-        _extraRng = Random((ornament - 1) << 4);
-        _ambientLastNote = _rng.next() % 12;
-        _ambientHoldTimer = (_rng.next() % 8) + 4;  // 4-11 steps
-        _ambientDriftDir = (_rng.next() % 2) ? 1 : -1;
-        _ambientDriftAmount = flow;  // Flow controls drift speed
-        _ambientHarmonic = _extraRng.next() % 4;  // Harmonic interval type
-        _ambientSilenceCount = 0;
-        _ambientDriftCounter = 0;
-        break;
+    case 13: // AMBIENT - Harmonic Drone & Event Scheduler
+{
+    // 1. Set up the drone chord based on Flow. Not random, but deterministic.
+    _ambient_root_note = (_tuesdayTrack.flow() - 1) % 12;
+    _ambient_drone_notes[0] = _ambient_root_note;
+    _ambient_drone_notes[1] = (_ambient_root_note + 7) % 12; // Perfect 5th
+    _ambient_drone_notes[2] = (_ambient_root_note + 16) % 12; // A Major 9th (as a 2nd)
+
+    // 2. Init event state using Ornament for randomness
+    _extraRng = Random((_tuesdayTrack.ornament() - 1) << 4);
+    _ambient_event_timer = 16 + (_extraRng.next() % 48); // First event in 16-64 steps
+    _ambient_event_type = 0;
+    _ambient_event_step = 0;
+    break;
+}
 
     case 15: // DRILL - UK Drill hi-hat rolls and bass slides
         _rng = Random((flow - 1) << 4);
@@ -254,32 +258,42 @@ void TuesdayTrackEngine::initAlgorithm() {
         _kraftGhostMask = _extraRng.next() & 0x55;  // Every other step ghost
         break;
 
-    case 18: // APHEX - complex polyrhythmic patterns
-        _rng = Random((flow - 1) << 4);
-        _extraRng = Random((ornament - 1) << 4);
-        // Generate polyrhythmic pattern
-        for (int i = 0; i < 8; i++) {
-            _aphexPattern[i] = _rng.next() % 12;
-        }
-        _aphexTimeSigNum = 3 + (flow % 5);  // 3, 4, 5, 6, 7
-        _aphexGlitchProb = ornament * 16;  // 0-255 scale
-        _aphexPosition = 0;
-        _aphexNoteIndex = 0;
-        _aphexLastNote = _aphexPattern[0];
-        _aphexStepCounter = 0;
-        break;
+    case 18: // APHEX - Polyrhythmic Event Sequencer
+{
+    // 1. Seed the patterns based on Flow, using the main RNG
+    _rng = Random((_tuesdayTrack.flow() - 1) << 4);
+    for (int i = 0; i < 4; ++i) _aphex_track1_pattern[i] = _rng.next() % 12;
+    for (int i = 0; i < 3; ++i) _aphex_track2_pattern[i] = _rng.next() % 3; // 0, 1, or 2
+    for (int i = 0; i < 5; ++i) _aphex_track3_pattern[i] = (_rng.next() % 8 == 0) ? (_rng.next() % 5) : 0; // Sparse bass notes
 
-    case 19: // AUTECH - constantly evolving abstract patterns
-        _rng = Random((flow - 1) << 4);
-        _extraRng = Random((ornament - 1) << 4);
-        _autechreTransformState[0] = _rng.next();
-        _autechreTransformState[1] = _extraRng.next();
-        _autechreMutationRate = flow * 16;  // 0-255 scale
-        _autechreChaosSeed = _rng.next();
-        _autechreStepCount = 0;
-        _autechreCurrentNote = _rng.next() % 12;
-        _autechrePatternShift = 0;
-        break;
+    // 2. Set initial phase based on Ornament
+    int ornament_val = _tuesdayTrack.ornament();
+    _aphex_pos1 = (ornament_val * 1) % 4;
+    _aphex_pos2 = (ornament_val * 2) % 3;
+    _aphex_pos3 = (ornament_val * 3) % 5;
+    break;
+}
+
+    case 19: // AUTECHRE - Algorithmic Transformation Engine
+{
+    // 1. Start with a dead-simple, non-random pattern
+    _autechre_pattern[0] = 0;
+    _autechre_pattern[1] = 0;
+    _autechre_pattern[2] = 0;
+    _autechre_pattern[3] = 0;
+    _autechre_pattern[4] = 0;
+    _autechre_pattern[5] = 0;
+    _autechre_pattern[6] = 7;
+    _autechre_pattern[7] = 0;
+    // 2. Set rule timing based on Flow
+    _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
+
+    // 3. Create a sequence of rules based on Ornament
+    _rng = Random((_tuesdayTrack.ornament() - 1) << 4);
+    for (int i = 0; i < 8; ++i) _autechre_rule_sequence[i] = _rng.next() % 5; // 5 different rules
+    _autechre_rule_index = 0;
+    break;
+}
 
     default:
         break;
@@ -450,12 +464,11 @@ void TuesdayTrackEngine::reseed() {
         break;
 
     case 13: // AMBIENT
-        _ambientLastNote = _rng.next() % 12;
-        _ambientHoldTimer = (_rng.next() % 8) + 4;
-        _ambientDriftDir = (_rng.next() % 2) ? 1 : -1;
-        _ambientHarmonic = _extraRng.next() % 4;
-        _ambientSilenceCount = 0;
-        _ambientDriftCounter = 0;
+    case 18: // APHEX
+    case 19: // AUTECH
+        // These algorithms are fully deterministic from flow/ornament,
+        // so reseed just re-initializes with the same parameters.
+        initAlgorithm();
         break;
 
     case 15: // DRILL
@@ -500,28 +513,6 @@ void TuesdayTrackEngine::reseed() {
         _kraftTranspose = 0;
         _kraftTranspCount = 0;
         _kraftGhostMask = _extraRng.next() & 0x55;
-        break;
-
-    case 18: // APHEX
-        for (int i = 0; i < 8; i++) {
-            _aphexPattern[i] = _rng.next() % 12;
-        }
-        _aphexTimeSigNum = 3 + (_rng.next() % 5);
-        _aphexGlitchProb = _extraRng.next();
-        _aphexPosition = 0;
-        _aphexNoteIndex = 0;
-        _aphexLastNote = _aphexPattern[0];
-        _aphexStepCounter = 0;
-        break;
-
-    case 19: // AUTECH
-        _autechreTransformState[0] = _rng.next();
-        _autechreTransformState[1] = _extraRng.next();
-        _autechreMutationRate = _rng.next();
-        _autechreChaosSeed = _rng.next();
-        _autechreStepCount = 0;
-        _autechreCurrentNote = _rng.next() % 12;
-        _autechrePatternShift = 0;
         break;
 
     default:
@@ -847,25 +838,24 @@ void TuesdayTrackEngine::generateBuffer() {
             }
             break;
 
-        case 13: // AMBIENT warmup (DRONE-style)
+        case 13: // AMBIENT warmup
             {
-                // Slow pitch change rate based on flow
-                int changeRate = 8 + (16 - _ambientDriftAmount);
-                if (changeRate < 8) changeRate = 8;
-
-                if ((step % changeRate) == 0) {
-                    _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
-                    if (_rng.next() % 8 == 0) {
-                        _ambientDriftDir = -_ambientDriftDir;
+                if (_ambient_event_type == 1) {
+                    _ambient_event_type = 0;
+                } else if (_ambient_event_type == 2) {
+                    _ambient_event_step++;
+                    if (_ambient_event_step >= 3) {
+                        _ambient_event_type = 0;
                     }
+                } else {
+                    _ambient_event_timer--;
                 }
 
-                // Consume RNG for harmonics
-                _extraRng.next();
-
-                // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    // Just consume, no need for range
+                if (_ambient_event_timer <= 0) {
+                    _ambient_event_type = 1 + (_extraRng.next() % 2);
+                    _ambient_event_step = 0;
+                    int power = _tuesdayTrack.power();
+                    _ambient_event_timer = 16 + (power > 0 ? 256 / power : 256);
                 }
             }
             break;
@@ -984,53 +974,55 @@ void TuesdayTrackEngine::generateBuffer() {
 
         case 18: // APHEX warmup
             {
-                // Advance position with odd time signature
-                _aphexPosition = (_aphexPosition + 1) % _aphexTimeSigNum;
-
-                // Update note index
-                if (_aphexPosition == 0) {
-                    _aphexNoteIndex = (_aphexNoteIndex + 1) % 8;
-                }
-
-                // Glitch probability check
-                if (_extraRng.nextRange(256) < _aphexGlitchProb) {
-                    _extraRng.next();  // Additional randomness for glitch
-                }
-
-                // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
-
-                _aphexStepCounter++;
+                _aphex_pos1 = (_aphex_pos1 + 1) % 4;
+                _aphex_pos2 = (_aphex_pos2 + 1) % 3;
+                _aphex_pos3 = (_aphex_pos3 + 1) % 5;
             }
             break;
 
         case 19: // AUTECH warmup
             {
-                // Transform state evolution
-                if (_rng.nextRange(256) < _autechreMutationRate) {
-                    _autechreTransformState[0] = _rng.next();
-                    _autechreTransformState[1] = _extraRng.next();
+                _autechre_rule_timer--;
+                if (_autechre_rule_timer <= 0) {
+                    uint8_t current_rule = _autechre_rule_sequence[_autechre_rule_index];
+                    int intensity = _tuesdayTrack.power() / 2; // Power: 0-8
+
+                    switch (current_rule) {
+                        case 0: // ROTATE
+                            {
+                                int8_t temp = _autechre_pattern[7];
+                                for (int i = 7; i > 0; --i) _autechre_pattern[i] = _autechre_pattern[i-1];
+                                _autechre_pattern[0] = temp;
+                            }
+                            break;
+                        case 1: // REVERSE
+                            for (int i = 0; i < 4; ++i) {
+                                int8_t temp = _autechre_pattern[i];
+                                _autechre_pattern[i] = _autechre_pattern[7-i];
+                                _autechre_pattern[7-i] = temp;
+                            }
+                            break;
+                        case 2: // INVERT around a pivot (e.g., note 6)
+                            for (int i = 0; i < 8; ++i) {
+                                int interval = _autechre_pattern[i] - 6;
+                                _autechre_pattern[i] = (6 - interval + 12) % 12;
+                            }
+                            break;
+                        case 3: // SWAP adjacent notes
+                            for (int i = 0; i < 8; i += 2) {
+                                int8_t temp = _autechre_pattern[i];
+                                _autechre_pattern[i] = _autechre_pattern[i+1];
+                                _autechre_pattern[i+1] = temp;
+                            }
+                            break;
+                        case 4: // ADD intensity
+                             for (int i = 0; i < 8; ++i) _autechre_pattern[i] = (_autechre_pattern[i] + intensity) % 12;
+                            break;
+                    }
+
+                    _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
+                    _autechre_rule_index = (_autechre_rule_index + 1) % 8;
                 }
-
-                // Pattern shift
-                if (_rng.nextRange(16) < 4) {
-                    _autechrePatternShift = (_autechrePatternShift + 1) % 12;
-                }
-
-                // Current note update
-                _autechreCurrentNote = (_autechreCurrentNote + _rng.nextRange(5) - 2 + 12) % 12;
-
-                // Micro-timing check
-                _extraRng.next();
-
-                // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
-
-                _autechreStepCount++;
             }
             break;
 
@@ -1616,41 +1608,40 @@ void TuesdayTrackEngine::generateBuffer() {
             }
             break;
 
-        case 13: // AMBIENT buffer generation - Slow evolving pads (DRONE-style)
+        case 13: // AMBIENT buffer generation
             {
-                // Very long gates like DRONE - let cooldown handle density
-                gatePercent = 200;  // Long sustained notes (200% = ties over)
-
-                // Slow pitch change rate based on flow (every 8-32 steps)
-                int changeRate = 8 + (16 - _ambientDriftAmount);  // Higher flow = faster changes
-                if (changeRate < 8) changeRate = 8;
-
-                if ((step % changeRate) == 0) {
-                    // Change note slowly via drift
-                    _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
-
-                    // Occasionally change drift direction
-                    if (_rng.next() % 8 == 0) {
-                        _ambientDriftDir = -_ambientDriftDir;
+                // --- Handle ongoing events first ---
+                if (_ambient_event_type == 1) { // Single Note Event
+                    note = (_ambient_root_note + 12) % 12; // Octave up
+                    octave = 1;
+                    gatePercent = 150;
+                    _ambient_event_type = 0; // Event is one step long
+                } else if (_ambient_event_type == 2) { // Arpeggio Event
+                    note = _ambient_drone_notes[_ambient_event_step];
+                    octave = 0;
+                    gatePercent = 50;
+                    _ambient_event_step++;
+                    if (_ambient_event_step >= 3) {
+                        _ambient_event_type = 0; // End of event
                     }
+                } else {
+                    // --- Default Drone Behavior ---
+                    note = _ambient_drone_notes[ (step / 4) % 3 ]; // Slowly cycle through drone notes
+                    octave = 0;
+                    gatePercent = 1600; // Hold gate for 16 steps
+                    _ambient_event_timer--;
                 }
 
-                note = _ambientLastNote;
-                octave = 0;
-
-                // Add harmonics based on ornament parameter
-                int harmonicType = _extraRng.next() % 4;
-                switch (harmonicType) {
-                case 0: break;  // Unison - no change
-                case 1: note = (note + 5) % 12; break;  // Fourth
-                case 2: note = (note + 7) % 12; break;  // Fifth
-                case 3: octave = 1; break;  // Octave up
+                // --- Check if it's time for a new event ---
+                if (_ambient_event_timer <= 0) {
+                    _ambient_event_type = 1 + (_extraRng.next() % 2); // 1 or 2
+                    _ambient_event_step = 0;
+                    // Reset timer based on Power
+                    int power = _tuesdayTrack.power();
+                    _ambient_event_timer = 16 + (power > 0 ? 256 / power : 256);
                 }
-
-                // Long, slow glides for ambient feel
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = 3;  // Long slide like DRONE
-                }
+                
+                slide = 0;
             }
             break;
 
@@ -1834,82 +1825,90 @@ void TuesdayTrackEngine::generateBuffer() {
             }
             break;
 
-        case 18: // APHEX buffer generation - complex polyrhythmic patterns
+        case 18: // APHEX buffer generation
             {
-                // Get note from pattern with polyrhythmic position
-                note = _aphexPattern[_aphexNoteIndex];
+                // --- Main melody from Track 1 ---
+                note = _aphex_track1_pattern[_aphex_pos1];
                 octave = 0;
+                gatePercent = 75;
+                slide = 0;
 
-                // Varied gate lengths (Aphex Twin style)
-                gatePercent = 25 + (_extraRng.next() % 75);  // 25-100%
-
-                // Glitch effect
-                if (_extraRng.nextRange(256) < _aphexGlitchProb) {
-                    // Glitch can repeat, shift, or mutate
-                    int glitchType = _extraRng.next() % 3;
-                    if (glitchType == 0) {
-                        note = _aphexLastNote;  // Repeat
-                    } else if (glitchType == 1) {
-                        note = (note + 7) % 12;  // Fifth shift
-                    } else {
-                        gatePercent = 15 + (_extraRng.next() % 30);  // Short stutter
-                    }
+                // --- Modification from Track 2 ---
+                uint8_t modifier = _aphex_track2_pattern[_aphex_pos2];
+                if (modifier == 1) { // Stutter
+                    gatePercent = 20;
+                } else if (modifier == 2) { // Slide
+                    slide = 1;
                 }
 
-                _aphexLastNote = note;
-
-                // Advance position with odd time signature
-                _aphexPosition = (_aphexPosition + 1) % _aphexTimeSigNum;
-
-                // Update note index when position wraps
-                if (_aphexPosition == 0) {
-                    _aphexNoteIndex = (_aphexNoteIndex + 1) % 8;
+                // --- Override from Track 3 ---
+                uint8_t bass_note = _aphex_track3_pattern[_aphex_pos3];
+                if (bass_note > 0) {
+                    note = bass_note;
+                    octave = -1; // Deep bass
+                    gatePercent = 90;
+                    slide = 0;
                 }
 
-                // Glide check (more common for Aphex style)
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = 1 + _rng.nextRange(2);
-                }
-
-                _aphexStepCounter++;
+                // --- Advance all tracks ---
+                _aphex_pos1 = (_aphex_pos1 + 1) % 4;
+                _aphex_pos2 = (_aphex_pos2 + 1) % 3;
+                _aphex_pos3 = (_aphex_pos3 + 1) % 5;
             }
             break;
 
-        case 19: // AUTECH buffer generation - constantly evolving abstract patterns
+        case 19: // AUTECHRE buffer generation
             {
-                // Note from transform state
-                note = (_autechreCurrentNote + _autechrePatternShift) % 12;
+                // --- Always play the current state of the pattern ---
+                note = _autechre_pattern[step % 8];
                 octave = 0;
+                gatePercent = 75;
+                slide = 0;
 
-                // Irregular gates (15-100%)
-                gatePercent = 15 + (_extraRng.next() % 85);
+                // --- Countdown to the next transformation ---
+                _autechre_rule_timer--;
+                if (_autechre_rule_timer <= 0) {
+                    uint8_t current_rule = _autechre_rule_sequence[_autechre_rule_index];
+                    int intensity = _tuesdayTrack.power() / 2; // Power: 0-8
 
-                // Transform state evolution based on mutation rate
-                if (_rng.nextRange(256) < _autechreMutationRate) {
-                    _autechreTransformState[0] = _rng.next();
-                    _autechreTransformState[1] = _extraRng.next();
-                    // Update chaos seed
-                    _autechreChaosSeed = _autechreTransformState[0] ^ _autechreTransformState[1];
+                    // --- Apply a deterministic transformation rule ---
+                    switch (current_rule) {
+                        case 0: // ROTATE
+                            {
+                                int8_t temp = _autechre_pattern[7];
+                                for (int i = 7; i > 0; --i) _autechre_pattern[i] = _autechre_pattern[i-1];
+                                _autechre_pattern[0] = temp;
+                            }
+                            break;
+                        case 1: // REVERSE
+                            for (int i = 0; i < 4; ++i) {
+                                int8_t temp = _autechre_pattern[i];
+                                _autechre_pattern[i] = _autechre_pattern[7-i];
+                                _autechre_pattern[7-i] = temp;
+                            }
+                            break;
+                        case 2: // INVERT around a pivot (e.g., note 6)
+                            for (int i = 0; i < 8; ++i) {
+                                int interval = _autechre_pattern[i] - 6;
+                                _autechre_pattern[i] = (6 - interval + 12) % 12;
+                            }
+                            break;
+                        case 3: // SWAP adjacent notes
+                            for (int i = 0; i < 8; i += 2) {
+                                int8_t temp = _autechre_pattern[i];
+                                _autechre_pattern[i] = _autechre_pattern[i+1];
+                                _autechre_pattern[i+1] = temp;
+                            }
+                            break;
+                        case 4: // ADD intensity
+                             for (int i = 0; i < 8; ++i) _autechre_pattern[i] = (_autechre_pattern[i] + intensity) % 12;
+                            break;
+                    }
+
+                    // --- Reset for next rule ---
+                    _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
+                    _autechre_rule_index = (_autechre_rule_index + 1) % 8;
                 }
-
-                // Pattern shift evolution
-                if (_rng.nextRange(16) < 4) {
-                    _autechrePatternShift = (_autechrePatternShift + 1) % 12;
-                }
-
-                // Current note evolution (more chaotic)
-                int noteShift = (_rng.nextRange(5) - 2);  // -2 to +2
-                _autechreCurrentNote = (_autechreCurrentNote + noteShift + 12) % 12;
-
-                // Micro-timing check for ornament
-                _extraRng.next();
-
-                // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = 1 + _rng.nextRange(3);  // Variable slide length
-                }
-
-                _autechreStepCount++;
             }
             break;
 
@@ -2820,49 +2819,41 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             }
             break;
 
-        case 13: // AMBIENT - Slow evolving pads (infinite loop, DRONE-style)
+        case 13: // AMBIENT - Slow evolving pads (infinite loop)
             {
-                int glide = _tuesdayTrack.glide();
-
-                // Very long gates like DRONE - let cooldown handle density
-                _gatePercent = 200;  // Long sustained notes (200% = ties over)
                 shouldGate = true;
-
-                // Slow pitch change rate based on flow (every 8-32 steps)
-                int changeRate = 8 + (16 - _ambientDriftAmount);
-                if (changeRate < 8) changeRate = 8;
-
-                // Use step counter for pitch changes
-                _ambientDriftCounter++;
-                if (_ambientDriftCounter >= changeRate) {
-                    _ambientDriftCounter = 0;
-                    // Change note slowly via drift
-                    _ambientLastNote = (_ambientLastNote + _ambientDriftDir + 12) % 12;
-
-                    // Occasionally change drift direction
-                    if (_rng.next() % 8 == 0) {
-                        _ambientDriftDir = -_ambientDriftDir;
+                // --- Handle ongoing events first ---
+                if (_ambient_event_type == 1) { // Single Note Event
+                    note = (_ambient_root_note + 12) % 12; // Octave up
+                    octave = 1;
+                    _gatePercent = 150;
+                    _ambient_event_type = 0; // Event is one step long
+                } else if (_ambient_event_type == 2) { // Arpeggio Event
+                    note = _ambient_drone_notes[_ambient_event_step];
+                    octave = 0;
+                    _gatePercent = 50;
+                    _ambient_event_step++;
+                    if (_ambient_event_step >= 3) {
+                        _ambient_event_type = 0; // End of event
                     }
-                }
-
-                note = _ambientLastNote;
-                octave = 0;
-
-                // Add harmonics based on ornament
-                int harmonicType = _extraRng.next() % 4;
-                switch (harmonicType) {
-                case 0: break;  // Unison
-                case 1: note = (note + 5) % 12; break;  // Fourth
-                case 2: note = (note + 7) % 12; break;  // Fifth
-                case 3: octave = 1; break;  // Octave up
-                }
-
-                // Long, slow glides for ambient feel
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = 3;  // Long slide like DRONE
                 } else {
-                    _slide = 0;
+                    // --- Default Drone Behavior ---
+                    note = _ambient_drone_notes[ (effectiveStep / 4) % 3 ]; // Slowly cycle through drone notes
+                    octave = 0;
+                    _gatePercent = 1600; // Hold gate for 16 steps
+                    _ambient_event_timer--;
                 }
+
+                // --- Check if it's time for a new event ---
+                if (_ambient_event_timer <= 0) {
+                    _ambient_event_type = 1 + (_extraRng.next() % 2); // 1 or 2
+                    _ambient_event_step = 0;
+                    // Reset timer based on Power
+                    int power = _tuesdayTrack.power();
+                    _ambient_event_timer = 16 + (power > 0 ? 256 / power : 256);
+                }
+                
+                _slide = 0;
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
             }
@@ -3075,87 +3066,93 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
         case 18: // APHEX - complex polyrhythmic patterns (infinite loop)
             {
-                int glide = _tuesdayTrack.glide();
-
-                // Get note from pattern
-                note = _aphexPattern[_aphexNoteIndex];
-                octave = 0;
-
-                // Varied gate lengths
-                _gatePercent = 25 + (_extraRng.next() % 75);
                 shouldGate = true;
+                // --- Main melody from Track 1 ---
+                note = _aphex_track1_pattern[_aphex_pos1];
+                octave = 0;
+                _gatePercent = 75;
+                _slide = 0;
 
-                // Glitch effect
-                if (_extraRng.nextRange(256) < _aphexGlitchProb) {
-                    int glitchType = _extraRng.next() % 3;
-                    if (glitchType == 0) {
-                        note = _aphexLastNote;  // Repeat
-                    } else if (glitchType == 1) {
-                        note = (note + 7) % 12;  // Fifth shift
-                    } else {
-                        _gatePercent = 15 + (_extraRng.next() % 30);  // Short stutter
-                    }
+                // --- Modification from Track 2 ---
+                uint8_t modifier = _aphex_track2_pattern[_aphex_pos2];
+                if (modifier == 1) { // Stutter
+                    _gatePercent = 20;
+                } else if (modifier == 2) { // Slide
+                    _slide = 1;
                 }
 
-                _aphexLastNote = note;
-
-                // Advance position with odd time signature
-                _aphexPosition = (_aphexPosition + 1) % _aphexTimeSigNum;
-
-                // Update note index when position wraps
-                if (_aphexPosition == 0) {
-                    _aphexNoteIndex = (_aphexNoteIndex + 1) % 8;
-                }
-
-                // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = 1 + _rng.nextRange(2);
-                } else {
+                // --- Override from Track 3 ---
+                uint8_t bass_note = _aphex_track3_pattern[_aphex_pos3];
+                if (bass_note > 0) {
+                    note = bass_note;
+                    octave = -1; // Deep bass
+                    _gatePercent = 90;
                     _slide = 0;
                 }
 
-                _aphexStepCounter++;
+                // --- Advance all tracks ---
+                _aphex_pos1 = (_aphex_pos1 + 1) % 4;
+                _aphex_pos2 = (_aphex_pos2 + 1) % 3;
+                _aphex_pos3 = (_aphex_pos3 + 1) % 5;
+
                 noteVoltage = (note + (octave * 12)) / 12.0f;
             }
             break;
 
-        case 19: // AUTECH - constantly evolving abstract patterns (infinite loop)
+        case 19: // AUTECHRE - constantly evolving abstract patterns (infinite loop)
             {
-                int glide = _tuesdayTrack.glide();
-
-                // Note from transform state
-                note = (_autechreCurrentNote + _autechrePatternShift) % 12;
-                octave = 0;
-
-                // Irregular gates
-                _gatePercent = 15 + (_extraRng.next() % 85);
                 shouldGate = true;
+                // --- Always play the current state of the pattern ---
+                note = _autechre_pattern[effectiveStep % 8];
+                octave = 0;
+                _gatePercent = 75;
+                _slide = 0;
 
-                // Transform state evolution
-                if (_rng.nextRange(256) < _autechreMutationRate) {
-                    _autechreTransformState[0] = _rng.next();
-                    _autechreTransformState[1] = _extraRng.next();
-                    _autechreChaosSeed = _autechreTransformState[0] ^ _autechreTransformState[1];
+                // --- Countdown to the next transformation ---
+                _autechre_rule_timer--;
+                if (_autechre_rule_timer <= 0) {
+                    uint8_t current_rule = _autechre_rule_sequence[_autechre_rule_index];
+                    int intensity = _tuesdayTrack.power() / 2; // Power: 0-8
+
+                    // --- Apply a deterministic transformation rule ---
+                    switch (current_rule) {
+                        case 0: // ROTATE
+                            {
+                                int8_t temp = _autechre_pattern[7];
+                                for (int i = 7; i > 0; --i) _autechre_pattern[i] = _autechre_pattern[i-1];
+                                _autechre_pattern[0] = temp;
+                            }
+                            break;
+                        case 1: // REVERSE
+                            for (int i = 0; i < 4; ++i) {
+                                int8_t temp = _autechre_pattern[i];
+                                _autechre_pattern[i] = _autechre_pattern[7-i];
+                                _autechre_pattern[7-i] = temp;
+                            }
+                            break;
+                        case 2: // INVERT around a pivot (e.g., note 6)
+                            for (int i = 0; i < 8; ++i) {
+                                int interval = _autechre_pattern[i] - 6;
+                                _autechre_pattern[i] = (6 - interval + 12) % 12;
+                            }
+                            break;
+                        case 3: // SWAP adjacent notes
+                            for (int i = 0; i < 8; i += 2) {
+                                int8_t temp = _autechre_pattern[i];
+                                _autechre_pattern[i] = _autechre_pattern[i+1];
+                                _autechre_pattern[i+1] = temp;
+                            }
+                            break;
+                        case 4: // ADD intensity
+                             for (int i = 0; i < 8; ++i) _autechre_pattern[i] = (_autechre_pattern[i] + intensity) % 12;
+                            break;
+                    }
+
+                    // --- Reset for next rule ---
+                    _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
+                    _autechre_rule_index = (_autechre_rule_index + 1) % 8;
                 }
 
-                // Pattern shift evolution
-                if (_rng.nextRange(16) < 4) {
-                    _autechrePatternShift = (_autechrePatternShift + 1) % 12;
-                }
-
-                // Current note evolution
-                int noteShift = (_rng.nextRange(5) - 2);
-                _autechreCurrentNote = (_autechreCurrentNote + noteShift + 12) % 12;
-
-                // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = 1 + _rng.nextRange(3);
-                } else {
-                    _slide = 0;
-                }
-
-                _extraRng.next();
-                _autechreStepCount++;
                 noteVoltage = (note + (octave * 12)) / 12.0f;
             }
             break;
