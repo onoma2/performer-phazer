@@ -135,3 +135,139 @@ Each algorithm focuses on one specific musical idea: Aphex Twin's pin-sort rhyth
 - Autechre: Randomness for mathematical rule changes and sequence interaction
 
 These algorithms avoid the issue of generic random note generation by focusing on specific musical concepts characteristic of each artist's work, using constrained pitch palettes, and employing randomness for variation within structured frameworks.
+
+---
+
+## Analysis of Current TuesdayTrack Implementation
+
+### 1. The 256 Warmup Loop
+
+The algorithm uses a 256-step warmup phase to mature the pattern before capturing the final sequence:
+
+```
+// Warmup phase: run algorithm for 256 steps to get mature pattern
+// This allows capturing evolved patterns instead of initial state
+// Must match exact RNG consumption pattern of buffer generation
+const int WARMUP_STEPS = 256;
+for (int step = 0; step < WARMUP_STEPS; step++) {
+    // Execute algorithm-specific warmup logic
+    // Each algorithm consumes RNG in the same pattern as real generation
+    switch (algorithm) {
+        case 18: // APHEX warmup
+            // Advance position with odd time signature
+            _aphexPosition = (_aphexPosition + 1) % _aphexTimeSigNum;
+            // Update note index
+            if (_aphexPosition == 0) {
+                _aphexNoteIndex = (_aphexNoteIndex + 1) % 8;
+            }
+            // Glitch probability check
+            if (_extraRng.nextRange(256) < _aphexGlitchProb) {
+                _extraRng.next();  // Additional randomness for glitch
+            }
+            // Glide check
+            if (glide > 0 && _rng.nextRange(100) < glide) {
+                _rng.nextRange(3);
+            }
+            _aphexStepCounter++;
+            break;
+        // Other algorithms have similar warmup patterns...
+    }
+}
+```
+
+**Purpose**: The warmup ensures that the algorithm reaches a more evolved and interesting state rather than starting from the initial condition set by Flow/Ornament parameters. This is crucial for algorithms with state evolution like Markov chains or state machines.
+
+### 2. Flow and Ornament Randomness Injection
+
+**Flow Parameter:**
+- Seeds the main RNG (_rng) for most algorithms
+- Determines structural aspects like pattern complexity, time signatures, base notes, etc.
+- Example in APHEX: _aphexTimeSigNum = 3 + (flow % 5) - controls time signature (3-7)
+- Example in AMBIENT: _ambientDriftAmount = flow - controls pitch drift speed
+- Example in AUTECH: _autechreMutationRate = flow * 16 - controls how often patterns change
+
+**Ornament Parameter:**
+- Seeds the extra RNG (_extraRng) for most algorithms
+- Controls probabilistic aspects like glitch probability, harmonic intervals, etc.
+- Example in APHEX: _aphexGlitchProb = ornament * 16 - glitch probability (0-255 scale)
+- Example in AMBIENT: _ambientHarmonic = _extraRng.next() % 4 - harmonic interval choice
+- Example in AUTECH: Affects transform state during initialization
+
+**Implementation Pattern:**
+
+```
+// In initAlgorithm():
+_rng = Random((flow - 1) << 4);      // Flow seeds main RNG
+_extraRng = Random((ornament - 1) << 4);  // Ornament seeds extra RNG
+```
+
+### 3. Gate Length and Glide Override Implementation
+
+**Gate Length Implementation:**
+- Each algorithm generates its own default gate percentage
+- These are then overridden by the global cooldown system based on the Power parameter
+- Example in APHEX buffer generation: gatePercent = 25 + (_extraRng.next() % 75); (25-100%)
+- Example in AMBIENT: _gatePercent = 200; (long sustained notes)
+- Example in AUTECH: gatePercent = 15 + (_extraRng.next() % 85); (15-100%)
+
+**Glide Override Implementation:**
+- Each algorithm has its own potential slide values
+- These are then overridden by the global glide parameter
+- Example in APHEX:
+
+```
+// Algorithm-based slide
+if (glide > 0 && _rng.nextRange(100) < glide) {
+    slide = 1 + _rng.nextRange(2);  // 1-2 based on algorithm
+}
+
+// Similar in AMBIENT:
+if (glide > 0 && _rng.nextRange(100) < glide) {
+    slide = 3;  // Long slide for ambient feel
+}
+```
+
+**Coexistence of Algorithm and Global Controls:**
+The system maintains both algorithm-specific probabilities and global controls:
+- Algorithm defines the base behavior and character
+- Global controls (glide, power) provide user override
+- The system uses _rng.nextRange(100) < glide pattern to determine when to apply global glide
+- Power parameter controls the global cooldown system, affecting how often gates fire regardless of algorithm's internal gate length
+
+This dual approach allows algorithms to maintain their distinctive character while still responding to user controls for performance and variation.
+
+## Specific Implementation Guidance
+
+When implementing the proposed algorithms, consider these TuesdayTrack implementation details:
+
+### 1. 256-Step Warmup Loop
+- Must implement both the algorithm logic and its warmup version
+- Warmup logic must consume RNG in the exact same pattern as the real generation
+- This ensures deterministic and repeatable pattern generation
+
+### 2. Flow/Ornament Integration
+- Flow should seed the main RNG for structural elements
+- Ornament should seed the extra RNG for probabilistic elements
+- Both parameters should meaningfully affect algorithm behavior
+
+### 3. Gate Length Handling
+- Each algorithm should generate its own characteristic gate length pattern
+- Algorithm gate lengths will be used in conjunction with the global cooldown system
+- Consider how your algorithm's gate lengths will interact with the power-based cooldown
+
+### 4. Glide Integration
+- Each algorithm should have its own slide logic as appropriate
+- Global glide parameter will override algorithm's slide probability using the pattern `_rng.nextRange(100) < glide`
+- Maintain algorithmic character while supporting global glide control
+
+### 5. Buffer Generation for Finite Loops
+- For finite loops, the algorithm pre-generates BUFFER_SIZE (128) steps during buffer generation
+- The warmup and generation patterns must match exactly
+- Infinite loops generate in real-time without buffering
+
+### 6. State Variable Constraints
+- Consider STM32 resource constraints when designing state variables
+- Keep the number and size of state variables as minimal as possible
+- Each algorithm already has dual RNG system (_rng and _extraRng)
+
+These guidelines ensure that the new artist-specific algorithms will integrate properly with the existing TuesdayTrack engine architecture while maintaining their distinctive musical character.

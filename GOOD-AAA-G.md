@@ -6,6 +6,31 @@ The code snippets provided are conceptual and intended for insertion into the `s
 
 ---
 
+## Core Engine Mechanics to Consider
+
+Before implementing, it's crucial to understand how the `TuesdayTrackEngine`'s `generateBuffer` function operates.
+
+### 1. The 256-Step "Warmup Loop"
+Many algorithms are generative and need time to evolve from a simple starting point into a more complex state. The engine accommodates this by first running a 256-step "warmup" loop.
+
+*   **Purpose:** To advance the algorithm's internal state to a "mature" point without recording any output.
+*   **Mechanism:** This loop exclusively updates the algorithm's state variables (e.g., `_markovHistory`, `_ambientLastNote`) and consumes random numbers. It ensures that when the "real" generation begins, the pattern feels like a slice from a continuously evolving sequence.
+*   **Implementation Rule:** Any new algorithm with an evolving state **must** have a corresponding `case` in the warmup loop that mirrors the RNG consumption and state changes of its main generation logic to ensure deterministic behavior.
+
+### 2. `Flow` and `Ornament` as Seeds
+In this engine, `Flow` and `Ornament` are not direct controls. They are **seeds** for two independent random number generators (`_rng` and `_extraRng`), set once in the `initAlgorithm()` function.
+
+*   **Deterministic Randomness:** For a given algorithm, the same `Flow` and `Ornament` values will *always* produce the exact same pattern. Changing either value by 1 re-seeds the generator and creates a completely new sequence.
+*   **Independent Control:** This two-RNG system is powerful. It allows `Flow` to control one aspect of generation (e.g., rhythm) while `Ornament` controls another (e.g., pitch), or vice-versa. This should be leveraged in the algorithm design.
+
+### 3. Gate and Glide Hierarchy
+The engine uses a two-layer system for gates and slides: the algorithm proposes a value, and the user's global `glide` setting can override it.
+
+*   **Gate (`gatePercent`):** This is part of an algorithm's core identity. It should be set explicitly inside the generation logic to define the algorithm's intrinsic rhythmic character (e.g., short and plucky, or long and sustained).
+*   **Slide (`slide`):** The user's `glide` parameter (0-100%) acts as a master probability control. The common pattern `if (glide > 0 && _rng.nextRange(100) < glide)` allows the user to probabilistically force slides on top of any algorithm's output, adding a valuable layer of performance expression.
+
+---
+
 ## 1. Aphex - The "Polyrhythmic Event Sequencer"
 
 ### Description
@@ -36,7 +61,7 @@ uint8_t _aphex_pos1, _aphex_pos2, _aphex_pos3;
 ```cpp
 case 18: // APHEX - Polyrhythmic Event Sequencer
 {
-    // 1. Seed the patterns based on Flow
+    // 1. Seed the patterns based on Flow, using the main RNG
     _rng = Random((_tuesdayTrack.flow() - 1) << 4);
     for (int i = 0; i < 4; ++i) _aphex_track1_pattern[i] = _rng.next() % 12;
     for (int i = 0; i < 3; ++i) _aphex_track2_pattern[i] = _rng.next() % 3; // 0, 1, or 2
@@ -87,6 +112,12 @@ case 18: // APHEX - Polyrhythmic Event Sequencer
 break;
 ```
 
+### Implementation Guidance
+
+*   **Warmup Loop:** This algorithm's state is purely its position counters. The warmup loop should simply advance these counters 256 times to ensure the starting phase of the generated buffer reflects the `Ornament` setting correctly. No RNG consumption is needed in the warmup's generation logic.
+*   **Randomness:** `Flow` is used intelligently here to seed all the generative content at once. `Ornament` is used not for randomness, but as a deterministic control for the initial phase relationship between the tracks, which is a powerful performance feature.
+*   **Gate/Glide:** The algorithm proposes its own `gatePercent` and `slide` values based on its internal logic (stutters, slides, bass hits). This is good. The global `glide` override will still function as expected, allowing the user to add extra slides on top of the programmed ones.
+
 ---
 
 ## 2. Ambient - The "Harmonic Drone & Event Scheduler"
@@ -119,13 +150,13 @@ uint8_t _ambient_event_step;    // Position within the current event
 ```cpp
 case 13: // AMBIENT - Harmonic Drone & Event Scheduler
 {
-    // 1. Set up the drone chord based on Flow
+    // 1. Set up the drone chord based on Flow. Not random, but deterministic.
     _ambient_root_note = (_tuesdayTrack.flow() - 1) % 12;
     _ambient_drone_notes[0] = _ambient_root_note;
     _ambient_drone_notes[1] = (_ambient_root_note + 7) % 12; // Perfect 5th
     _ambient_drone_notes[2] = (_ambient_root_note + 16) % 12; // A Major 9th (as a 2nd)
 
-    // 2. Init event state
+    // 2. Init event state using Ornament for randomness
     _extraRng = Random((_tuesdayTrack.ornament() - 1) << 4);
     _ambient_event_timer = 16 + (_extraRng.next() % 48); // First event in 16-64 steps
     _ambient_event_type = 0;
@@ -174,6 +205,12 @@ case 13: // AMBIENT - Harmonic Drone & Event Scheduler
 }
 break;
 ```
+
+### Implementation Guidance
+
+*   **Warmup Loop:** Critical for this algorithm. The warmup loop must accurately simulate the countdown of `_ambient_event_timer` and the consumption of `_extraRng` when the timer expires. This ensures that the generated buffer starts with the correct event state, making the pattern feel like it has been playing for a while.
+*   **Randomness:** `Flow` is used as a direct, deterministic control for harmony, which is good. `Ornament` provides the seed for the `_extraRng`, which is then used to decide *when* and *what* events happen. This is an excellent separation of concerns.
+*   **Gate/Glide:** The algorithm's identity is its long `gatePercent = 1600` drone. The sparse events propose their own shorter gates. Setting `slide = 0` internally makes sense for this style. The user can still use the global `glide` setting to add slides if they wish, which provides a useful expressive override.
 
 ---
 
@@ -278,3 +315,8 @@ case 19: // AUTECHRE - Algorithmic Transformation Engine
 }
 break;
 ```
+### Implementation Guidance
+
+*   **Warmup Loop:** This is the most important part to get right. The warmup loop **must** perform the exact same transformations on the `_autechre_pattern` as the main loop. It needs to count down the `_autechre_rule_timer` and apply the correct rule from the `_autechre_rule_sequence` when the timer expires. This will ensure the buffered pattern starts in its fully evolved state.
+*   **Randomness:** The use of `Ornament` to seed the *sequence of rules* is perfect. It means the user can discover an interesting evolutionary path and recall it deterministically. `Flow` and `Power` are used as direct, non-random controls for timing and intensity, giving the user fine-grained control over the process.
+*   **Gate/Glide:** The algorithm sets a default `gatePercent` and no slide. This is appropriate, as the complexity comes from the note transformations. The global `glide` setting can still be used by the performer to add slides manually, which is a good separation of concerns.
