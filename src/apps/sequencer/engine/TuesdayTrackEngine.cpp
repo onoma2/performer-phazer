@@ -199,6 +199,30 @@ void TuesdayTrackEngine::initAlgorithm() {
         _ambientDriftCounter = 0;
         break;
 
+    case 15: // DRILL - UK Drill hi-hat rolls and bass slides
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _drillHiHatPattern = 0b10101010;  // Basic hi-hat pattern
+        _drillSlideTarget = _rng.next() % 12;
+        _drillTripletMode = (ornament > 8) ? 1 : 0;  // High ornament = triplets
+        _drillRollCount = 0;
+        _drillLastNote = _rng.next() % 5;  // Low bass notes
+        _drillStepInBar = 0;
+        _drillSubdivision = 1;
+        break;
+
+    case 16: // MINIMAL - staccato bursts and silence
+        _rng = Random((flow - 1) << 4);
+        _extraRng = Random((ornament - 1) << 4);
+        _minimalBurstLength = 2 + (_rng.next() % 7);  // 2-8 steps
+        _minimalSilenceLength = 4 + (flow % 13);  // 4-16 steps
+        _minimalClickDensity = ornament * 16;  // 0-255 scale
+        _minimalBurstTimer = 0;
+        _minimalSilenceTimer = _minimalSilenceLength;  // Start in silence
+        _minimalNoteIndex = 0;
+        _minimalMode = 0;  // 0=silence, 1=burst
+        break;
+
     default:
         break;
     }
@@ -374,6 +398,26 @@ void TuesdayTrackEngine::reseed() {
         _ambientHarmonic = _extraRng.next() % 4;
         _ambientSilenceCount = 0;
         _ambientDriftCounter = 0;
+        break;
+
+    case 15: // DRILL
+        _drillHiHatPattern = 0b10101010 | (_rng.next() & 0x55);  // Vary pattern
+        _drillSlideTarget = _rng.next() % 12;
+        _drillTripletMode = _extraRng.nextBinary();
+        _drillRollCount = 0;
+        _drillLastNote = _rng.next() % 5;
+        _drillStepInBar = 0;
+        _drillSubdivision = 1;
+        break;
+
+    case 16: // MINIMAL
+        _minimalBurstLength = 2 + (_rng.next() % 7);
+        _minimalSilenceLength = 4 + (_rng.next() % 13);
+        _minimalClickDensity = _extraRng.next();
+        _minimalBurstTimer = 0;
+        _minimalSilenceTimer = _minimalSilenceLength;
+        _minimalNoteIndex = 0;
+        _minimalMode = 0;
         break;
 
     default:
@@ -728,6 +772,61 @@ void TuesdayTrackEngine::generateBuffer() {
                     if (glide > 0 && _rng.nextRange(100) < glide) {
                         _rng.nextRange(3);
                     }
+                }
+            }
+            break;
+
+        case 15: // DRILL warmup
+            {
+                // Hi-hat pattern step
+                _drillStepInBar = (_drillStepInBar + 1) % 8;
+
+                // Consume RNG for pattern variation
+                if (_rng.nextRange(16) < 4) {
+                    _drillHiHatPattern ^= (1 << (_drillStepInBar % 8));  // Toggle bit
+                }
+
+                // Slide probability (flow controlled)
+                if (_extraRng.nextRange(16) < 8) {
+                    _drillSlideTarget = _rng.next() % 12;
+                }
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
+                }
+            }
+            break;
+
+        case 16: // MINIMAL warmup
+            {
+                // Mode state machine: silence → burst → silence
+                if (_minimalMode == 0) {
+                    // Silence mode
+                    if (_minimalSilenceTimer > 0) {
+                        _minimalSilenceTimer--;
+                        _rng.next();  // consume for determinism
+                    } else {
+                        _minimalMode = 1;  // Switch to burst
+                        _minimalBurstTimer = _minimalBurstLength;
+                        _minimalNoteIndex = 0;
+                    }
+                } else {
+                    // Burst mode
+                    if (_minimalBurstTimer > 0) {
+                        _minimalBurstTimer--;
+                        _minimalNoteIndex++;
+                        _rng.next();  // note selection
+                        _extraRng.next();  // glitch check
+                    } else {
+                        _minimalMode = 0;  // Switch to silence
+                        _minimalSilenceTimer = _minimalSilenceLength;
+                    }
+                }
+
+                // Glide check
+                if (glide > 0 && _rng.nextRange(100) < glide) {
+                    _rng.nextRange(3);
                 }
             }
             break;
@@ -1374,6 +1473,109 @@ void TuesdayTrackEngine::generateBuffer() {
                     if (glide > 0 && _rng.nextRange(100) < glide) {
                         slide = (_rng.nextRange(3)) + 1;
                     }
+                }
+            }
+            break;
+
+        case 15: // DRILL buffer generation - UK Drill hi-hat rolls and bass slides
+            {
+                // Advance step in bar
+                _drillStepInBar = (_drillStepInBar + 1) % 8;
+
+                // Check hi-hat pattern
+                bool hihatHit = (_drillHiHatPattern & (1 << _drillStepInBar)) != 0;
+
+                if (hihatHit) {
+                    // Hi-hat hit - high note, short gate
+                    note = 7 + (_rng.next() % 5);  // High notes for hi-hat
+                    octave = 1;
+                    gatePercent = 25;  // Short staccato for hi-hat
+
+                    // Check for roll (rapid repeats)
+                    if (_extraRng.nextRange(16) < 4) {
+                        _drillRollCount = 2 + (_rng.next() % 3);  // 2-4 repeats
+                    }
+                } else if (_drillRollCount > 0) {
+                    // Continue roll
+                    _drillRollCount--;
+                    note = 7 + (_rng.next() % 5);
+                    octave = 1;
+                    gatePercent = 20;  // Very short for roll notes
+                } else {
+                    // Bass note - low octave
+                    note = _drillLastNote;
+                    octave = -1;  // Deep bass
+                    gatePercent = 75;
+
+                    // Occasional bass note change
+                    if (_rng.nextRange(8) < 2) {
+                        _drillLastNote = _rng.next() % 5;
+                    }
+
+                    // Slide to target
+                    if (_extraRng.nextRange(16) < 8) {
+                        slide = 2;  // Medium glide for bass slides
+                        _drillSlideTarget = _rng.next() % 12;
+                    } else if (glide > 0 && _rng.nextRange(100) < glide) {
+                        slide = (_rng.nextRange(3)) + 1;
+                    }
+                }
+            }
+            break;
+
+        case 16: // MINIMAL buffer generation - staccato bursts and silence
+            {
+                // Mode state machine: silence → burst → silence
+                if (_minimalMode == 0) {
+                    // Silence mode - no gate
+                    if (_minimalSilenceTimer > 0) {
+                        _minimalSilenceTimer--;
+                        gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                        _rng.next();  // consume for determinism
+                    } else {
+                        // Switch to burst mode
+                        _minimalMode = 1;
+                        _minimalBurstTimer = _minimalBurstLength;
+                        _minimalNoteIndex = 0;
+                        // Generate first note of burst
+                        note = _rng.next() % 12;
+                        octave = 0;
+                        gatePercent = 25;  // Short staccato gates
+                    }
+                } else {
+                    // Burst mode - generate notes
+                    if (_minimalBurstTimer > 0) {
+                        _minimalBurstTimer--;
+                        _minimalNoteIndex++;
+
+                        // Generate note based on pattern
+                        int baseNote = _rng.next() % 12;
+
+                        // Glitch repeats based on ornament
+                        if (_extraRng.nextRange(256) < _minimalClickDensity) {
+                            // Glitch - repeat previous note or create click
+                            note = baseNote;
+                            gatePercent = 15;  // Very short click
+                        } else {
+                            note = baseNote;
+                            gatePercent = 25;  // Normal staccato
+                        }
+                        octave = 0;
+                    } else {
+                        // Switch to silence mode
+                        _minimalMode = 0;
+                        _minimalSilenceTimer = _minimalSilenceLength;
+                        gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                    }
+                }
+
+                // Glide check
+                if (gatePercent > 0 && glide > 0 && _rng.nextRange(100) < glide) {
+                    slide = (_rng.nextRange(3)) + 1;
                 }
             }
             break;
@@ -2349,6 +2551,125 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     } else {
                         _slide = 0;
                     }
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 15: // DRILL - UK Drill hi-hat rolls and bass slides (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Advance step in bar
+                _drillStepInBar = (_drillStepInBar + 1) % 8;
+
+                // Check hi-hat pattern
+                bool hihatHit = (_drillHiHatPattern & (1 << _drillStepInBar)) != 0;
+
+                if (hihatHit) {
+                    // Hi-hat hit
+                    note = 7 + (_rng.next() % 5);
+                    octave = 1;
+                    _gatePercent = 25;
+                    shouldGate = true;
+
+                    // Check for roll
+                    if (_extraRng.nextRange(16) < 4) {
+                        _drillRollCount = 2 + (_rng.next() % 3);
+                    }
+                    _slide = 0;
+                } else if (_drillRollCount > 0) {
+                    // Continue roll
+                    _drillRollCount--;
+                    note = 7 + (_rng.next() % 5);
+                    octave = 1;
+                    _gatePercent = 20;
+                    shouldGate = true;
+                    _slide = 0;
+                } else {
+                    // Bass note
+                    note = _drillLastNote;
+                    octave = -1;
+                    _gatePercent = 75;
+                    shouldGate = true;
+
+                    // Occasional bass note change
+                    if (_rng.nextRange(8) < 2) {
+                        _drillLastNote = _rng.next() % 5;
+                    }
+
+                    // Slide
+                    if (_extraRng.nextRange(16) < 8) {
+                        _slide = 2;
+                        _drillSlideTarget = _rng.next() % 12;
+                    } else if (glide > 0 && _rng.nextRange(100) < glide) {
+                        _slide = (_rng.nextRange(3)) + 1;
+                    } else {
+                        _slide = 0;
+                    }
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 16: // MINIMAL - staccato bursts and silence (infinite loop)
+            {
+                int glide = _tuesdayTrack.glide();
+
+                // Mode state machine
+                if (_minimalMode == 0) {
+                    // Silence mode
+                    if (_minimalSilenceTimer > 0) {
+                        _minimalSilenceTimer--;
+                        _rng.next();
+                        shouldGate = false;
+                        _gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                    } else {
+                        // Switch to burst
+                        _minimalMode = 1;
+                        _minimalBurstTimer = _minimalBurstLength;
+                        _minimalNoteIndex = 0;
+                        note = _rng.next() % 12;
+                        octave = 0;
+                        _gatePercent = 25;
+                        shouldGate = true;
+                    }
+                } else {
+                    // Burst mode
+                    if (_minimalBurstTimer > 0) {
+                        _minimalBurstTimer--;
+                        _minimalNoteIndex++;
+                        int baseNote = _rng.next() % 12;
+
+                        if (_extraRng.nextRange(256) < _minimalClickDensity) {
+                            note = baseNote;
+                            _gatePercent = 15;
+                        } else {
+                            note = baseNote;
+                            _gatePercent = 25;
+                        }
+                        octave = 0;
+                        shouldGate = true;
+                    } else {
+                        // Switch to silence
+                        _minimalMode = 0;
+                        _minimalSilenceTimer = _minimalSilenceLength;
+                        shouldGate = false;
+                        _gatePercent = 0;
+                        note = 0;
+                        octave = 0;
+                    }
+                }
+
+                // Glide
+                if (shouldGate && glide > 0 && _rng.nextRange(100) < glide) {
+                    _slide = (_rng.nextRange(3)) + 1;
+                } else {
+                    _slide = 0;
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
