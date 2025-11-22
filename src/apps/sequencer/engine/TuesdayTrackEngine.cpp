@@ -2147,8 +2147,8 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         const Scale &scale = (trackScaleIdx >= 0) ? Scale::get(trackScaleIdx) : _model.project().selectedScale();
         int rootNote = (trackRootNote >= 0) ? trackRootNote : _model.project().rootNote();
 
-        // Apply scale quantization if useScale is enabled or track has specific scale
-        if (_tuesdayTrack.useScale() || trackScaleIdx >= 0) {
+        // Apply scale quantization if useScale is enabled, track has specific scale, or project has non-chromatic scale
+        if (_tuesdayTrack.useScale() || trackScaleIdx >= 0 || _model.project().scale() > 0) {
             // Treat note as scale degree, convert to voltage
             int scaleNote = note + octave * scale.notesPerOctave();
             // Add transpose (in semitones for chromatic, scale degrees otherwise)
