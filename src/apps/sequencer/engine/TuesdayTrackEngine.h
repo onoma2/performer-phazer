@@ -171,14 +171,12 @@ private:
     uint8_t _ragaPosition = 0;
     uint8_t _ragaOrnament = 0;
 
-    // AMBIENT algorithm state (13)
-    int8_t _ambientLastNote = 0;
-    uint8_t _ambientHoldTimer = 0;
-    int8_t _ambientDriftDir = 1;
-    uint8_t _ambientDriftAmount = 0;
-    uint8_t _ambientHarmonic = 0;
-    uint8_t _ambientSilenceCount = 0;
-    uint8_t _ambientDriftCounter = 0;
+    // AMBIENT algorithm state (13) - Harmonic Drone & Event Scheduler
+    int8_t _ambient_root_note;
+    int8_t _ambient_drone_notes[3]; // The notes of the drone chord
+    int _ambient_event_timer;       // Countdown to the next sparse event
+    uint8_t _ambient_event_type;    // 0=none, 1=single note, 2=arpeggio
+    uint8_t _ambient_event_step;    // Position within the current event
 
     // ACID algorithm state (14)
     uint8_t _acidSequence[8] = {0};
@@ -216,22 +214,18 @@ private:
     int8_t _kraftBaseNote = 0;
     uint8_t _kraftGhostMask = 0;
 
-    // APHEX algorithm state (18)
-    uint8_t _aphexPattern[8] = {0};
-    uint8_t _aphexTimeSigNum = 4;
-    uint8_t _aphexGlitchProb = 0;
-    uint8_t _aphexPosition = 0;
-    uint8_t _aphexNoteIndex = 0;
-    int8_t _aphexLastNote = 0;
-    uint8_t _aphexStepCounter = 0;
+    // For APHEX - Polyrhythmic Event Sequencer
+    uint8_t _aphex_track1_pattern[4]; // 4-step melodic pattern
+    uint8_t _aphex_track2_pattern[3]; // 3-step modifier pattern (0=off, 1=stutter, 2=slide)
+    uint8_t _aphex_track3_pattern[5]; // 5-step bass/override pattern
+    uint8_t _aphex_pos1, _aphex_pos2, _aphex_pos3;
 
-    // AUTECH algorithm state (19)
-    uint8_t _autechreTransformState[2] = {0};
-    uint8_t _autechreMutationRate = 0;
-    uint8_t _autechreChaosSeed = 0;
-    uint8_t _autechreStepCount = 0;
-    int8_t _autechreCurrentNote = 0;
-    uint8_t _autechrePatternShift = 0;
+    // For AUTECHRE - Algorithmic Transformation Engine
+    int8_t _autechre_pattern[8];    // The 8-step pattern being transformed
+    uint8_t _autechre_rule_index;   // Which transformation rule to apply next
+    int _autechre_rule_timer;       // How long to wait before applying the next rule
+    uint8_t _autechre_rule_sequence[8]; // The sequence of rules to apply
+
 
     // Output state
     bool _activity = false;
