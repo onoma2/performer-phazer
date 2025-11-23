@@ -4029,15 +4029,32 @@ void TuesdayTrackEngine::update(float dt) {
                     _gateOutput = true;
                     _gateLengthTicks = _retriggerLength; // Set ON-time for this new note
 
-                    // Check if this is a STEPWAVE stepped chromatic trill
+                    // Check if this is a STEPWAVE stepped trill
                     int algorithm = _tuesdayTrack.algorithm();
                     if (algorithm == 20 && _stepwave_is_stepped) {
-                        // STEPWAVE: Increment chromatically through each step
+                        // STEPWAVE: Increment through scale degrees
                         _stepwave_current_step++;
                         _stepwave_chromatic_offset += _stepwave_direction;
 
-                        // Calculate new CV: base + chromatic offset
-                        _cvOutput = _cvTarget + (_stepwave_chromatic_offset / 12.f);
+                        // Get scale info to convert scale degrees to voltage
+                        int trackScaleIdx = _tuesdayTrack.scale();
+                        int trackRootNote = _tuesdayTrack.rootNote();
+                        const Scale &scale = (trackScaleIdx >= 0) ? Scale::get(trackScaleIdx) : _model.project().selectedScale();
+                        int rootNote = (trackRootNote >= 0) ? trackRootNote : _model.project().rootNote();
+
+                        // Calculate new CV using scale degrees (respects project/track scale)
+                        if (_tuesdayTrack.useScale() || trackScaleIdx >= 0 || _model.project().scale() > 0) {
+                            // Scale mode: treat offset as scale degree offset
+                            // _cvTarget is the base note in voltage, we need to find its scale degree
+                            // and add the offset, then convert back to voltage
+                            int baseScaleDegree = 0;  // Root note starts at degree 0
+                            int targetDegree = baseScaleDegree + _stepwave_chromatic_offset;
+                            _cvOutput = scale.noteToVolts(targetDegree) + (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f);
+                            _cvOutput += _tuesdayTrack.octave();  // Apply track octave
+                        } else {
+                            // Chromatic/free mode: offset in semitones
+                            _cvOutput = _cvTarget + (_stepwave_chromatic_offset / 12.f);
+                        }
                     } else {
                         // Standard alternating trill for other algorithms
                         _isTrillNote = !_isTrillNote;
