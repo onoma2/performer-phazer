@@ -3,7 +3,7 @@
 
 // Algorithm names for display
 static const char *algorithmNames[] = {
-    "TEST",       // 0
+    "SIMPLE",     // 0
     "TRITRANCE",  // 1
     "STOMPER",    // 2
     "MARKOV",     // 3
@@ -23,6 +23,7 @@ static const char *algorithmNames[] = {
     "KRAFT",      // 17
     "APHEX",      // 18
     "AUTECH",     // 19
+    "STEPWAVE",   // 20
 };
 
 // Loop length values: Inf (0), 1-16, 19, 21, 24, 32, 35, 42, 48, 56, 64, 95, 96, 127, 128
@@ -33,7 +34,7 @@ static const int loopLengthValues[] = {
 };
 
 void TuesdayTrack::printAlgorithm(StringBuilder &str) const {
-    if (_algorithm < 20) {
+    if (_algorithm < 21) {
         str(algorithmNames[_algorithm]);
     } else {
         str("???");
@@ -92,6 +93,7 @@ void TuesdayTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_power);
     writer.write(_loopLength);
     writer.write(_glide);
+    writer.write(_trill);
     writer.write(_useScale);
     writer.write(_skew);
     writer.write(_cvUpdateMode);
@@ -103,6 +105,7 @@ void TuesdayTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_rootNote);
     writer.write(_scan);
     writer.write(_rotate);
+    writer.write(_gateOffset);
 }
 
 void TuesdayTrack::read(VersionedSerializedReader &reader) {
@@ -114,6 +117,7 @@ void TuesdayTrack::read(VersionedSerializedReader &reader) {
     reader.read(_power, ProjectVersion::Version35);
     reader.read(_loopLength, ProjectVersion::Version35);
     reader.read(_glide, ProjectVersion::Version35);
+    reader.read(_trill, ProjectVersion::Version41);
     reader.read(_useScale, ProjectVersion::Version35);
     reader.read(_skew, ProjectVersion::Version35);
     reader.read(_cvUpdateMode, ProjectVersion::Version35);
@@ -125,4 +129,5 @@ void TuesdayTrack::read(VersionedSerializedReader &reader) {
     reader.read(_rootNote, ProjectVersion::Version35);
     reader.read(_scan, ProjectVersion::Version35);
     reader.read(_rotate, ProjectVersion::Version35);
+    reader.read(_gateOffset, ProjectVersion::Version40); // New in version 40
 }

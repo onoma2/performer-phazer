@@ -51,6 +51,8 @@ private:
         int8_t octave;
         uint8_t gatePercent;
         uint8_t slide;
+        uint8_t gateOffset;
+        bool isTrill = false;
     };
 
     // Pattern buffer for finite loops (128 steps)
@@ -60,20 +62,33 @@ private:
 
     const TuesdayTrack &_tuesdayTrack;
 
+public:
+    // Public type alias for testing
+    using PublicBufferedStep = BufferedStep;
+
+    // Public method to access buffer for testing purposes
+    PublicBufferedStep getBufferAt(int index) const {
+        if (index >= 0 && index < BUFFER_SIZE) {
+            return _buffer[index];
+        }
+        return PublicBufferedStep{}; // Return default if out of bounds
+    }
+
     // Dual RNG system (matches original Tuesday)
     // _rng is seeded from seed1 (Flow) or seed2 (Ornament) depending on algorithm
     // _extraRng is seeded from the other parameter
     Random _rng;
     Random _extraRng;
+    Random _uiRng;
 
-    // Cached parameter seeds for re-initialization on loop
-    uint8_t _cachedAlgorithm = 0;
-    uint8_t _cachedFlow = 0;
-    uint8_t _cachedOrnament = 0;
-    uint8_t _cachedLoopLength = 0;
+    // Cached properties
+    int _cachedAlgorithm;
+    int _cachedFlow;
+    int _cachedOrnament;
+    int _cachedLoopLength;
 
-    // Algorithm state
-    uint32_t _stepIndex = 0;
+    // Persisted state
+    int _stepIndex = 0;
     int _displayStep = -1;  // Step currently being displayed (set before processing)
     uint32_t _gateLength = 0;
     uint32_t _gateTicks = 0;
@@ -86,6 +101,23 @@ private:
 
     // Gate length (as fraction of divisor, 0-100%)
     int _gatePercent = 75;  // Default 75% gate length
+
+    // Gate offset from step start (as fraction of divisor, 0-100%)
+    uint8_t _gateOffset = 0;  // Default 0% gate offset
+
+    // State for gate offset processing
+    uint32_t _gateLengthTicks = 0;
+    uint32_t _pendingGateOffsetTicks = 0;
+    bool _pendingGateActivation = false;
+
+    // Retrigger/Trill State
+    int _retriggerCount = 0;
+    uint32_t _retriggerPeriod = 0;
+    uint32_t _retriggerLength = 0;
+    uint32_t _retriggerTimer = 0;
+    bool _isTrillNote = false;
+    float _trillCvTarget = 0.f;
+    bool _retriggerArmed = false;
 
     // Slide/portamento state
     int _slide = 0;           // Slide amount (0=instant, 1-3=glide)
@@ -225,6 +257,13 @@ private:
     uint8_t _autechre_rule_index;   // Which transformation rule to apply next
     int _autechre_rule_timer;       // How long to wait before applying the next rule
     uint8_t _autechre_rule_sequence[8]; // The sequence of rules to apply
+
+    // STEPWAVE algorithm state (20) - Chromatic stepping trill
+    int8_t _stepwave_direction;     // -1=down, 0=random, +1=up
+    uint8_t _stepwave_step_count;   // Number of trill substeps (3-7)
+    int8_t _stepwave_current_step;  // Current position in trill (0 to step_count-1)
+    int8_t _stepwave_chromatic_offset; // Running chromatic offset from base note
+    bool _stepwave_is_stepped;      // true=stepped, false=slide
 
 
     // Output state

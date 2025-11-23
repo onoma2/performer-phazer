@@ -57,6 +57,13 @@ void TuesdayEditPage::draw(Canvas &canvas) {
     int centerX = 204 + (52 - textWidth) / 2;
     canvas.drawText(centerX, 50, pageStr);
 
+    // Draw algorithm number indicator above F1 button (same style as page indicator)
+    FixedStringBuilder<8> algoStr("[%d]", track.algorithm());
+    int algoTextWidth = canvas.textWidth(algoStr);
+    // Center horizontally in F1 button region (x=0 to x=51, width=51)
+    int algoCenterX = (51 - algoTextWidth) / 2;
+    canvas.drawText(algoCenterX, 50, algoStr);
+
     // Draw footer with function key labels
     const char *functionNames[5];
     for (int i = 0; i < 4; ++i) {
@@ -133,8 +140,8 @@ void TuesdayEditPage::encoder(EncoderEvent &event) {
 int TuesdayEditPage::paramForPage(int page, int slot) const {
     static const int pageParams[PageCount][ParamsPerPage] = {
         { Algorithm, Flow, Ornament, Power },           // Page 1
-        { LoopLength, Scan, Rotate, Glide },            // Page 2
-        { Skew, CvUpdateMode, -1, -1 },                 // Page 3
+        { LoopLength, Scan, Rotate, CvUpdateMode },     // Page 2
+        { Skew, GateOffset, Glide, Trill },             // Page 3
     };
 
     if (page < 0 || page >= PageCount || slot < 0 || slot >= ParamsPerPage) {
@@ -154,7 +161,9 @@ const char *TuesdayEditPage::paramName(int param) const {
     case Rotate:        return "Rotate";
     case Glide:         return "Glide";
     case Skew:          return "Skew";
+    case GateOffset:    return "Gate Offset";
     case CvUpdateMode:  return "CV Mode";
+    case Trill:         return "Trill";
     default:            return "-";
     }
 }
@@ -170,7 +179,9 @@ const char *TuesdayEditPage::paramShortName(int param) const {
     case Rotate:        return "ROT";
     case Glide:         return "GLIDE";
     case Skew:          return "SKEW";
+    case GateOffset:    return "GOFS";
     case CvUpdateMode:  return "CVUPD";
+    case Trill:         return "TRILL";
     default:            return "-";
     }
 }
@@ -217,8 +228,14 @@ void TuesdayEditPage::formatParamValue(int param, StringBuilder &str) const {
     case Skew:
         str("%+d", track.skew());
         break;
+    case GateOffset:
+        str("%d%%", track.gateOffset());
+        break;
     case CvUpdateMode:
         track.printCvUpdateMode(str);
+        break;
+    case Trill:
+        str("%d%%", track.trill());
         break;
     default:
         str("-");
@@ -239,7 +256,9 @@ int TuesdayEditPage::paramValue(int param) const {
     case Rotate:        return track.rotate();
     case Glide:         return track.glide();
     case Skew:          return track.skew();
+    case GateOffset:    return track.gateOffset();
     case CvUpdateMode:  return track.cvUpdateMode();
+    case Trill:         return track.trill();
     default:            return 0;
     }
 }
@@ -255,7 +274,9 @@ int TuesdayEditPage::paramMax(int param) const {
     case Rotate:        return 63;   // Bipolar: -63 to +63
     case Glide:         return 100;
     case Skew:          return 8;    // Bipolar: -8 to +8
+    case GateOffset:    return 100;  // Percentage: 0-100%
     case CvUpdateMode:  return 1;
+    case Trill:         return 100;
     default:            return 0;
     }
 }
@@ -297,8 +318,14 @@ void TuesdayEditPage::editParam(int param, int value, bool shift) {
     case Skew:
         track.editSkew(value, shift);
         break;
+    case GateOffset:
+        track.editGateOffset(value, shift);
+        break;
     case CvUpdateMode:
         track.editCvUpdateMode(value, shift);
+        break;
+    case Trill:
+        track.editTrill(value, shift);
         break;
     default:
         break;

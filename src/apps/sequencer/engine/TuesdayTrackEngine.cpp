@@ -4,6 +4,7 @@
 #include "model/Scale.h"
 
 #include <cmath>
+#include <algorithm>
 
 // Initialize algorithm state based on Flow (seed1) and Ornament (seed2)
 // This mirrors the original Tuesday Init functions
@@ -12,8 +13,11 @@ void TuesdayTrackEngine::initAlgorithm() {
     int ornament = _tuesdayTrack.ornament();
     int algorithm = _tuesdayTrack.algorithm();
 
+    _uiRng = Random(flow * 37 + ornament * 101);
+
     _cachedFlow = flow;
     _cachedOrnament = ornament;
+    _cachedAlgorithm = algorithm;
 
     switch (algorithm) {
     case 0: // TEST
@@ -276,15 +280,15 @@ void TuesdayTrackEngine::initAlgorithm() {
 
     case 19: // AUTECHRE - Algorithmic Transformation Engine
 {
-    // 1. Start with a dead-simple, non-random pattern
-    _autechre_pattern[0] = 0;
-    _autechre_pattern[1] = 0;
-    _autechre_pattern[2] = 0;
-    _autechre_pattern[3] = 0;
-    _autechre_pattern[4] = 0;
-    _autechre_pattern[5] = 0;
-    _autechre_pattern[6] = 7;
-    _autechre_pattern[7] = 0;
+    // 1. Start with octave-jumping pattern: 5 roots, 2 at +2oct, 1 at +3oct
+    _autechre_pattern[0] = 0;   // root
+    _autechre_pattern[1] = 0;   // root
+    _autechre_pattern[2] = 24;  // +2 octaves
+    _autechre_pattern[3] = 0;   // root
+    _autechre_pattern[4] = 0;   // root
+    _autechre_pattern[5] = 24;  // +2 octaves
+    _autechre_pattern[6] = 0;   // root
+    _autechre_pattern[7] = 36;  // +3 octaves
     // 2. Set rule timing based on Flow
     _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
 
@@ -295,22 +299,70 @@ void TuesdayTrackEngine::initAlgorithm() {
     break;
 }
 
+    case 20: // STEPWAVE - Scale stepping with chromatic trill
+{
+    _rng = Random((flow - 1) << 4);
+    _extraRng = Random((ornament - 1) << 4);
+
+    // Flow controls scale step direction: 0-7=down, 8=stationary, 9-16=up
+    // Ornament controls trill direction AND step size:
+    //   0-5: trill down, 2 steps
+    //   6-10: trill random, 2-3 steps mixed
+    //   11-16: trill up, 3 steps
+    if (ornament <= 5) {
+        _stepwave_direction = -1;  // Trill down
+    } else if (ornament >= 11) {
+        _stepwave_direction = 1;   // Trill up
+    } else {
+        _stepwave_direction = 0;   // Random trill direction each time
+    }
+
+    _stepwave_step_count = 3 + (_rng.next() % 5);  // 3-7 substeps for trill
+    _stepwave_current_step = 0;
+    _stepwave_chromatic_offset = 0;
+    _stepwave_is_stepped = true;  // Default to stepped, glide probability determines slide
+    break;
+}
+
     default:
         break;
     }
 }
 
 void TuesdayTrackEngine::reset() {
+    _cachedAlgorithm = -1;
+    _cachedFlow = -1;
+    _cachedOrnament = -1;
+    _cachedLoopLength = -1;
+
     _stepIndex = 0;
     _displayStep = -1;  // No step displayed until first tick
     _gateLength = 0;
     _gateTicks = 0;
     _coolDown = 0;
+    _coolDownMax = 0;
+    _gatePercent = 75;
+    _gateOffset = 0;
     _slide = 0;
     _cvTarget = 0.f;
     _cvCurrent = 0.f;
     _cvDelta = 0.f;
     _slideCountDown = 0;
+
+    // Gate timing state
+    _gateLengthTicks = 0;
+    _pendingGateOffsetTicks = 0;
+    _pendingGateActivation = false;
+
+    // Retrigger/Trill State
+    _retriggerArmed = false;
+    _retriggerCount = 0;
+    _retriggerPeriod = 0;
+    _retriggerLength = 0;
+    _retriggerTimer = 0;
+    _isTrillNote = false;
+    _trillCvTarget = 0.f;
+
     _activity = false;
     _gateOutput = false;
     _cvOutput = 0.f;
@@ -466,6 +518,7 @@ void TuesdayTrackEngine::reseed() {
     case 13: // AMBIENT
     case 18: // APHEX
     case 19: // AUTECH
+    case 20: // STEPWAVE
         // These algorithms are fully deterministic from flow/ornament,
         // so reseed just re-initializes with the same parameters.
         initAlgorithm();
@@ -535,9 +588,8 @@ void TuesdayTrackEngine::generateBuffer() {
         switch (algorithm) {
         case 0: // TEST
             {
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    // consume RNG for slide
-                }
+                _rng.nextRange(100);  // glide check
+                _rng.nextRange(3);    // slide amount - always consume for determinism
                 switch (_testMode) {
                 case 1:  // SCALEWALKER
                     _testNote = (_testNote + 1) % 12;
@@ -558,9 +610,8 @@ void TuesdayTrackEngine::generateBuffer() {
                     _rng.nextRange(9);
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
 
                 int phase = (step + _triB2) % 3;
                 switch (phase) {
@@ -613,7 +664,7 @@ void TuesdayTrackEngine::generateBuffer() {
                         _stomperLastNote = _stomperLowNote;
                         _stomperLastOctave = 0;
                         // Match RNG pattern: nextRange(100) then conditional nextRange(3)
-                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                        if (_rng.nextRange(100) < glide) {
                             _rng.nextRange(3);
                         }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
@@ -628,7 +679,7 @@ void TuesdayTrackEngine::generateBuffer() {
                         _stomperLastNote = _stomperHighNote[_rng.next() % 2];
                         _stomperLastOctave = 1;
                         // Match RNG pattern: nextRange(100) then conditional nextRange(3)
-                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                        if (_rng.nextRange(100) < glide) {
                             _rng.nextRange(3);
                         }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
@@ -694,9 +745,8 @@ void TuesdayTrackEngine::generateBuffer() {
                     _rng.nextRange(9);
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
 
                 int idx = _rng.nextBinary() ? 1 : 0;
                 int note = _markovMatrix[_markovHistory1][_markovHistory3][idx];
@@ -724,9 +774,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 _chipRng.nextRange(256);  // gate length
                 _extraRng.nextRange(256);  // velocity
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -736,9 +785,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 _extraRng.nextBinary();  // accent
                 _rng.next();  // note selection
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -754,9 +802,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 _snhCurrentDelta += ((newdelta - _snhCurrentDelta) * 100) / 200;
                 _snhCurrent += _snhCurrentDelta * 100;
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
                 _extraRng.next();  // velocity
             }
             break;
@@ -783,9 +830,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 }
                 _extraRng.next();  // velocity
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -793,9 +839,8 @@ void TuesdayTrackEngine::generateBuffer() {
             {
                 _rng.next();  // pattern position
                 _extraRng.next();  // hat variation
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -803,18 +848,16 @@ void TuesdayTrackEngine::generateBuffer() {
             {
                 _rng.next();  // pattern note
                 _extraRng.nextRange(256);  // ghost check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
         case 10: // DRONE warmup
             {
                 _rng.next();  // interval variation
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -822,9 +865,8 @@ void TuesdayTrackEngine::generateBuffer() {
             {
                 _phaseAccum += _phaseSpeed;
                 _rng.next();  // consume for determinism
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -832,9 +874,8 @@ void TuesdayTrackEngine::generateBuffer() {
             {
                 _rng.next();  // note selection
                 _extraRng.next();  // ornament
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -855,7 +896,7 @@ void TuesdayTrackEngine::generateBuffer() {
                     _ambient_event_type = 1 + (_extraRng.next() % 2);
                     _ambient_event_step = 0;
                     int power = _tuesdayTrack.power();
-                    _ambient_event_timer = 16 + (power > 0 ? 256 / power : 256);
+                    _ambient_event_timer = 16 + (power > 0 ? 256 - (power * 15) : 256);
                 }
             }
             break;
@@ -876,9 +917,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 }
 
                 // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -909,9 +949,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 }
 
                 // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -931,9 +970,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 }
 
                 // Slide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
 
                 // Pattern mutation
                 if (_rng.nextRange(128) < 2) {
@@ -966,9 +1004,8 @@ void TuesdayTrackEngine::generateBuffer() {
                 _extraRng.next();
 
                 // Glide check
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _rng.nextRange(3);
-                }
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -1002,10 +1039,13 @@ void TuesdayTrackEngine::generateBuffer() {
                                 _autechre_pattern[7-i] = temp;
                             }
                             break;
-                        case 2: // INVERT around a pivot (e.g., note 6)
+                        case 2: // INVERT around a pivot - preserve octave
                             for (int i = 0; i < 8; ++i) {
-                                int interval = _autechre_pattern[i] - 6;
-                                _autechre_pattern[i] = (6 - interval + 12) % 12;
+                                int octave = _autechre_pattern[i] / 12;
+                                int note = _autechre_pattern[i] % 12;
+                                int interval = note - 6;
+                                note = (6 - interval + 12) % 12;
+                                _autechre_pattern[i] = note + (octave * 12);
                             }
                             break;
                         case 3: // SWAP adjacent notes
@@ -1015,14 +1055,30 @@ void TuesdayTrackEngine::generateBuffer() {
                                 _autechre_pattern[i+1] = temp;
                             }
                             break;
-                        case 4: // ADD intensity
-                             for (int i = 0; i < 8; ++i) _autechre_pattern[i] = (_autechre_pattern[i] + intensity) % 12;
+                        case 4: // ADD intensity - preserve octave
+                            for (int i = 0; i < 8; ++i) {
+                                int octave = _autechre_pattern[i] / 12;
+                                int note = (_autechre_pattern[i] % 12 + intensity) % 12;
+                                _autechre_pattern[i] = note + (octave * 12);
+                            }
                             break;
                     }
 
                     _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
                     _autechre_rule_index = (_autechre_rule_index + 1) % 8;
                 }
+            }
+            break;
+
+        case 20: // STEPWAVE warmup
+            {
+                // Simple warmup - just consume RNG to advance state
+                _rng.next();  // octave choice
+                _extraRng.next();  // step count variation
+
+                // Glide check
+                _rng.nextRange(100);  // glide check - always consume
+                _rng.nextRange(3);    // slide amount - always consume
             }
             break;
 
@@ -1037,12 +1093,14 @@ void TuesdayTrackEngine::generateBuffer() {
         int octave = 0;
         uint8_t gatePercent = 75;
         uint8_t slide = 0;
+        uint8_t gateOffset = 0;  // Initialize default value for gateOffset
+        bool isTrill = false;
 
         switch (algorithm) {
         case 0: // TEST
             {
                 gatePercent = 75;
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     slide = _testSweepSpeed + 1;
                 }
 
@@ -1050,12 +1108,16 @@ void TuesdayTrackEngine::generateBuffer() {
                 case 0:  // OCTSWEEPS
                     octave = (step % 5);
                     note = 0;
+                    // TEST: Apply timing variations based on mode
+                    gateOffset = (step % 4) * 10;  // Simple periodic timing variations
                     break;
                 case 1:  // SCALEWALKER
                 default:
                     octave = 0;
                     note = _testNote;
                     _testNote = (_testNote + 1) % 12;
+                    // TEST: Apply timing variations based on position in scale walk
+                    gateOffset = (step % 3) * 20;  // Different timing for each step in triad
                     break;
                 }
             }
@@ -1072,11 +1134,30 @@ void TuesdayTrackEngine::generateBuffer() {
                     gatePercent = 200 + (_rng.nextRange(9) * 25); // 200% to 400%
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
                 }
 
+                // TRITRANCE: Generate phase-based timing variations for swing feel
                 int phase = (step + _triB2) % 3;
+                switch (phase) {
+                case 0:
+                    // First phase: slightly early timing
+                    gateOffset = 10 + (_rng.nextRange(15));  // 10-25% early
+                    break;
+                case 1:
+                    // Second phase: on-time or slightly late
+                    gateOffset = 45 + (_rng.nextRange(10));  // 45-55% timing
+                    break;
+                case 2:
+                    // Third phase: swing delay
+                    gateOffset = 60 + (_rng.nextRange(20));  // 60-80% delay
+                    break;
+                }
                 switch (phase) {
                 case 0:
                     if (_extraRng.nextBinary() && _extraRng.nextBinary()) {
@@ -1142,8 +1223,17 @@ void TuesdayTrackEngine::generateBuffer() {
                     case 11:
                         octave = 0;
                         note = _stomperLowNote;
-                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                        if (_rng.nextRange(100) < glide) {
                             slide = (_rng.nextRange(3)) + 1;
+                        }
+                        // Check for Trill on stomp down
+                        {
+                            int trillChanceAlgorithmic = 18;
+                            int userTrillSetting = _tuesdayTrack.trill();
+                            int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                            if (_uiRng.nextRange(100) < finalTrillChance) {
+                                isTrill = true;
+                            }
                         }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;
@@ -1156,8 +1246,17 @@ void TuesdayTrackEngine::generateBuffer() {
                     case 13:
                         octave = 1;
                         note = _stomperHighNote[_rng.next() % 2];
-                        if (glide > 0 && _rng.nextRange(100) < glide) {
+                        if (_rng.nextRange(100) < glide) {
                             slide = (_rng.nextRange(3)) + 1;
+                        }
+                        // Check for Trill on stomp up
+                        {
+                            int trillChanceAlgorithmic = 18;
+                            int userTrillSetting = _tuesdayTrack.trill();
+                            int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                            if (_uiRng.nextRange(100) < finalTrillChance) {
+                                isTrill = true;
+                            }
                         }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;
@@ -1217,6 +1316,27 @@ void TuesdayTrackEngine::generateBuffer() {
 
                 if (note < 0) note = 0;
                 if (note > 11) note = 11;
+
+                // STOMPER: Apply timing variations that complement the stomping rhythm
+                // Different timing based on the current mode
+                switch (_stomperMode) {
+                case 0: case 1: case 2: case 3:
+                    gateOffset = 5;   // Early timing for foundational notes
+                    break;
+                case 4: case 5: case 6: case 7:
+                    gateOffset = 25;  // Mid-range timing for build-up
+                    break;
+                case 8: case 9: case 10: case 11:
+                    gateOffset = 75;  // Later timing for climax
+                    break;
+                case 12: case 13:
+                    gateOffset = 15;  // Moderate timing for transitions
+                    break;
+                case 14:
+                default:
+                    gateOffset = 0;   // On-beat timing for steady sections
+                    break;
+                }
             }
             break;
 
@@ -1231,8 +1351,12 @@ void TuesdayTrackEngine::generateBuffer() {
                     gatePercent = 200 + (_rng.nextRange(9) * 25);
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
                 }
 
                 int idx = _rng.nextBinary() ? 1 : 0;
@@ -1240,6 +1364,14 @@ void TuesdayTrackEngine::generateBuffer() {
                 _markovHistory1 = _markovHistory3;
                 _markovHistory3 = note;
                 octave = _rng.nextBinary() ? 1 : 0;
+
+                // MARKOV: Use transition probabilities to determine timing variations
+                // Based on which transition was taken, generate different timing offsets
+                // Transition from _markovHistory1 to _markovHistory3 may influence timing
+                int transition_delta = abs(note - _markovHistory3);
+                int history_factor = (_markovHistory1 + _markovHistory3) % 11;  // Keep in 0-10 range
+                gateOffset = (transition_delta * 10) + (history_factor * 2);  // Scale factors for 0-100 range
+                if (gateOffset > 100) gateOffset = 100;
             }
             break;
 
@@ -1284,8 +1416,34 @@ void TuesdayTrackEngine::generateBuffer() {
                 _extraRng.nextRange(256);  // velocity
 
                 // Additional slide from glide parameter
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
+                }
+
+                // Check for Trill on first chord position
+                if (chordpos == 0) {
+                    int trillChanceAlgorithmic = 20;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
+                }
+
+                // CHIPARP: Apply chiptune-style timing variations
+                // Use the chord position to create arpeggio timing patterns
+                if (pos == 0) {
+                    gateOffset = 0;    // Root note on-beat
+                } else if (pos == 1) {
+                    gateOffset = 10;   // Second note slightly delayed
+                } else if (pos == 2) {
+                    gateOffset = 30;   // Third note with more delay
+                } else {  // pos == 3
+                    gateOffset = 50;   // Fourth note with even more delay for arpeggio feel
                 }
             }
             break;
@@ -1338,8 +1496,23 @@ void TuesdayTrackEngine::generateBuffer() {
                 while (note < 0) { note += 12; octave--; }
                 while (note >= 12) { note -= 12; octave++; }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
+                }
+
+                // GOACID: Apply Goa/psytrance-style timing variations
+                // Create rhythmic shifts that complement the acid patterns
+                int stepInBar = step % 16;
+                if (stepInBar == 0 || stepInBar == 8) {
+                    gateOffset = 0;    // On strong beats (1st and 3rd beat), on-time
+                } else if (stepInBar % 4 == 0) {
+                    gateOffset = 10;   // On weak beats (2nd and 4th beat), slight delay
+                } else {
+                    gateOffset = 25 + (stepInBar % 5);  // Off-beat patterns with varying delays
                 }
             }
             break;
@@ -1364,10 +1537,18 @@ void TuesdayTrackEngine::generateBuffer() {
                 note = (absVal >> 22) % 12;
                 octave = 0;
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
                 }
                 _extraRng.next();  // velocity
+
+                // SNH: Apply Sample & Hold timing variations
+                // Based on the current phase position for randomness
+                gateOffset = (_snhPhase >> 24) % 100;  // Use phase bits for random timing delay
             }
             break;
 
@@ -1406,9 +1587,28 @@ void TuesdayTrackEngine::generateBuffer() {
                 _extraRng.next();  // velocity
 
                 // Additional slide from glide parameter
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
                 }
+
+                // Check for Trill on phase transitions
+                {
+                    int trillChanceAlgorithmic = 12;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
+                }
+
+                // WOBBLE: Apply wobble timing variations based on dual phase system
+                // Use both phase positions to create complex timing shifts
+                uint32_t phaseSum = (_wobblePhase + _wobblePhase2) >> 25;
+                gateOffset = phaseSum % 100;  // Use combined phase for timing variation
             }
             break;
 
@@ -1444,6 +1644,14 @@ void TuesdayTrackEngine::generateBuffer() {
                         note = 7 + (_extraRng.next() % 3);  // Higher notes for hats
                         octave = 1;
                         gatePercent = 40;
+
+                        // Check for Trill on hi-hats
+                        int trillChanceAlgorithmic = 25;
+                        int userTrillSetting = _tuesdayTrack.trill();
+                        int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                        if (_uiRng.nextRange(100) < finalTrillChance) {
+                            isTrill = true;
+                        }
                     } else {
                         note = 0;
                         octave = 0;
@@ -1451,8 +1659,22 @@ void TuesdayTrackEngine::generateBuffer() {
                     }
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
+                }
+
+                // TECHNO: Apply four-on-floor timing variations
+                // Emphasize kick drum on beats, add slight timing shifts for groove
+                if (isKick) {
+                    gateOffset = (barPos == 0) ? 0 : 5;  // Kick on beat 1 is on-time, others slightly delayed
+                } else if (_extraRng.next() % 2) {  // Use a generic condition since hat pattern is complex
+                    gateOffset = 15 + (beatPos * 5);  // Hi-hats with rhythmic timing variations
+                } else {
+                    gateOffset = 25;  // Off-pattern elements with mid timing delay
                 }
             }
             break;
@@ -1487,19 +1709,44 @@ void TuesdayTrackEngine::generateBuffer() {
                     }
                     octave = (pos % 8 == 0) ? 0 : (_rng.nextBinary() ? 1 : 0);
 
+                    // FUNK: Generate syncopated timing offsets to complement the rhythm
+                    if (pos % 4 == 0) {
+                        // On beats (1, 2, 3, 4) - often on-time
+                        gateOffset = 40 + (_rng.nextRange(20));  // 40-60% timing
+                    } else if (pos % 2 == 0) {
+                        // On upbeats (e.g., "&" of 2, 4) - maybe slightly early or late
+                        gateOffset = 20 + (_rng.nextRange(20));  // 20-40% timing
+                    } else {
+                        // On off-beats (e.g., "&" of 1, 3, or 16th notes) - syncopated feel
+                        gateOffset = 50 + (_rng.nextRange(30));  // 50-80% timing
+                    }
+
                     // Ghost notes (quieter)
                     if (_extraRng.nextRange(256) < _funkGhostProb && pos % 4 != 0) {
                         gatePercent = 35;  // Ghost note
+
+                        // Check for Trill on ghost notes
+                        int trillChanceAlgorithmic = 15;
+                        int userTrillSetting = _tuesdayTrack.trill();
+                        int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                        if (_uiRng.nextRange(100) < finalTrillChance) {
+                            isTrill = true;
+                        }
                     } else {
                         gatePercent = 75;
                     }
                 } else {
                     note = 0;
                     gatePercent = 0;
+                    gateOffset = 0;  // No gate, no offset
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
                 }
             }
             break;
@@ -1526,10 +1773,19 @@ void TuesdayTrackEngine::generateBuffer() {
 
                 note = (_droneBaseNote + interval) % 12;
                 octave = (_droneBaseNote + interval) / 12;
-                gatePercent = 400;  // Very long sustain
+                gatePercent = 255;  // Very long sustain (clamped to uint8_t max)
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     slide = 3;  // Long slide for drones
+                }
+
+                // DRONE: Apply sustained timing variations matching the slow drone nature
+                // Use drone rate and position to create subtle timing shifts
+                int timingFactor = (step % droneRate);
+                if (timingFactor < droneRate / 2) {
+                    gateOffset = 0;      // Stable timing during first half of drone change
+                } else {
+                    gateOffset = 15;     // Slight delay during second half of drone change
                 }
             }
             break;
@@ -1545,11 +1801,20 @@ void TuesdayTrackEngine::generateBuffer() {
                 note = _phasePattern[patternPos];
                 octave = 0;
 
+                // PHASE: Generate timing variations based on phase accumulator
+                // Use fractional part of accumulator to create evolving rhythmic patterns
+                uint32_t fractionalPhase = _phaseAccum & 0x0FFFFFFF;  // Get fractional part
+                gateOffset = (fractionalPhase >> 24) & 0x7F;  // Extract upper bits as timing offset (0-127, capped by uint8_t)
+
                 // Consume RNG for determinism
                 _rng.next();
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        slide = slideAmount;
+                    }
                 }
             }
             break;
@@ -1602,8 +1867,18 @@ void TuesdayTrackEngine::generateBuffer() {
                 int ornamentChance = _extraRng.next() % 8;
                 if (ornamentChance < _ragaOrnament && glide > 0) {
                     slide = 2;  // Characteristic slides
-                } else if (glide > 0 && _rng.nextRange(100) < glide) {
+                } else if (_rng.nextRange(100) < glide) {
                     slide = (_rng.nextRange(3)) + 1;
+                }
+
+                // Check for Trill on ascending movements
+                if (_ragaDirection == 0) {
+                    int trillChanceAlgorithmic = 25;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
                 }
             }
             break;
@@ -1628,7 +1903,7 @@ void TuesdayTrackEngine::generateBuffer() {
                     // --- Default Drone Behavior ---
                     note = _ambient_drone_notes[ (step / 4) % 3 ]; // Slowly cycle through drone notes
                     octave = 0;
-                    gatePercent = 1600; // Hold gate for 16 steps
+                    gatePercent = 255; // Hold gate for long time (clamped)
                     _ambient_event_timer--;
                 }
 
@@ -1639,8 +1914,12 @@ void TuesdayTrackEngine::generateBuffer() {
                     // Reset timer based on Power
                     int power = _tuesdayTrack.power();
                     _ambient_event_timer = 16 + (power > 0 ? 256 / power : 256);
+
+                    // AMBIENT: Generate random timing variations for organic feel
+                    // More timing flexibility for sparse events
+                    gateOffset = _rng.nextRange(50);  // Random timing (0-49%) for organic feel
                 }
-                
+
                 slide = 0;
             }
             break;
@@ -1654,38 +1933,41 @@ void TuesdayTrackEngine::generateBuffer() {
                 bool hihatHit = (_drillHiHatPattern & (1 << _drillStepInBar)) != 0;
 
                 if (hihatHit) {
-                    // Hi-hat hit - high note, short gate
-                    note = 7 + (_rng.next() % 5);  // High notes for hi-hat
-                    octave = 1;
-                    gatePercent = 25;  // Short staccato for hi-hat
-
-                    // Check for roll (rapid repeats)
-                    if (_extraRng.nextRange(16) < 4) {
-                        _drillRollCount = 2 + (_rng.next() % 3);  // 2-4 repeats
-                    }
-                } else if (_drillRollCount > 0) {
-                    // Continue roll
-                    _drillRollCount--;
+                    // --- HI-HAT HIT ---
                     note = 7 + (_rng.next() % 5);
                     octave = 1;
-                    gatePercent = 20;  // Very short for roll notes
+                    gatePercent = 25;
+                    slide = 0;
+
+                    // Check for Trill/Retrigger
+                    int trillChanceAlgorithmic = 30; // 30% base chance
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                        // Set the gate percent to be short for the trill
+                        uint32_t retriggerLength = (CONFIG_SEQUENCE_PPQN / 4) / 2;
+                        gatePercent = (retriggerLength * 100) / CONFIG_SEQUENCE_PPQN;
+                    }
+
                 } else {
-                    // Bass note - low octave
+                    // --- BASS NOTE ---
                     note = _drillLastNote;
-                    octave = -1;  // Deep bass
+                    octave = -1;
                     gatePercent = 75;
 
-                    // Occasional bass note change
                     if (_rng.nextRange(8) < 2) {
                         _drillLastNote = _rng.next() % 5;
                     }
 
-                    // Slide to target
                     if (_extraRng.nextRange(16) < 8) {
-                        slide = 2;  // Medium glide for bass slides
+                        slide = 2;
                         _drillSlideTarget = _rng.next() % 12;
-                    } else if (glide > 0 && _rng.nextRange(100) < glide) {
+                    } else if (_rng.nextRange(100) < glide) {
                         slide = (_rng.nextRange(3)) + 1;
+                    } else {
+                        slide = 0;
                     }
                 }
             }
@@ -1742,8 +2024,16 @@ void TuesdayTrackEngine::generateBuffer() {
                 }
 
                 // Glide check
-                if (gatePercent > 0 && glide > 0 && _rng.nextRange(100) < glide) {
+                if (gatePercent > 0 && _rng.nextRange(100) < glide) {
                     slide = (_rng.nextRange(3)) + 1;
+                }
+
+                // MINIMAL: Apply timing variations that complement the burst/silence pattern
+                if (_minimalMode == 0) {
+                    gateOffset = 0;   // Silence mode - no gate offset
+                } else {
+                    // Burst mode - vary timing based on burst progression
+                    gateOffset = (_minimalBurstTimer % 4) * 10;  // Cycle through timing variations during burst
                 }
             }
             break;
@@ -1764,7 +2054,7 @@ void TuesdayTrackEngine::generateBuffer() {
                 }
 
                 // Slide based on flow
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     slide = 2;  // 303-style slide
                 }
 
@@ -1781,6 +2071,23 @@ void TuesdayTrackEngine::generateBuffer() {
 
                 // Consume extra RNG
                 _extraRng.next();
+
+                // ACID: Apply acid-style timing variations that complement the 303 patterns
+                if (hasAccent) {
+                    gateOffset = 10;  // Accented notes slightly delayed
+
+                    // Check for Trill on accented notes
+                    int trillChanceAlgorithmic = 20;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
+                } else if (_acidPosition % 2 == 0) {
+                    gateOffset = 0;   // Even steps on-beat
+                } else {
+                    gateOffset = 20;  // Odd steps with slight delay
+                }
             }
             break;
 
@@ -1817,11 +2124,19 @@ void TuesdayTrackEngine::generateBuffer() {
                 _kraftPosition = (_kraftPosition + 1) % 8;
 
                 // Glide check (rare for mechanical feel)
-                if (glide > 0 && _rng.nextRange(100) < glide / 2) {
+                if (_rng.nextRange(100) < glide / 2) {
                     slide = 1;  // Short slide
                 }
 
                 _extraRng.next();
+
+                // KRAFT: Apply precise mechanical timing variations
+                // Complement the precise, algorithmic nature of the sequence
+                if (isGhost) {
+                    gateOffset = 20 + (_kraftPosition * 5);  // Ghost notes with specific timing
+                } else {
+                    gateOffset = (_kraftPosition % 3) * 10;  // Pattern-based timing variations
+                }
             }
             break;
 
@@ -1854,14 +2169,32 @@ void TuesdayTrackEngine::generateBuffer() {
                 _aphex_pos1 = (_aphex_pos1 + 1) % 4;
                 _aphex_pos2 = (_aphex_pos2 + 1) % 3;
                 _aphex_pos3 = (_aphex_pos3 + 1) % 5;
+
+                // APHEX: Apply polyrhythmic timing variations
+                // Use multi-track positioning to create complex timing variations
+                int polyRhythmFactor = (_aphex_pos1 + _aphex_pos2 + _aphex_pos3) % 12;
+                gateOffset = polyRhythmFactor * 8;  // Scale to 0-96% range
+
+                // Check for Trill on polyrhythmic collision points (glitchy)
+                int polyCollision = ((_aphex_pos1 * 7) ^ (_aphex_pos2 * 5) ^ (_aphex_pos3 * 3)) % 12;
+                if (polyCollision > 8) {
+                    int trillChanceAlgorithmic = 45; // High for glitch
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
+                }
             }
             break;
 
         case 19: // AUTECHRE buffer generation
             {
                 // --- Always play the current state of the pattern ---
-                note = _autechre_pattern[step % 8];
-                octave = 0;
+                // Pattern encodes note + octave*12, so extract both
+                int patternVal = _autechre_pattern[step % 8];
+                note = patternVal % 12;
+                octave = patternVal / 12;
                 gatePercent = 75;
                 slide = 0;
 
@@ -1887,10 +2220,13 @@ void TuesdayTrackEngine::generateBuffer() {
                                 _autechre_pattern[7-i] = temp;
                             }
                             break;
-                        case 2: // INVERT around a pivot (e.g., note 6)
+                        case 2: // INVERT around a pivot - preserve octave
                             for (int i = 0; i < 8; ++i) {
-                                int interval = _autechre_pattern[i] - 6;
-                                _autechre_pattern[i] = (6 - interval + 12) % 12;
+                                int octave = _autechre_pattern[i] / 12;
+                                int note = _autechre_pattern[i] % 12;
+                                int interval = note - 6;
+                                note = (6 - interval + 12) % 12;
+                                _autechre_pattern[i] = note + (octave * 12);
                             }
                             break;
                         case 3: // SWAP adjacent notes
@@ -1900,8 +2236,12 @@ void TuesdayTrackEngine::generateBuffer() {
                                 _autechre_pattern[i+1] = temp;
                             }
                             break;
-                        case 4: // ADD intensity
-                             for (int i = 0; i < 8; ++i) _autechre_pattern[i] = (_autechre_pattern[i] + intensity) % 12;
+                        case 4: // ADD intensity - preserve octave
+                            for (int i = 0; i < 8; ++i) {
+                                int octave = _autechre_pattern[i] / 12;
+                                int note = (_autechre_pattern[i] % 12 + intensity) % 12;
+                                _autechre_pattern[i] = note + (octave * 12);
+                            }
                             break;
                     }
 
@@ -1909,6 +2249,92 @@ void TuesdayTrackEngine::generateBuffer() {
                     _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
                     _autechre_rule_index = (_autechre_rule_index + 1) % 8;
                 }
+
+                // AUTECHRE: Apply algorithmic timing variations that complement the pattern transformations
+                // Use the current rule index and timer to create evolving timing variations
+                gateOffset = ((_autechre_rule_index * 10) + (_autechre_rule_timer % 7)) % 100;
+
+                // Check for Trill on SWAP rule or fresh transformation (glitchy)
+                uint8_t current_rule = _autechre_rule_sequence[_autechre_rule_index];
+                if (current_rule == 3 || _autechre_rule_timer < 2) {
+                    int trillChanceAlgorithmic = 50; // Very high for abstract chaos
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
+                }
+            }
+            break;
+
+        case 20: // STEPWAVE buffer generation
+            {
+                // Flow controls scale step direction with octave jumps
+                // 0-7: step down, 8: stationary, 9-16: step up
+                // Also probabilistically jump octaves
+                int flowVal = _tuesdayTrack.flow();
+                int ornamentVal = _tuesdayTrack.ornament();
+
+                // Determine scale step movement based on flow
+                int scaleStepDir = 0;
+                if (flowVal <= 7) {
+                    scaleStepDir = -1;  // Step down
+                } else if (flowVal >= 9) {
+                    scaleStepDir = 1;   // Step up
+                }
+                // flowVal == 8 means stationary (scaleStepDir = 0)
+
+                // Determine step size from ornament: 0-5=2 steps, 6-10=2-3 mixed, 11-16=3 steps
+                int stepSize;
+                if (ornamentVal <= 5) {
+                    stepSize = 2;
+                } else if (ornamentVal >= 11) {
+                    stepSize = 3;
+                } else {
+                    stepSize = 2 + (_extraRng.next() % 2);  // 2 or 3
+                }
+
+                // Calculate note as scale degree offset from previous
+                // Use step counter to accumulate movement
+                note = (step * scaleStepDir * stepSize) % 7;  // Keep within single octave range for scale
+                if (note < 0) note += 7;
+
+                // Octave jumps: probabilistically jump up 2 octaves
+                // Higher flow = more upward movement = more high octave jumps
+                int octaveJumpChance = 20 + (flowVal * 3);  // 20-68%
+                if (_rng.nextRange(100) < octaveJumpChance) {
+                    octave = 2;
+                } else {
+                    octave = 0;
+                }
+
+                gatePercent = 85;  // Slightly longer gates for the stepping effect
+
+                // Check for trill (base probability 50%)
+                int trillChanceAlgorithmic = 50;
+                int userTrillSetting = _tuesdayTrack.trill();
+                int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                if (_uiRng.nextRange(100) < finalTrillChance) {
+                    isTrill = true;
+
+                    // Determine if this is stepped or slide (glide parameter)
+                    if (_rng.nextRange(100) < glide) {
+                        slide = 2;  // Long slide for smooth glissando
+                    }
+
+                    // Trill step count from ornament: lower=2, middle=2-3, higher=3
+                    if (ornamentVal <= 5) {
+                        _stepwave_step_count = 2;
+                    } else if (ornamentVal >= 11) {
+                        _stepwave_step_count = 3;
+                    } else {
+                        _stepwave_step_count = 2 + (_extraRng.next() % 2);
+                    }
+                }
+
+                // Gate offset: create rhythmic interest
+                gateOffset = (step % 4) * 15;  // 0, 15, 30, 45
             }
             break;
 
@@ -1922,6 +2348,8 @@ void TuesdayTrackEngine::generateBuffer() {
         _buffer[step].octave = octave;
         _buffer[step].gatePercent = gatePercent;
         _buffer[step].slide = slide;
+        _buffer[step].gateOffset = gateOffset;
+        _buffer[step].isTrill = isTrill;
     }
 
     _bufferValid = true;
@@ -2077,6 +2505,10 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     }
 
     if (stepTrigger) {
+        // Disarm any re-triggers from the previous step to ensure a clean state
+        _retriggerArmed = false;
+        _retriggerCount = 0;
+
         // Calculate step from tick count (ensures sync with divisor)
         uint32_t calculatedStep = relativeTick / divisor;
 
@@ -2117,10 +2549,45 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
             // Read from pre-generated buffer
             if (effectiveStep < BUFFER_SIZE) {
-                note = _buffer[effectiveStep].note;
-                octave = _buffer[effectiveStep].octave;
-                _gatePercent = _buffer[effectiveStep].gatePercent;
-                _slide = _buffer[effectiveStep].slide;
+                const auto &bufferedStep = _buffer[effectiveStep];
+                note = bufferedStep.note;
+                octave = bufferedStep.octave;
+                _gatePercent = bufferedStep.gatePercent;
+                _slide = bufferedStep.slide;
+
+                // Check for trill/re-trigger
+                if (bufferedStep.isTrill) {
+                    _retriggerArmed = true;
+                    _retriggerCount = 2; // 3 notes total
+                    _retriggerPeriod = divisor / 3; // 8th note triplets
+                    _retriggerLength = _retriggerPeriod / 2;
+                    _isTrillNote = false;
+
+                    float baseVoltage = (note + (octave * 12)) / 12.f;
+                    _trillCvTarget = baseVoltage + (2.f / 12.f);
+                }
+
+                // Retrieve gate offset from buffered data
+                uint8_t bufferedGateOffset = bufferedStep.gateOffset;
+                uint8_t globalGateOffset = _tuesdayTrack.gateOffset();
+                uint8_t finalOffset = 0;
+
+                if (globalGateOffset == 0) {
+                    // Mode 1: Force On-Beat
+                    finalOffset = 0;
+                } else if (globalGateOffset == 100) {
+                    // Mode 3: Pure Random Offset
+                    finalOffset = _uiRng.nextRange(101); // 0-100
+                } else {
+                    // Mode 2: Probabilistic blend of Algorithmic and Random
+                    finalOffset = bufferedGateOffset; // Base is the algorithmic groove
+                    // with a chance of being overridden by a random value
+                    if (_uiRng.nextRange(100) < globalGateOffset) {
+                        finalOffset = _uiRng.nextRange(101); // 0-100
+                    }
+                }
+                _gateOffset = finalOffset;
+
                 shouldGate = true;
                 // Calculate noteVoltage from buffered data for CV/glide
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2139,7 +2606,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
                 // Slide controlled by glide parameter
                 int glide = _tuesdayTrack.glide();
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     _slide = _testSweepSpeed + 1;  // Use sweep speed as slide amount
                 } else {
                     _slide = 0;
@@ -2181,7 +2648,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
                 // Random slide controlled by glide parameter
                 int glide = _tuesdayTrack.glide();
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     _slide = (_rng.nextRange(3)) + 1;  // 1-3
                 } else {
                     _slide = 0;
@@ -2276,6 +2743,23 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                         } else {
                             _slide = 0;
                         }
+                        // Check for Trill on stomp down
+                        {
+                            int trillChanceAlgorithmic = 18; // 18% base chance
+                            int userTrillSetting = _tuesdayTrack.trill();
+                            int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                            if (_uiRng.nextRange(100) < finalTrillChance) {
+                                _retriggerArmed = true;
+                                _retriggerCount = 1; // 2 notes total
+                                _retriggerPeriod = divisor / 2; // 8th notes
+                                _retriggerLength = _retriggerPeriod / 2;
+                                _isTrillNote = false;
+
+                                float baseVoltage = (note + (octave * 12)) / 12.f;
+                                _trillCvTarget = baseVoltage + (12.f / 12.f); // Octave up (match high)
+                            }
+                        }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;  // MAKENEW
                         break;
@@ -2292,6 +2776,23 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                             _slide = (_rng.nextRange(3)) + 1;  // Slide 1-3
                         } else {
                             _slide = 0;
+                        }
+                        // Check for Trill on stomp up
+                        {
+                            int trillChanceAlgorithmic = 18; // 18% base chance
+                            int userTrillSetting = _tuesdayTrack.trill();
+                            int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                            if (_uiRng.nextRange(100) < finalTrillChance) {
+                                _retriggerArmed = true;
+                                _retriggerCount = 1; // 2 notes total
+                                _retriggerPeriod = divisor / 2; // 8th notes
+                                _retriggerLength = _retriggerPeriod / 2;
+                                _isTrillNote = false;
+
+                                float baseVoltage = (note + (octave * 12)) / 12.f;
+                                _trillCvTarget = baseVoltage - (12.f / 12.f); // Octave down (match low)
+                            }
                         }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;  // MAKENEW
@@ -2380,7 +2881,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
                 // Random slide controlled by glide parameter
                 int glide = _tuesdayTrack.glide();
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     _slide = (_rng.nextRange(3)) + 1;  // 1-3
                 } else {
                     _slide = 0;
@@ -2449,8 +2950,30 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 _extraRng.nextRange(256);  // velocity
 
                 // Additional slide from glide parameter
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        _slide = slideAmount;
+                    }
+                }
+
+                // Check for Trill on accented chord positions
+                if (chordpos == 0) { // First note of chord
+                    int trillChanceAlgorithmic = 20; // 20% base chance
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        _retriggerArmed = true;
+                        _retriggerCount = 1 + (_uiRng.nextRange(2)); // 2-3 notes total
+                        _retriggerPeriod = divisor / 4; // 16th notes for chiptune speed
+                        _retriggerLength = _retriggerPeriod / 2;
+                        _isTrillNote = false;
+
+                        float baseVoltage = (note + (octave * 12)) / 12.f;
+                        _trillCvTarget = baseVoltage + (1.f / 12.f); // Semitone up
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2508,10 +3031,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 while (note < 0) { note += 12; octave--; }
                 while (note >= 12) { note -= 12; octave++; }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
-                } else {
-                    _slide = 0;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        _slide = slideAmount;
+                    } else {
+                        _slide = 0;
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2541,10 +3068,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 note = (absVal >> 22) % 12;
                 octave = 0;
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
-                } else {
-                    _slide = 0;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        _slide = slideAmount;
+                    } else {
+                        _slide = 0;
+                    }
                 }
                 _extraRng.next();  // velocity
 
@@ -2598,8 +3129,32 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 _extraRng.next();  // velocity
 
                 // Additional slide from glide parameter
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        _slide = slideAmount;
+                    }
+                }
+
+                // Check for Trill on phase transitions
+                bool phaseChanged = (_wobbleLastWasHigh == 0 && _rng.nextRange(256) >= 128) ||
+                                   (_wobbleLastWasHigh == 1 && _rng.nextRange(256) < 128);
+                if (phaseChanged) {
+                    int trillChanceAlgorithmic = 12; // 12% base chance (low, wobble is already complex)
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        _retriggerArmed = true;
+                        _retriggerCount = 1; // 2 notes total
+                        _retriggerPeriod = divisor / 3; // Triplet
+                        _retriggerLength = _retriggerPeriod / 2;
+                        _isTrillNote = false;
+
+                        float baseVoltage = (note + (octave * 12)) / 12.f;
+                        _trillCvTarget = baseVoltage + (2.f / 12.f); // Major 2nd up
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2639,6 +3194,22 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                         note = 7 + (_extraRng.next() % 3);
                         octave = 1;
                         _gatePercent = 40;
+
+                        // Check for Trill on hi-hats
+                        int trillChanceAlgorithmic = 25; // 25% base chance for hat rolls
+                        int userTrillSetting = _tuesdayTrack.trill();
+                        int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                        if (_uiRng.nextRange(100) < finalTrillChance) {
+                            _retriggerArmed = true;
+                            _retriggerCount = 2 + (_uiRng.nextRange(2)); // 3-4 notes total
+                            _retriggerPeriod = divisor / 4; // 16th note rolls
+                            _retriggerLength = _retriggerPeriod / 2;
+                            _isTrillNote = false;
+
+                            float baseVoltage = (note + (octave * 12)) / 12.f;
+                            _trillCvTarget = baseVoltage + (2.f / 12.f); // Major 2nd up
+                        }
                     } else {
                         shouldGate = false;
                         note = 0;
@@ -2646,10 +3217,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     }
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
-                } else {
-                    _slide = 0;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        _slide = slideAmount;
+                    } else {
+                        _slide = 0;
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2687,8 +3262,25 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     }
                     octave = (pos % 8 == 0) ? 0 : (_rng.nextBinary() ? 1 : 0);
 
-                    if (_extraRng.nextRange(256) < _funkGhostProb && pos % 4 != 0) {
+                    bool isGhost = (_extraRng.nextRange(256) < _funkGhostProb && pos % 4 != 0);
+                    if (isGhost) {
                         _gatePercent = 35;
+
+                        // Check for Trill on ghost notes
+                        int trillChanceAlgorithmic = 15; // 15% base chance for ghost double
+                        int userTrillSetting = _tuesdayTrack.trill();
+                        int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                        if (_uiRng.nextRange(100) < finalTrillChance) {
+                            _retriggerArmed = true;
+                            _retriggerCount = 1; // 2 notes total (ghost double)
+                            _retriggerPeriod = divisor / 3; // Triplet for swing
+                            _retriggerLength = _retriggerPeriod / 2;
+                            _isTrillNote = false;
+
+                            float baseVoltage = (note + (octave * 12)) / 12.f;
+                            _trillCvTarget = baseVoltage - (2.f / 12.f); // Major 2nd down
+                        }
                     }
                 } else {
                     shouldGate = false;
@@ -2696,10 +3288,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     octave = 0;
                 }
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
-                } else {
-                    _slide = 0;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        _slide = slideAmount;
+                    } else {
+                        _slide = 0;
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2731,7 +3327,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 octave = (_droneBaseNote + interval) / 12;
                 _gatePercent = 400;
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     _slide = 3;
                 } else {
                     _slide = 0;
@@ -2756,10 +3352,14 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
                 _rng.next();  // Consume for determinism
 
-                if (glide > 0 && _rng.nextRange(100) < glide) {
-                    _slide = (_rng.nextRange(3)) + 1;
-                } else {
-                    _slide = 0;
+                {
+                    int glideChance = _rng.nextRange(100);
+                    int slideAmount = (_rng.nextRange(3)) + 1;
+                    if (glideChance < glide) {
+                        _slide = slideAmount;
+                    } else {
+                        _slide = 0;
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2809,10 +3409,30 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 int ornamentChance = _extraRng.next() % 8;
                 if (ornamentChance < _ragaOrnament && glide > 0) {
                     _slide = 2;
-                } else if (glide > 0 && _rng.nextRange(100) < glide) {
+                } else if (_rng.nextRange(100) < glide) {
                     _slide = (_rng.nextRange(3)) + 1;
                 } else {
                     _slide = 0;
+                }
+
+                // Check for Trill on ascending movements (traditional ornamentation)
+                if (_ragaDirection == 0) { // Ascending
+                    int trillChanceAlgorithmic = 25; // 25% base chance (higher for ornamentation)
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        _retriggerArmed = true;
+                        _retriggerCount = 2 + (_uiRng.nextRange(2)); // 3-4 notes for ornamental passages
+                        _retriggerPeriod = divisor / 3; // Triplet for traditional feel
+                        _retriggerLength = _retriggerPeriod / 2;
+                        _isTrillNote = false;
+
+                        float baseVoltage = (note + (octave * 12)) / 12.f;
+                        // Alternate between +1 and +2 semitones for micro-movements
+                        float interval = (_uiRng.nextBinary() ? 1.f : 2.f) / 12.f;
+                        _trillCvTarget = baseVoltage + interval;
+                    }
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -2850,7 +3470,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     _ambient_event_step = 0;
                     // Reset timer based on Power
                     int power = _tuesdayTrack.power();
-                    _ambient_event_timer = 16 + (power > 0 ? 256 / power : 256);
+                    _ambient_event_timer = 16 + (power > 0 ? 256 - (power * 15) : 256);
                 }
                 
                 _slide = 0;
@@ -2870,27 +3490,34 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 bool hihatHit = (_drillHiHatPattern & (1 << _drillStepInBar)) != 0;
 
                 if (hihatHit) {
-                    // Hi-hat hit
+                    // --- HI-HAT HIT ---
                     note = 7 + (_rng.next() % 5);
                     octave = 1;
                     _gatePercent = 25;
                     shouldGate = true;
+                    _slide = 0;
 
-                    // Check for roll
-                    if (_extraRng.nextRange(16) < 4) {
-                        _drillRollCount = 2 + (_rng.next() % 3);
-                    }
-                    _slide = 0;
-                } else if (_drillRollCount > 0) {
-                    // Continue roll
-                    _drillRollCount--;
-                    note = 7 + (_rng.next() % 5);
-                    octave = 1;
-                    _gatePercent = 20;
-                    shouldGate = true;
-                    _slide = 0;
+                    // Check for Trill/Retrigger
+                    int trillChanceAlgorithmic = 30; // 30% base chance for a roll on a hi-hat
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                                        if (_uiRng.nextRange(100) < finalTrillChance) {
+                                            _retriggerArmed = true;
+                                            _retriggerCount = 2; // 3 notes total
+                                            _retriggerPeriod = divisor / 3; // 8th note triplets
+                                            _retriggerLength = _retriggerPeriod / 2; // 50% gate
+                                            _isTrillNote = false;
+
+                                            // Set the trill note (2 semitones up)
+                                            float baseVoltage = (note + (octave * 12)) / 12.f;
+                                            _trillCvTarget = baseVoltage + (2.f / 12.f);
+
+                                            // Make sure the first note of the retrigger is short
+                                            _gatePercent = (_retriggerLength * 100) / divisor;
+                                        }
                 } else {
-                    // Bass note
+                    // --- BASS NOTE ---
                     note = _drillLastNote;
                     octave = -1;
                     _gatePercent = 75;
@@ -2903,10 +3530,10 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
                     // Slide
                     if (_extraRng.nextRange(16) < 8) {
-                        _slide = 2;
+                        _slide = 2; // Hardcoded slide for drill feel
                         _drillSlideTarget = _rng.next() % 12;
-                    } else if (glide > 0 && _rng.nextRange(100) < glide) {
-                        _slide = (_rng.nextRange(3)) + 1;
+                    } else if (_rng.nextRange(100) < glide) {
+                        _slide = (_rng.nextRange(3)) + 1; // Probabilistic slide
                     } else {
                         _slide = 0;
                     }
@@ -2968,7 +3595,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 }
 
                 // Glide
-                if (shouldGate && glide > 0 && _rng.nextRange(100) < glide) {
+                if (shouldGate && _rng.nextRange(100) < glide) {
                     _slide = (_rng.nextRange(3)) + 1;
                 } else {
                     _slide = 0;
@@ -2997,10 +3624,28 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 }
 
                 // Slide based on flow
-                if (glide > 0 && _rng.nextRange(100) < glide) {
+                if (_rng.nextRange(100) < glide) {
                     _slide = 2;
                 } else {
                     _slide = 0;
+                }
+
+                // Check for Trill on accented notes
+                if (hasAccent) {
+                    int trillChanceAlgorithmic = 20; // 20% base chance for 303 throb
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        _retriggerArmed = true;
+                        _retriggerCount = 1 + (_uiRng.nextRange(2)); // 2-3 notes total
+                        _retriggerPeriod = divisor / 2; // 8th notes for acid throb
+                        _retriggerLength = _retriggerPeriod / 2;
+                        _isTrillNote = false;
+
+                        float baseVoltage = (note + (octave * 12)) / 12.f;
+                        _trillCvTarget = baseVoltage + (3.f / 12.f); // Minor 3rd up
+                    }
                 }
 
                 // Advance position
@@ -3053,7 +3698,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 _kraftPosition = (_kraftPosition + 1) % 8;
 
                 // Glide (rare)
-                if (glide > 0 && _rng.nextRange(100) < glide / 2) {
+                if (_rng.nextRange(100) < glide / 2) {
                     _slide = 1;
                 } else {
                     _slide = 0;
@@ -3095,6 +3740,27 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                 _aphex_pos2 = (_aphex_pos2 + 1) % 3;
                 _aphex_pos3 = (_aphex_pos3 + 1) % 5;
 
+                // Check for Trill on polyrhythmic collision points (glitchy)
+                int polyCollision = ((_aphex_pos1 * 7) ^ (_aphex_pos2 * 5) ^ (_aphex_pos3 * 3)) % 12;
+                if (polyCollision > 8) {
+                    int trillChanceAlgorithmic = 45; // High for glitch
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        _retriggerArmed = true;
+                        _retriggerCount = 3 + (_uiRng.nextRange(3)); // 4-6 notes (extreme glitch)
+                        _retriggerPeriod = divisor / 5; // 32nd notes - rapid fire
+                        _retriggerLength = _retriggerPeriod / 3; // Short staccato
+                        _isTrillNote = false;
+
+                        float baseVoltage = (note + (octave * 12)) / 12.f;
+                        // Dissonant intervals: tritone (+6) or minor 2nd (+1)
+                        float interval = ((_aphex_pos1 + _aphex_pos3) % 2) ? 6.f : 1.f;
+                        _trillCvTarget = baseVoltage + (interval / 12.f);
+                    }
+                }
+
                 noteVoltage = (note + (octave * 12)) / 12.0f;
             }
             break;
@@ -3103,8 +3769,10 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             {
                 shouldGate = true;
                 // --- Always play the current state of the pattern ---
-                note = _autechre_pattern[effectiveStep % 8];
-                octave = 0;
+                // Pattern encodes note + octave*12, so extract both
+                int patternVal = _autechre_pattern[effectiveStep % 8];
+                note = patternVal % 12;
+                octave = patternVal / 12;
                 _gatePercent = 75;
                 _slide = 0;
 
@@ -3130,10 +3798,13 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                                 _autechre_pattern[7-i] = temp;
                             }
                             break;
-                        case 2: // INVERT around a pivot (e.g., note 6)
+                        case 2: // INVERT around a pivot - preserve octave
                             for (int i = 0; i < 8; ++i) {
-                                int interval = _autechre_pattern[i] - 6;
-                                _autechre_pattern[i] = (6 - interval + 12) % 12;
+                                int octave = _autechre_pattern[i] / 12;
+                                int note = _autechre_pattern[i] % 12;
+                                int interval = note - 6;
+                                note = (6 - interval + 12) % 12;
+                                _autechre_pattern[i] = note + (octave * 12);
                             }
                             break;
                         case 3: // SWAP adjacent notes
@@ -3143,14 +3814,138 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                                 _autechre_pattern[i+1] = temp;
                             }
                             break;
-                        case 4: // ADD intensity
-                             for (int i = 0; i < 8; ++i) _autechre_pattern[i] = (_autechre_pattern[i] + intensity) % 12;
+                        case 4: // ADD intensity - preserve octave
+                            for (int i = 0; i < 8; ++i) {
+                                int octave = _autechre_pattern[i] / 12;
+                                int note = (_autechre_pattern[i] % 12 + intensity) % 12;
+                                _autechre_pattern[i] = note + (octave * 12);
+                            }
                             break;
                     }
 
                     // --- Reset for next rule ---
                     _autechre_rule_timer = 8 + (_tuesdayTrack.flow() * 4);
                     _autechre_rule_index = (_autechre_rule_index + 1) % 8;
+                }
+
+                // Check for Trill on SWAP rule or fresh transformation (glitchy)
+                uint8_t current_rule = _autechre_rule_sequence[_autechre_rule_index];
+                if (current_rule == 3 || _autechre_rule_timer < 2) {
+                    int trillChanceAlgorithmic = 50; // Very high for abstract chaos
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        _retriggerArmed = true;
+                        // More trills on SWAP rule (most chaotic)
+                        int minCount = (current_rule == 3) ? 4 : 2;
+                        _retriggerCount = minCount + (_uiRng.nextRange(3)); // 4-7 for SWAP, 2-5 others
+                        _retriggerPeriod = divisor / 4; // 16th notes
+                        _retriggerLength = _retriggerPeriod / 2;
+                        _isTrillNote = false;
+
+                        float baseVoltage = (note + (octave * 12)) / 12.f;
+                        // Rule-based intervals for deterministic glitch
+                        int abstractInterval = (_autechre_rule_index * 3) % 8; // 0,3,6,1,4,7,2,5 semitones
+                        _trillCvTarget = baseVoltage + (abstractInterval / 12.f);
+                    }
+                }
+
+                noteVoltage = (note + (octave * 12)) / 12.0f;
+            }
+            break;
+
+        case 20: // STEPWAVE - Scale stepping with trill (infinite loop)
+            {
+                shouldGate = true;
+
+                // Flow controls scale step direction with octave jumps
+                int flowVal = _tuesdayTrack.flow();
+                int ornamentVal = _tuesdayTrack.ornament();
+
+                // Determine scale step movement based on flow
+                int scaleStepDir = 0;
+                if (flowVal <= 7) {
+                    scaleStepDir = -1;  // Step down
+                } else if (flowVal >= 9) {
+                    scaleStepDir = 1;   // Step up
+                }
+
+                // Determine step size from ornament: 0-5=2 steps, 6-10=2-3 mixed, 11-16=3 steps
+                int stepSize;
+                if (ornamentVal <= 5) {
+                    stepSize = 2;
+                } else if (ornamentVal >= 11) {
+                    stepSize = 3;
+                } else {
+                    stepSize = 2 + (_extraRng.next() % 2);  // 2 or 3
+                }
+
+                // Calculate note as scale degree offset
+                note = (effectiveStep * scaleStepDir * stepSize) % 7;
+                if (note < 0) note += 7;
+
+                // Octave jumps: probabilistically jump up 2 octaves
+                int octaveJumpChance = 20 + (flowVal * 3);  // 20-68%
+                if (_rng.nextRange(100) < octaveJumpChance) {
+                    octave = 2;
+                } else {
+                    octave = 0;
+                }
+
+                _gatePercent = 85;
+                _slide = 0;
+                _gateOffset = (effectiveStep % 4) * 15;  // Rhythmic timing
+
+                // Check for stepped trill (base probability 50%)
+                int trillChanceAlgorithmic = 50;
+                int userTrillSetting = _tuesdayTrack.trill();
+                int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+
+                if (_uiRng.nextRange(100) < finalTrillChance) {
+                    // Trill step count from ornament: lower=2, middle=2-3, higher=3
+                    if (ornamentVal <= 5) {
+                        _stepwave_step_count = 2;
+                    } else if (ornamentVal >= 11) {
+                        _stepwave_step_count = 3;
+                    } else {
+                        _stepwave_step_count = 2 + (_extraRng.next() % 2);
+                    }
+                    _stepwave_current_step = 0;
+                    _stepwave_chromatic_offset = 0;
+
+                    // Determine trill direction from ornament
+                    int direction;
+                    if (ornamentVal <= 5) {
+                        direction = -1;  // Down
+                    } else if (ornamentVal >= 11) {
+                        direction = 1;   // Up
+                    } else {
+                        // Random direction
+                        direction = _uiRng.nextBinary() ? 1 : -1;
+                    }
+                    _stepwave_direction = direction;
+
+                    // Determine if this is stepped or slide
+                    int glideParam = _tuesdayTrack.glide();
+                    if (glideParam > 0 && _rng.nextRange(100) < glideParam) {
+                        _stepwave_is_stepped = false;  // Slide mode
+                        _slide = 2;  // Long slide for glissando
+                    } else {
+                        _stepwave_is_stepped = true;  // Stepped mode
+                    }
+
+                    // Arm the retrigger system
+                    _retriggerArmed = true;
+                    _retriggerCount = _stepwave_step_count - 1;  // -1 because first note plays immediately
+                    _retriggerPeriod = divisor / _stepwave_step_count;  // Spread evenly
+                    _retriggerLength = _retriggerPeriod / 2;
+                    _isTrillNote = false;
+
+                    // Calculate the final target for the trill (used for slide mode)
+                    float baseVoltage = (note + (octave * 12)) / 12.f;
+                    int totalSteps = (_stepwave_step_count - 1) * direction;
+                    _trillCvTarget = baseVoltage + (totalSteps / 12.f);
                 }
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
@@ -3163,6 +3958,23 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             break;
             }
         } // End else (infinite loop)
+
+        // Apply global GateOffset override
+        uint8_t globalGateOffset = _tuesdayTrack.gateOffset();
+        if (globalGateOffset == 0) {
+            // Mode 1: Force On-Beat
+            _gateOffset = 0;
+        } else if (globalGateOffset == 100) {
+            // Mode 3: Pure Random Offset
+            _gateOffset = _uiRng.nextRange(101); // 0-100
+        } else {
+            // Mode 2: Probabilistic blend of Algorithmic and Random
+            // Note: _gateOffset already holds the algorithmic value here.
+            // We just check for a random override.
+            if (_uiRng.nextRange(100) < globalGateOffset) {
+                _gateOffset = _uiRng.nextRange(101); // 0-100
+            }
+        }
 
         // Apply octave and transpose from sequence parameters
         int trackOctave = _tuesdayTrack.octave();
@@ -3201,13 +4013,41 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         // Velocity (from algorithm) must beat current cooldown value
         bool gateTriggered = shouldGate && _coolDown == 0;
         if (gateTriggered) {
-            _gateOutput = true;
-            // Gate length: use algorithm-determined percentage
-            _gateTicks = (divisor * _gatePercent) / 100;
-            if (_gateTicks < 1) _gateTicks = 1;  // Minimum 1 tick
-            _activity = true;
-            // Reset cooldown after triggering
-            _coolDown = _coolDownMax;
+            // Instead of immediately firing the gate, calculate the offset delay
+            uint32_t actualGateOffset = (divisor * _gateOffset) / 100;
+
+            if (actualGateOffset > 0) {
+                // Create a delayed gate activation
+                _pendingGateOffsetTicks = static_cast<uint8_t>(std::min(actualGateOffset, static_cast<uint32_t>(255))); // Cap at 255
+                _pendingGateActivation = true;
+
+                // Don't set the gate yet - it will be set after the offset delay
+                // But we still need to reset cooldown and other states
+                _activity = true;
+                _coolDown = _coolDownMax;
+            } else {
+                // No offset - set gate immediately as before
+                _gateOutput = true;
+                // Gate length: use algorithm-determined percentage
+                _gateTicks = (divisor * _gatePercent) / 100;
+                if (_gateTicks < 1) _gateTicks = 1;  // Minimum 1 tick
+                _activity = true;
+                // Reset cooldown after triggering
+                _coolDown = _coolDownMax;
+            }
+        }
+
+        // Process pending gate offset if any
+        if (_pendingGateActivation && _pendingGateOffsetTicks > 0) {
+            _pendingGateOffsetTicks--;
+            if (_pendingGateOffsetTicks == 0) {
+                // Time to fire the gate after offset delay
+                _gateOutput = true;
+                // Gate length: use algorithm-determined percentage
+                _gateTicks = (divisor * _gatePercent) / 100;
+                if (_gateTicks < 1) _gateTicks = 1;  // Minimum 1 tick
+                _pendingGateActivation = false;
+            }
         }
 
         // Apply CV with slide/portamento based on cvUpdateMode
@@ -3241,6 +4081,20 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         // Step advancement and loop handling now done at start of stepTrigger block
         // via tick-based calculation
 
+        // Setup gate timing counters
+        if (gateTriggered) {
+            _pendingGateActivation = true;
+            _pendingGateOffsetTicks = (CONFIG_SEQUENCE_PPQN * _gateOffset) / 100;
+
+            // If a re-trigger was armed by the algorithm, use the short re-trigger
+            // length for the gate. Otherwise, use the main gate length.
+            if (_retriggerArmed) {
+                _gateLengthTicks = _retriggerLength;
+            } else {
+                _gateLengthTicks = (CONFIG_SEQUENCE_PPQN * _gatePercent) / 100;
+            }
+        }
+
         return TickResult::CvUpdate | TickResult::GateUpdate;
     }
 
@@ -3248,6 +4102,108 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 }
 
 void TuesdayTrackEngine::update(float dt) {
-    // Nothing to update for now
-    // Future: slide/glide processing
+    // --- CV Sliding ---
+    // This happens independently of gate logic
+    if (_slideCountDown > 0) {
+        _slideCountDown--;
+        _cvCurrent += _cvDelta;
+    } else {
+        _cvCurrent = _cvTarget;
+    }
+    // Only update final CV output if not in a trill, which has its own CV logic
+    if (!_retriggerArmed) {
+        _cvOutput = _cvCurrent;
+    }
+
+
+    // --- Gate Timing State Machine ---
+
+    // 1. Handle initial gate offset delay
+    if (_pendingGateOffsetTicks > 0) {
+        _pendingGateOffsetTicks--;
+        return; // Still waiting for the first event to start
+    }
+
+    // 2. Activate the very first gate event if it was pending
+    if (_pendingGateActivation) {
+        _gateOutput = true;
+        _pendingGateActivation = false;
+        // _gateLengthTicks has already been set correctly in tick()
+        // for either a normal note or the first note of a trill.
+
+        // Set the initial CV for the first note
+        _cvOutput = _cvTarget;
+        return; // Gate is now on, wait for next update
+    }
+
+    // 3. Main state machine for gates that are already active or re-triggering
+    if (_gateOutput) {
+        // --- Gate is currently ON ---
+        if (_gateLengthTicks > 0) {
+            _gateLengthTicks--;
+        } else {
+            // ON-time has expired, so turn the gate OFF
+            _gateOutput = false;
+
+            // If we are in a re-trigger chain, set the timer for the silent OFF-time
+            if (_retriggerArmed && _retriggerCount > 0) {
+                _gateLengthTicks = _retriggerPeriod - _retriggerLength; // This now becomes the off-time
+            }
+        }
+    } else {
+        // --- Gate is currently OFF ---
+        if (_retriggerArmed) {
+            if (_retriggerCount > 0) {
+                if (_gateLengthTicks > 0) {
+                    _gateLengthTicks--;
+                } else {
+                    // OFF-time has expired, so fire the next re-triggered note
+                    _retriggerCount--;
+                    _gateOutput = true;
+                    _gateLengthTicks = _retriggerLength; // Set ON-time for this new note
+
+                    // Check if this is a STEPWAVE stepped trill
+                    int algorithm = _tuesdayTrack.algorithm();
+                    if (algorithm == 20 && _stepwave_is_stepped) {
+                        // STEPWAVE: Increment through scale degrees
+                        _stepwave_current_step++;
+                        _stepwave_chromatic_offset += _stepwave_direction;
+
+                        // Get scale info to convert scale degrees to voltage
+                        int trackScaleIdx = _tuesdayTrack.scale();
+                        int trackRootNote = _tuesdayTrack.rootNote();
+                        const Scale &scale = (trackScaleIdx >= 0) ? Scale::get(trackScaleIdx) : _model.project().selectedScale();
+                        int rootNote = (trackRootNote >= 0) ? trackRootNote : _model.project().rootNote();
+
+                        // Calculate new CV using scale degrees (respects project/track scale)
+                        if (_tuesdayTrack.useScale() || trackScaleIdx >= 0 || _model.project().scale() > 0) {
+                            // Scale mode: treat offset as scale degree offset
+                            // _cvTarget is the base note in voltage, we need to find its scale degree
+                            // and add the offset, then convert back to voltage
+                            int baseScaleDegree = 0;  // Root note starts at degree 0
+                            int targetDegree = baseScaleDegree + _stepwave_chromatic_offset;
+                            _cvOutput = scale.noteToVolts(targetDegree) + (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f);
+                            _cvOutput += _tuesdayTrack.octave();  // Apply track octave
+                        } else {
+                            // Chromatic/free mode: offset in semitones
+                            _cvOutput = _cvTarget + (_stepwave_chromatic_offset / 12.f);
+                        }
+                    } else {
+                        // Standard alternating trill for other algorithms
+                        _isTrillNote = !_isTrillNote;
+                        if (_isTrillNote) {
+                            _cvOutput = _trillCvTarget;
+                        } else {
+                            _cvOutput = _cvTarget;
+                        }
+                    }
+                }
+            } else {
+                // Last re-trigger has finished, disarm the system for the next step
+                _retriggerArmed = false;
+            }
+        }
+    }
+
+    _activity = _gateOutput || _retriggerArmed;
 }

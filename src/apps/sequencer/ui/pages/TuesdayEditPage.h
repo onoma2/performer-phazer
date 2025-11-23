@@ -37,7 +37,9 @@ private:
         Glide,
         // Page 3
         Skew,
+        GateOffset,
         CvUpdateMode,
+        Trill,
         // Total
         ParamCount
     };
