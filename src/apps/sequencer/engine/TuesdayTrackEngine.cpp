@@ -1193,6 +1193,15 @@ void TuesdayTrackEngine::generateBuffer() {
                         if (glide > 0 && _rng.nextRange(100) < glide) {
                             slide = (_rng.nextRange(3)) + 1;
                         }
+                        // Check for Trill on stomp down
+                        {
+                            int trillChanceAlgorithmic = 18;
+                            int userTrillSetting = _tuesdayTrack.trill();
+                            int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                            if (_uiRng.nextRange(100) < finalTrillChance) {
+                                isTrill = true;
+                            }
+                        }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;
                         break;
@@ -1206,6 +1215,15 @@ void TuesdayTrackEngine::generateBuffer() {
                         note = _stomperHighNote[_rng.next() % 2];
                         if (glide > 0 && _rng.nextRange(100) < glide) {
                             slide = (_rng.nextRange(3)) + 1;
+                        }
+                        // Check for Trill on stomp up
+                        {
+                            int trillChanceAlgorithmic = 18;
+                            int userTrillSetting = _tuesdayTrack.trill();
+                            int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                            if (_uiRng.nextRange(100) < finalTrillChance) {
+                                isTrill = true;
+                            }
                         }
                         if (_extraRng.nextBinary()) _stomperCountDown = _extraRng.next() % maxticklen;
                         _stomperMode = 14;
@@ -1365,6 +1383,16 @@ void TuesdayTrackEngine::generateBuffer() {
                     slide = (_rng.nextRange(3)) + 1;
                 }
 
+                // Check for Trill on first chord position
+                if (chordpos == 0) {
+                    int trillChanceAlgorithmic = 20;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
+                }
+
                 // CHIPARP: Apply chiptune-style timing variations
                 // Use the chord position to create arpeggio timing patterns
                 if (pos == 0) {
@@ -1514,6 +1542,16 @@ void TuesdayTrackEngine::generateBuffer() {
                     slide = (_rng.nextRange(3)) + 1;
                 }
 
+                // Check for Trill on phase transitions
+                {
+                    int trillChanceAlgorithmic = 12;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
+                }
+
                 // WOBBLE: Apply wobble timing variations based on dual phase system
                 // Use both phase positions to create complex timing shifts
                 uint32_t phaseSum = (_wobblePhase + _wobblePhase2) >> 25;
@@ -1553,6 +1591,14 @@ void TuesdayTrackEngine::generateBuffer() {
                         note = 7 + (_extraRng.next() % 3);  // Higher notes for hats
                         octave = 1;
                         gatePercent = 40;
+
+                        // Check for Trill on hi-hats
+                        int trillChanceAlgorithmic = 25;
+                        int userTrillSetting = _tuesdayTrack.trill();
+                        int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                        if (_uiRng.nextRange(100) < finalTrillChance) {
+                            isTrill = true;
+                        }
                     } else {
                         note = 0;
                         octave = 0;
@@ -1621,6 +1667,14 @@ void TuesdayTrackEngine::generateBuffer() {
                     // Ghost notes (quieter)
                     if (_extraRng.nextRange(256) < _funkGhostProb && pos % 4 != 0) {
                         gatePercent = 35;  // Ghost note
+
+                        // Check for Trill on ghost notes
+                        int trillChanceAlgorithmic = 15;
+                        int userTrillSetting = _tuesdayTrack.trill();
+                        int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                        if (_uiRng.nextRange(100) < finalTrillChance) {
+                            isTrill = true;
+                        }
                     } else {
                         gatePercent = 75;
                     }
@@ -1750,6 +1804,16 @@ void TuesdayTrackEngine::generateBuffer() {
                     slide = 2;  // Characteristic slides
                 } else if (glide > 0 && _rng.nextRange(100) < glide) {
                     slide = (_rng.nextRange(3)) + 1;
+                }
+
+                // Check for Trill on ascending movements
+                if (_ragaDirection == 0) {
+                    int trillChanceAlgorithmic = 25;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
                 }
             }
             break;
@@ -1946,6 +2010,14 @@ void TuesdayTrackEngine::generateBuffer() {
                 // ACID: Apply acid-style timing variations that complement the 303 patterns
                 if (hasAccent) {
                     gateOffset = 10;  // Accented notes slightly delayed
+
+                    // Check for Trill on accented notes
+                    int trillChanceAlgorithmic = 20;
+                    int userTrillSetting = _tuesdayTrack.trill();
+                    int finalTrillChance = (trillChanceAlgorithmic * userTrillSetting) / 100;
+                    if (_uiRng.nextRange(100) < finalTrillChance) {
+                        isTrill = true;
+                    }
                 } else if (_acidPosition % 2 == 0) {
                     gateOffset = 0;   // Even steps on-beat
                 } else {
