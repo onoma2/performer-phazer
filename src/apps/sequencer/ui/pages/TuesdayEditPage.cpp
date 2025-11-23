@@ -57,6 +57,13 @@ void TuesdayEditPage::draw(Canvas &canvas) {
     int centerX = 204 + (52 - textWidth) / 2;
     canvas.drawText(centerX, 50, pageStr);
 
+    // Draw algorithm number indicator above F1 button (same style as page indicator)
+    FixedStringBuilder<8> algoStr("[%d]", track.algorithm());
+    int algoTextWidth = canvas.textWidth(algoStr);
+    // Center horizontally in F1 button region (x=0 to x=51, width=51)
+    int algoCenterX = (51 - algoTextWidth) / 2;
+    canvas.drawText(algoCenterX, 50, algoStr);
+
     // Draw footer with function key labels
     const char *functionNames[5];
     for (int i = 0; i < 4; ++i) {
@@ -133,8 +140,8 @@ void TuesdayEditPage::encoder(EncoderEvent &event) {
 int TuesdayEditPage::paramForPage(int page, int slot) const {
     static const int pageParams[PageCount][ParamsPerPage] = {
         { Algorithm, Flow, Ornament, Power },           // Page 1
-        { LoopLength, Scan, Rotate, Glide },            // Page 2
-        { Skew, GateOffset, CvUpdateMode, Trill },      // Page 3
+        { LoopLength, Scan, Rotate, CvUpdateMode },     // Page 2
+        { Skew, GateOffset, Glide, Trill },             // Page 3
     };
 
     if (page < 0 || page >= PageCount || slot < 0 || slot >= ParamsPerPage) {

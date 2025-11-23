@@ -3,7 +3,7 @@
 
 // Algorithm names for display
 static const char *algorithmNames[] = {
-    "TEST",       // 0
+    "SIMPLE",     // 0
     "TRITRANCE",  // 1
     "STOMPER",    // 2
     "MARKOV",     // 3
