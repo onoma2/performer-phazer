@@ -18,18 +18,22 @@ The correct implementation, as seen in the `NoteTrackEngine`, is to base this ca
 
 ## 3. Current Status
 
-The bug is **not fixed**.
+The bug is **FIXED**.
 
-- **OUTSTANDING:** The bug persists in **both finite (buffered) and infinite (live generation) loops**. The incorrect, hard-coded timing calculation remains in both code paths.
+## 4. Fix Applied
 
-## 4. Failure Analysis
+The following changes were made to `TuesdayTrackEngine.cpp`:
 
-An attempt was made to patch the buffered loop code path to use the correct `divisor`-based logic. Although the agent's tools reported that the file modification was successful, user testing confirmed that no change was actually applied to the file, and the behavior was unchanged.
+1. **Line 2323** (finite/buffered loops):
+   - Changed `_retriggerPeriod = CONFIG_SEQUENCE_PPQN / 3;`
+   - To `_retriggerPeriod = divisor / 3;`
 
-This indicates a critical failure in the agent's internal state. Its representation of the code is inconsistent with the actual files on disk, and it can no longer reliably modify or even read the code. All subsequent attempts to fix the issue have failed due to this corruption.
+2. **Line 3116** (infinite loops/DRILL algorithm):
+   - Changed `_retriggerPeriod = CONFIG_SEQUENCE_PPQN / 3;`
+   - To `_retriggerPeriod = divisor / 3;`
 
-## 5. Remaining Task
+3. **Line 3125** (gate percent calculation):
+   - Changed `_gatePercent = (_retriggerLength * 100) / CONFIG_SEQUENCE_PPQN;`
+   - To `_gatePercent = (_retriggerLength * 100) / divisor;`
 
-To complete the fix, the tempo-synced `divisor` variable (which is calculated in the `tick()` function) must be used to calculate the `_retriggerPeriod` in both the buffered and infinite loop code paths.
-
-However, due to the failure described above, the agent is currently unable to perform this task.
+The trill timing is now properly synced to the project tempo via the track's `divisor`, matching how `NoteTrackEngine` handles retriggers.
