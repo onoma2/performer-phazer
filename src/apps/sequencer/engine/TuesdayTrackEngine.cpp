@@ -575,7 +575,7 @@ void TuesdayTrackEngine::reseed() {
 
 void TuesdayTrackEngine::generateBuffer() {
     // Initialize algorithm fresh to get deterministic pattern
-    initAlgorithm();
+    // initAlgorithm(); // ALgo is not resseeded on capture
 
     int algorithm = _tuesdayTrack.algorithm();
     int glide = _tuesdayTrack.glide();
@@ -1850,7 +1850,7 @@ void TuesdayTrackEngine::generateBuffer() {
     _bufferValid = true;
 
     // Reinitialize algorithm for live playback
-    initAlgorithm();
+    // initAlgorithm(); // don't initialize
 }
 
 TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
@@ -2969,7 +2969,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
                     int power = _tuesdayTrack.power();
                     _ambient_event_timer = 16 + (power > 0 ? 256 - (power * 15) : 256);
                 }
-                
+
                 _slide = 0;
 
                 noteVoltage = (note + (octave * 12)) / 12.0f;
