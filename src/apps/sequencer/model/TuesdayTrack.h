@@ -364,7 +364,7 @@ private:
     uint8_t _flow = 0;
     uint8_t _ornament = 0;
     uint8_t _power = 0;
-    uint8_t _loopLength = 16;
+    uint8_t _loopLength = 0;  // Default: infinite (evolving patterns)
     uint8_t _glide = 0;  // Default 0% (no slides)
     uint8_t _trill = 0;  // Default 0% (no trills/re-triggers)
     bool _useScale = false;  // Default: free (chromatic)

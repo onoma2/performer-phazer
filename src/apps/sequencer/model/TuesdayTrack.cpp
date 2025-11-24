@@ -71,7 +71,7 @@ void TuesdayTrack::clear() {
     _flow = 0;
     _ornament = 0;
     _power = 0;
-    _loopLength = 16;
+    _loopLength = 0;  // Default: infinite (evolving patterns)
     _glide = 0;
     _useScale = false;
     _skew = 0;
