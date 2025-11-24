@@ -194,6 +194,21 @@ public:
         str("%+.1f%%", gateProbabilityBias() * 12.5f);
     }
 
+    // phaseOffset
+
+    int phaseOffset() const { return _phaseOffset; }
+    void setPhaseOffset(int phaseOffset) {
+        _phaseOffset = clamp(phaseOffset, 0, 100);
+    }
+
+    void editPhaseOffset(int value, bool shift) {
+        setPhaseOffset(phaseOffset() + value * (shift ? 10 : 1));
+    }
+
+    void printPhaseOffset(StringBuilder &str) const {
+        str("%d%%", phaseOffset());
+    }
+
     // sequences
 
     const CurveSequenceArray &sequences() const { return _sequences; }
@@ -249,6 +264,7 @@ private:
     Routable<int8_t> _rotate;
     Routable<int8_t> _shapeProbabilityBias;
     Routable<int8_t> _gateProbabilityBias;
+    uint8_t _phaseOffset;
 
     CurveSequenceArray _sequences;
 

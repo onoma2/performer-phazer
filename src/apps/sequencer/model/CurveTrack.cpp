@@ -32,6 +32,7 @@ void CurveTrack::clear() {
     setRotate(0);
     setShapeProbabilityBias(0);
     setGateProbabilityBias(0);
+    setPhaseOffset(0);
 
     for (auto &sequence : _sequences) {
         sequence.clear();
@@ -47,6 +48,7 @@ void CurveTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_rotate.base);
     writer.write(_shapeProbabilityBias.base);
     writer.write(_gateProbabilityBias.base);
+    writer.write(_phaseOffset);
     writeArray(writer, _sequences);
 }
 
@@ -59,6 +61,7 @@ void CurveTrack::read(VersionedSerializedReader &reader) {
     reader.read(_rotate.base);
     reader.read(_shapeProbabilityBias.base, ProjectVersion::Version15);
     reader.read(_gateProbabilityBias.base, ProjectVersion::Version15);
+    reader.read(_phaseOffset, ProjectVersion::Version35);
     readArray(reader, _sequences);
 }
 

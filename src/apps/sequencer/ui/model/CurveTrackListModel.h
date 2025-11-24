@@ -61,6 +61,7 @@ private:
         Rotate,
         ShapeProbabilityBias,
         GateProbabilityBias,
+        PhaseOffset,
         Last
     };
 
@@ -74,6 +75,7 @@ private:
         case Rotate:                return "Rotate";
         case ShapeProbabilityBias:  return "Shape P. Bias";
         case GateProbabilityBias:   return "Gate P. Bias";
+        case PhaseOffset:           return "Phase Offset";
         case Last:                  break;
         }
         return nullptr;
@@ -109,6 +111,9 @@ private:
         case GateProbabilityBias:
             _track->printGateProbabilityBias(str);
             break;
+        case PhaseOffset:
+            _track->printPhaseOffset(str);
+            break;
         case Last:
             break;
         }
@@ -139,6 +144,9 @@ private:
             break;
         case GateProbabilityBias:
             _track->editGateProbabilityBias(value, shift);
+            break;
+        case PhaseOffset:
+            _track->editPhaseOffset(value, shift);
             break;
         case Last:
             break;

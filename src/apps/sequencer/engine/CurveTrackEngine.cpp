@@ -218,7 +218,11 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         const auto &evalSequence = fillNextPattern ? *_fillSequence : *_sequence;
         const auto &step = evalSequence.step(_currentStep);
 
-        float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, _currentStepFraction);
+        // Apply phase offset (convert 0-100 to 0.0-1.0 and wrap)
+        float phaseOffset = float(_curveTrack.phaseOffset()) / 100.f;
+        float phasedFraction = fmod(_currentStepFraction + phaseOffset, 1.0f);
+
+        float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, phasedFraction);
         value = range.denormalize(value);
         _cvOutputTarget = value;
     }
