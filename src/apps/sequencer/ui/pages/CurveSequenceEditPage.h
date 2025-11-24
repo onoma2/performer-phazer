@@ -42,6 +42,9 @@ private:
     void contextAction(int index);
     bool contextActionEnabled(int index) const;
 
+    void lfoContextShow();
+    void lfoContextAction(int index);
+
     void initSequence();
     void copySequence();
     void pasteSequence();

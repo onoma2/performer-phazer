@@ -202,6 +202,17 @@ public:
     const CurveSequence &sequence(int index) const { return _sequences[index]; }
           CurveSequence &sequence(int index)       { return _sequences[index]; }
 
+    // LFO-shape population functions at track level
+    void populateWithLfoShape(int sequenceIndex, Curve::Type shape, int firstStep, int lastStep);
+    void populateWithLfoPattern(int sequenceIndex, Curve::Type shape, int firstStep, int lastStep);
+    void populateWithLfoWaveform(int sequenceIndex, Curve::Type upShape, Curve::Type downShape, int firstStep, int lastStep);
+
+    // Advanced LFO waveform functions at track level
+    void populateWithSineWaveLfo(int sequenceIndex, int firstStep, int lastStep);
+    void populateWithTriangleWaveLfo(int sequenceIndex, int firstStep, int lastStep);
+    void populateWithSawtoothWaveLfo(int sequenceIndex, int firstStep, int lastStep);
+    void populateWithSquareWaveLfo(int sequenceIndex, int firstStep, int lastStep);
+
     //----------------------------------------
     // Routing
     //----------------------------------------

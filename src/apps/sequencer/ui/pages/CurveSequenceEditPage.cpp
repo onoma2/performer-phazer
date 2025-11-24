@@ -27,6 +27,21 @@ static const ContextMenuModel::Item contextMenuItems[] = {
     { "GEN" },
 };
 
+enum class LfoContextAction {
+    Triangle,
+    Sine,
+    Sawtooth,
+    Square,
+    Last
+};
+
+static const ContextMenuModel::Item lfoContextMenuItems[] = {
+    { "TRI" },
+    { "SINE" },
+    { "SAW" },
+    { "SQUA" },
+};
+
 enum class Function {
     Shape   = 0,
     Min     = 1,
@@ -321,6 +336,12 @@ void CurveSequenceEditPage::keyPress(KeyPressEvent &event) {
 
     if (key.isQuickEdit()) {
         quickEdit(key.quickEdit());
+        event.consume();
+        return;
+    }
+
+    if (key.pageModifier() && key.is(Key::Step5)) {
+        lfoContextShow();
         event.consume();
         return;
     }
@@ -665,5 +686,48 @@ void CurveSequenceEditPage::quickEdit(int index) {
     _listModel.setSequence(&_project.selectedCurveSequence());
     if (quickEditItems[index] != CurveSequenceListModel::Item::Last) {
         _manager.pages().quickEdit.show(_listModel, int(quickEditItems[index]));
+    }
+}
+
+void CurveSequenceEditPage::lfoContextShow() {
+    showContextMenu(ContextMenu(
+        lfoContextMenuItems,
+        int(LfoContextAction::Last),
+        [&] (int index) { lfoContextAction(index); },
+        [&] (int index) { return true; }
+    ));
+}
+
+void CurveSequenceEditPage::lfoContextAction(int index) {
+    auto &sequence = _project.selectedCurveSequence();
+
+    // Determine range: use selected steps if any, otherwise all steps
+    int firstStep = 0;
+    int lastStep = CONFIG_STEP_COUNT - 1;
+
+    if (_stepSelection.any()) {
+        firstStep = _stepSelection.firstSetIndex();
+        lastStep = _stepSelection.lastSetIndex();
+    }
+
+    switch (LfoContextAction(index)) {
+    case LfoContextAction::Triangle:
+        sequence.populateWithTriangleWaveLfo(firstStep, lastStep);
+        showMessage("LFO TRIANGLE POPULATED");
+        break;
+    case LfoContextAction::Sine:
+        sequence.populateWithSineWaveLfo(firstStep, lastStep);
+        showMessage("LFO SINE POPULATED");
+        break;
+    case LfoContextAction::Sawtooth:
+        sequence.populateWithSawtoothWaveLfo(firstStep, lastStep);
+        showMessage("LFO SAWTOOTH POPULATED");
+        break;
+    case LfoContextAction::Square:
+        sequence.populateWithSquareWaveLfo(firstStep, lastStep);
+        showMessage("LFO SQUARE POPULATED");
+        break;
+    case LfoContextAction::Last:
+        break;
     }
 }

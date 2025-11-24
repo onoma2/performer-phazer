@@ -61,3 +61,45 @@ void CurveTrack::read(VersionedSerializedReader &reader) {
     reader.read(_gateProbabilityBias.base, ProjectVersion::Version15);
     readArray(reader, _sequences);
 }
+
+void CurveTrack::populateWithLfoShape(int sequenceIndex, Curve::Type shape, int firstStep, int lastStep) {
+    if (sequenceIndex >= 0 && sequenceIndex < static_cast<int>(_sequences.size())) {
+        _sequences[sequenceIndex].populateWithLfoShape(shape, firstStep, lastStep);
+    }
+}
+
+void CurveTrack::populateWithLfoPattern(int sequenceIndex, Curve::Type shape, int firstStep, int lastStep) {
+    if (sequenceIndex >= 0 && sequenceIndex < static_cast<int>(_sequences.size())) {
+        _sequences[sequenceIndex].populateWithLfoPattern(shape, firstStep, lastStep);
+    }
+}
+
+void CurveTrack::populateWithLfoWaveform(int sequenceIndex, Curve::Type upShape, Curve::Type downShape, int firstStep, int lastStep) {
+    if (sequenceIndex >= 0 && sequenceIndex < static_cast<int>(_sequences.size())) {
+        _sequences[sequenceIndex].populateWithLfoWaveform(upShape, downShape, firstStep, lastStep);
+    }
+}
+
+void CurveTrack::populateWithSineWaveLfo(int sequenceIndex, int firstStep, int lastStep) {
+    if (sequenceIndex >= 0 && sequenceIndex < static_cast<int>(_sequences.size())) {
+        _sequences[sequenceIndex].populateWithSineWaveLfo(firstStep, lastStep);
+    }
+}
+
+void CurveTrack::populateWithTriangleWaveLfo(int sequenceIndex, int firstStep, int lastStep) {
+    if (sequenceIndex >= 0 && sequenceIndex < static_cast<int>(_sequences.size())) {
+        _sequences[sequenceIndex].populateWithTriangleWaveLfo(firstStep, lastStep);
+    }
+}
+
+void CurveTrack::populateWithSawtoothWaveLfo(int sequenceIndex, int firstStep, int lastStep) {
+    if (sequenceIndex >= 0 && sequenceIndex < static_cast<int>(_sequences.size())) {
+        _sequences[sequenceIndex].populateWithSawtoothWaveLfo(firstStep, lastStep);
+    }
+}
+
+void CurveTrack::populateWithSquareWaveLfo(int sequenceIndex, int firstStep, int lastStep) {
+    if (sequenceIndex >= 0 && sequenceIndex < static_cast<int>(_sequences.size())) {
+        _sequences[sequenceIndex].populateWithSquareWaveLfo(firstStep, lastStep);
+    }
+}
