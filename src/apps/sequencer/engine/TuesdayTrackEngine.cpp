@@ -1896,8 +1896,9 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     // Calculate base cooldown from power
     // Linear mapping: Power = number of notes per 16 steps
     // Use fixed reference length for consistent density regardless of loop length
-    int effectiveLength = 16;  // Fixed reference for density calculations
-    int baseCooldown = (power > 0) ? effectiveLength / power : effectiveLength;
+    // int effectiveLength = 16;  // Fixed reference for density calculations
+    // int baseCooldown = (power > 0) ? effectiveLength / power : effectiveLength;
+    int baseCooldown = 17 - power;
     if (baseCooldown < 1) baseCooldown = 1;
 
     // Apply skew to cooldown based on loop position
