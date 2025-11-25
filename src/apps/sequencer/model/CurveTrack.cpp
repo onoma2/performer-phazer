@@ -34,7 +34,7 @@ void CurveTrack::clear() {
     setGateProbabilityBias(0);
     setGlobalPhase(0.f);
     setWavefolderFold(0.f);
-    setWavefolderGain(1.f);
+    setWavefolderGain(0.f);  // Standard gain maps to 0.0 in the new UI system
     setWavefolderSymmetry(0.f);
     setDjFilter(0.f);
     setFoldF(0.f);
@@ -83,10 +83,15 @@ void CurveTrack::read(VersionedSerializedReader &reader) {
     if (reader.dataVersion() >= ProjectVersion::Version43) {
         reader.read(_wavefolderFold);
         reader.read(_wavefolderGain);
+        // For projects created with the old 1.0-5.0 range, convert to new 0.0-2.0 range
+        // Old: 1.0 (min) -> New: 0.0 (min), Old: 5.0 (max) -> New: 2.0 (max)
+        // Use the inverse of the engine mapping: (internalGain - 1.0) / 2.0
+        _wavefolderGain = (_wavefolderGain - 1.0f) / 2.0f;
+        _wavefolderGain = clamp(_wavefolderGain, 0.f, 2.f);
         reader.read(_wavefolderSymmetry);
     } else {
         setWavefolderFold(0.f);
-        setWavefolderGain(1.f);
+        setWavefolderGain(0.f);  // Standard gain maps to 0.0 in the new UI system
         setWavefolderSymmetry(0.f);
     }
     if (reader.dataVersion() >= ProjectVersion::Version44) {

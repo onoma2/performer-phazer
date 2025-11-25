@@ -219,7 +219,7 @@ public:
     // wavefolderGain
 
     float wavefolderGain() const { return _wavefolderGain; }
-    void setWavefolderGain(float value) { _wavefolderGain = clamp(value, 1.f, 5.f); }
+    void setWavefolderGain(float value) { _wavefolderGain = clamp(value, 0.f, 2.f); }
     void editWavefolderGain(int value, bool shift) { setWavefolderGain(wavefolderGain() + value * (shift ? 0.1f : 0.01f)); }
     void printWavefolderGain(StringBuilder &str) const { str("%.2f", wavefolderGain()); }
 

@@ -9,10 +9,28 @@
 #include "core/utils/Random.h"
 #include "core/math/Math.h"
 
+#include <cmath>
+#include <algorithm>
+
 #include "model/Curve.h"
 #include "model/Types.h"
 
 static Random rng;
+
+// Convert linear feedback value to logarithmic scale for smoother control
+static float linearToLogarithmicFeedback(float linearValue) {
+    // Use a logarithmic curve to make low values more controllable
+    // The function maps 0.0-1.0 input to 0.0-1.0 output but with logarithmic response
+    // This makes low values more granular and high values less dramatic
+    if (linearValue <= 0.0f) return 0.0f;
+    if (linearValue >= 1.0f) return 1.0f;
+
+    // Logarithmic curve: map 0-1 to 0-1 but with more sensitivity at low values
+    // Using a function like: log_base(value + 1) which gives log(1)=0 to log(2)≈0.69
+    // Then scale to fit 0-1 range
+    float logValue = log10f(linearValue * 9.0f + 1.0f) / log10f(10.0f); // log10 base
+    return logValue;
+}
 
 static float applyDjFilter(float input, float &lpfState, float control, float resonance) {
     // 1. Dead zone
@@ -30,11 +48,24 @@ static float applyDjFilter(float input, float &lpfState, float control, float re
 
     // Add resonance (filter-to-filter feedback)
     // The feedback is from the previous output of the LPF (lpfState)
-    float feedback = resonance * 4.f; // Scale resonance for a stronger effect
+    // Convert linear resonance to logarithmic scale for smoother control
+    float logResonance = linearToLogarithmicFeedback(resonance);
+
+    // Limit resonance feedback to prevent self-oscillation
+    // When filter is at extreme settings, reduce feedback to prevent instability
+    float absControl = std::abs(control);
+    if (absControl > 0.7f) {  // Reduce feedback when filter is at higher settings
+        logResonance *= (1.0f - (absControl - 0.7f) * 0.8f);  // Reduce resonance effect as filter increases
+    }
+
+    float feedback = logResonance * 1.5f; // Further reduced from 2.f to be more conservative
     float feedback_input = input - lpfState * feedback;
 
     // Update the internal LPF state
     lpfState = lpfState + alpha * (feedback_input - lpfState);
+
+    // Apply hard limiting to lpfState to prevent internal state from growing without bounds
+    lpfState = std::max(-6.0f, std::min(6.0f, lpfState)); // Allow slightly more than output range internally
 
     // 2. Correct LPF/HPF mapping
     if (control < 0.f) { // LPF
@@ -57,6 +88,52 @@ static float applyWavefolder(float input, float fold, float gain, float symmetry
     float folded_output = sinf(gained_input * M_PI * fold_count);
     // map back from [-1, 1] to [0, 1]
     return (folded_output + 1.f) * 0.5f;
+}
+
+// LFO-appropriate limiter function to tame high resonance and ensure max 5V output
+static float applyLfoLimiting(float input, float resonance) {
+    // Higher resonance requires more aggressive limiting
+    float threshold = 5.0f - (resonance * 3.0f); // Lower threshold as resonance increases
+    // Ensure we never exceed 5V absolute maximum
+    float maxThreshold = 5.0f;
+    threshold = std::max(0.5f, std::min(threshold, maxThreshold)); // Clamp between 0.5V and 5V
+
+    // Apply hard limit to ensure output stays within ±5V
+    input = std::max(-maxThreshold, std::min(maxThreshold, input));
+
+    return input;
+}
+
+static float calculateAmplitudeCompensation(float fold, float filterControl, float filterResonance) {
+    // No compensation needed if there's no folding
+    if (fold < 0.01f) {
+        return 1.0f;
+    }
+
+    // Calculate base compensation based on fold amount
+    // Higher fold creates more harmonics that get filtered out
+    float foldCompensation = 1.0f + (fold * 0.8f); // Base compensation for folding
+
+    // Adjust based on filter type and cutoff
+    float filterCompensation = 1.0f;
+    if (filterControl < 0.0f) { // LPF
+        // For LPF, more compensation needed when cutoff is low (more harmonics filtered)
+        float absFilterControl = std::abs(filterControl);
+        filterCompensation = 1.0f + (absFilterControl * 0.3f);
+    } else if (filterControl > 0.0f) { // HPF
+        // For HPF, compensation increases as more of the fundamental is cut
+        filterCompensation = 1.0f + (filterControl * 0.5f);
+    }
+
+    // Factor in resonance effect - but reduce the compensation at high resonance to prevent overloading
+    // High resonance can cause significant output increases which should be handled separately by limiting
+    float resonanceCompensation = 1.0f + (filterResonance * 0.1f); // Reduced from 0.2f
+
+    // Combine all compensation factors
+    float compensation = foldCompensation * filterCompensation * resonanceCompensation;
+
+    // Apply upper limit to prevent excessive amplification
+    return clamp(compensation, 1.0f, 2.5f); // Reduced from 3.0f to be more conservative
 }
 
 static float evalStepShape(const CurveSequence::Step &step, bool variation, bool invert, float fraction) {
@@ -309,12 +386,20 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         float fold = _curveTrack.wavefolderFold();
         float shaperFeedback = _curveTrack.foldF();
 
-        // 3. Apply shaper feedback (filter-to-fold)
-        float folderInput = value + _feedbackState * shaperFeedback;
+        // 3. Apply shaper feedback (filter-to-fold) only if wavefolding is active
+        float folderInput = value;
+        if (fold > 0.0f) {
+            // Apply logarithmic transformation to Fold-F for smoother control
+            float logShaperFeedback = linearToLogarithmicFeedback(shaperFeedback);
+            folderInput = value + _feedbackState * logShaperFeedback;
+        }
 
         // 4. Apply wavefolder if enabled
         if (fold > 0.f) {
-            float gain = _curveTrack.wavefolderGain();
+            float uiGain = _curveTrack.wavefolderGain();
+            // Map UI gain from 0.0-2.0 to internal gain range 1.0-5.0
+            // 0.0 (standard) -> 1.0, 1.0 (extra) -> 3.0, 2.0 (extreme) -> 5.0
+            float gain = 1.0f + (uiGain * 2.0f);
             float symmetry = _curveTrack.wavefolderSymmetry();
             // Apply exponential curve to fold control for better resolution
             float fold_exp = fold * fold;
@@ -330,11 +415,22 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         // The filter is always active to calculate state, but only applied if control is not 0
         voltage = applyDjFilter(voltage, _lpfState, filterControl, filterResonance);
 
-        // 7. Update feedback state for next tick
-        _feedbackState = voltage;
+        // 6. Apply amplitude compensation for filtering effects (when filter is active)
+        // This accounts for amplitude changes from the filter even when no wavefolding occurs
+        if (filterControl < -0.02f || filterControl > 0.02f) {
+            float compensation = calculateAmplitudeCompensation(fold, filterControl, filterResonance);
+            voltage *= compensation;
+        }
 
-        // 8. Set final target
-        _cvOutputTarget = voltage;
+        // 7. Apply LFO-appropriate limiting to tame high resonance and ensure max 5V output
+        voltage = applyLfoLimiting(voltage, filterResonance);
+
+        // 8. Update feedback state for next tick (after compensation and limiting)
+        // Apply additional limiting to feedback state to prevent runaway feedback
+        _feedbackState = std::max(-4.0f, std::min(4.0f, voltage)); // Keep feedback state within ±4V
+
+        // 9. Apply final hard limiting to ensure output never exceeds ±5V
+        _cvOutputTarget = std::max(-5.0f, std::min(5.0f, voltage));
     }
 
     _engine.midiOutputEngine().sendCv(_track.trackIndex(), _cvOutputTarget);
