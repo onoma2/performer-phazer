@@ -141,9 +141,10 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "STEPS");
 
+    const auto &track = _project.selectedTrack().curveTrack();
+
     // Show phase offset value when in phase edit mode
     if (_phaseEditMode) {
-        const auto &track = _project.selectedTrack().curveTrack();
         FixedStringBuilder<16> str("PHASE: ");
         track.printGlobalPhase(str);
         WindowPainter::drawActiveFunction(canvas, str);
@@ -279,6 +280,13 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
     if (isActiveSequence) {
         canvas.setColor(Color::Bright);
         int x = ((trackEngine.currentStep() - stepOffset) + trackEngine.currentStepFraction()) * stepWidth;
+        canvas.vline(x, curveY, curveHeight);
+    }
+
+    // draw ghost cursor
+    if (isActiveSequence && track.globalPhase() > 0.f) {
+        canvas.setColor(Color::MediumLow);
+        int x = ((trackEngine.phasedStep() - stepOffset) + trackEngine.phasedStepFraction()) * stepWidth;
         canvas.vline(x, curveY, curveHeight);
     }
 

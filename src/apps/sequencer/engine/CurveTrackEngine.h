@@ -40,6 +40,9 @@ public:
     int currentStep() const { return _currentStep; }
     float currentStepFraction() const { return _currentStepFraction; }
 
+    int phasedStep() const { return _phasedStep; }
+    float phasedStepFraction() const { return _phasedStepFraction; }
+
     enum class MonitorLevel { Min, Max };
 
     void setMonitorStep(int index) { _monitorStepIndex = (index >= 0 && index < CONFIG_STEP_COUNT) ? index : -1; }
@@ -70,6 +73,10 @@ private:
     float _currentStepFraction;
     bool _shapeVariation;
     CurveTrack::FillMode _fillMode;
+
+    int _phasedStep;
+    float _phasedStepFraction;
+
 
     bool _activity;
     bool _gateOutput;

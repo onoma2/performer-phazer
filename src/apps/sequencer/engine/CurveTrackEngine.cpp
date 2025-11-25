@@ -39,6 +39,8 @@ void CurveTrackEngine::reset() {
     _sequenceState.reset();
     _currentStep = -1;
     _currentStepFraction = 0.f;
+    _phasedStep = -1;
+    _phasedStepFraction = 0.f;
     _shapeVariation = false;
     _fillMode = CurveTrack::FillMode::None;
     _activity = false;
@@ -54,6 +56,8 @@ void CurveTrackEngine::restart() {
     _sequenceState.reset();
     _currentStep = -1;
     _currentStepFraction = 0.f;
+    _phasedStep = -1;
+    _phasedStepFraction = 0.f;
 }
 
 TrackEngine::TickResult CurveTrackEngine::tick(uint32_t tick) {
@@ -215,6 +219,8 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
             updateRecordValue();
             _cvOutputTarget = range.denormalize(_recordValue);
         }
+        _phasedStep = _currentStep;
+        _phasedStepFraction = _currentStepFraction;
     } else {
         bool fillVariation = _fillMode == CurveTrack::FillMode::Variation;
         bool fillNextPattern = _fillMode == CurveTrack::FillMode::NextPattern;
@@ -243,6 +249,9 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
             lookupFraction = _currentStepFraction;
         }
         
+        _phasedStep = lookupStep;
+        _phasedStepFraction = lookupFraction;
+
         const auto &step = evalSequence.step(lookupStep);
 
         float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, lookupFraction);
