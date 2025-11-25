@@ -146,9 +146,9 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
     const auto &sequence = _project.selectedCurveSequence();
     bool isActiveSequence = trackEngine.isActiveSequence(sequence);
 
-    if (_editMode == EditMode::Wavefolder) {
+    if (_editMode == EditMode::Wavefolder1) {
         // Draw Wavefolder UI
-        WindowPainter::drawActiveFunction(canvas, "WAVEFOLDER");
+        WindowPainter::drawActiveFunction(canvas, "WAVEFOLDER 1");
         const char *wavefolderFunctionNames[5] = { "FOLD", "GAIN", "SYM", "FILTER", "NEXT" };
         WindowPainter::drawFooter(canvas, wavefolderFunctionNames, pageKeyState(), _wavefolderRow);
 
@@ -223,7 +223,82 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
             }
         }
 
+    } else if (_editMode == EditMode::Wavefolder2) {
+        // Draw Wavefolder 2 UI
+        WindowPainter::drawActiveFunction(canvas, "WAVEFOLDER 2");
+        const char *wavefolderFunctionNames[5] = { "FOLD-F", "FILTER-F", "", "", "BACK" };
+        WindowPainter::drawFooter(canvas, wavefolderFunctionNames, pageKeyState(), _wavefolderRow);
+
+        const int colWidth = 51;
+        const int valueY = 26;
+        const int barY = 32;
+        const int barHeight = 4;
+        const int barWidth = 40;
+
+        for (int i = 0; i < 2; ++i) { // Only 2 parameters for now
+            int x = i * colWidth;
+            int barX = x + (colWidth - barWidth) / 2;
+
+            float value = 0.f;
+            float max = 1.f;
+            bool bipolar = false;
+            FixedStringBuilder<16> valueStr;
+
+            // Get data for the current parameter
+            switch (i) {
+            case 0: // FOLD-F
+                value = track.foldF();
+                track.printFoldF(valueStr);
+                break;
+            case 1: // FILTER-F
+                value = track.filterF();
+                max = 1.f;
+                bipolar = false; // Filter resonance is 0-1
+                track.printFilterF(valueStr);
+                break;
+            }
+
+            // Draw numeric value
+            canvas.setFont(Font::Tiny);
+            canvas.setColor((i == _wavefolderRow) ? Color::Bright : Color::Medium);
+            int textWidth = canvas.textWidth(valueStr);
+            int textX = x + (colWidth - textWidth) / 2;
+            canvas.drawText(textX, valueY, valueStr);
+
+            // Draw bar
+            canvas.setColor(Color::Bright);
+            if (bipolar) {
+                int center = barX + barWidth / 2;
+                if (value > 0) {
+                    int fillWidth = (value * barWidth / 2) / max;
+                    canvas.fillRect(center, barY, fillWidth, barHeight);
+                } else if (value < 0) {
+                    int fillWidth = (-value * barWidth / 2) / max;
+                    canvas.fillRect(center - fillWidth, barY, fillWidth, barHeight);
+                }
+                canvas.setColor(Color::Medium);
+                canvas.vline(center, barY, barHeight);
+            } else {
+                int fillWidth = (value * barWidth) / max;
+                if (fillWidth > 0) {
+                    canvas.fillRect(barX, barY, fillWidth, barHeight);
+                }
+            }
+        }
+
     } else {
+        // Draw Step/Phase UI
+        if (_editMode == EditMode::GlobalPhase) {
+            FixedStringBuilder<16> str("PHASE: ");
+            track.printGlobalPhase(str);
+            WindowPainter::drawActiveFunction(canvas, str);
+        } else {
+            WindowPainter::drawActiveFunction(canvas, CurveSequence::layerName(layer()));
+        }
+
+        WindowPainter::drawFooter(canvas, functionNames, pageKeyState(), activeFunctionKey());
+
+        canvas.setBlendMode(BlendMode::Add);
         // Draw Step/Phase UI
         if (_editMode == EditMode::GlobalPhase) {
             FixedStringBuilder<16> str("PHASE: ");
@@ -445,9 +520,16 @@ void CurveSequenceEditPage::keyPress(KeyPressEvent &event) {
     updateMonitorStep();
 
     if (key.isFunction()) {
-        if (_editMode == EditMode::Wavefolder) {
+        if (_editMode == EditMode::Wavefolder1) {
             int function = key.function();
             if (function >= 0 && function < 4) {
+                _wavefolderRow = function;
+                event.consume();
+                return;
+            }
+        } else if (_editMode == EditMode::Wavefolder2) {
+            int function = key.function();
+            if (function >= 0 && function < 2) { // Only F1 and F2 for these 2 parameters
                 _wavefolderRow = function;
                 event.consume();
                 return;
@@ -486,7 +568,7 @@ void CurveSequenceEditPage::encoder(EncoderEvent &event) {
         track.editGlobalPhase(event.value(), shift);
         event.consume();
         return;
-    case EditMode::Wavefolder:
+    case EditMode::Wavefolder1:
         if (event.pressed()) {
             _wavefolderRow = clamp(_wavefolderRow + event.value(), 0, 3);
         } else {
@@ -495,6 +577,17 @@ void CurveSequenceEditPage::encoder(EncoderEvent &event) {
             case 1: track.editWavefolderGain(event.value(), shift); break;
             case 2: track.editWavefolderSymmetry(event.value(), shift); break;
             case 3: track.editDjFilter(event.value(), shift); break;
+            }
+        }
+        event.consume();
+        return;
+    case EditMode::Wavefolder2:
+        if (event.pressed()) {
+            _wavefolderRow = clamp(_wavefolderRow + event.value(), 0, 1);
+        } else {
+            switch (_wavefolderRow) {
+            case 0: track.editFoldF(event.value(), shift); break;
+            case 1: track.editFilterF(event.value(), shift); break;
             }
         }
         event.consume();
@@ -581,10 +674,14 @@ void CurveSequenceEditPage::switchLayer(int functionKey, bool shift) {
             _editMode = EditMode::GlobalPhase;
             break;
         case EditMode::GlobalPhase:
-            _editMode = EditMode::Wavefolder;
+            _editMode = EditMode::Wavefolder1;
             _wavefolderRow = 0; // Reset row selection
             break;
-        case EditMode::Wavefolder:
+        case EditMode::Wavefolder1:
+            _editMode = EditMode::Wavefolder2;
+            _wavefolderRow = 0; // Reset row selection for page 2
+            break;
+        case EditMode::Wavefolder2:
             _editMode = EditMode::Step;
             _stepSelection.clear();
             break;
@@ -660,7 +757,7 @@ void CurveSequenceEditPage::switchLayer(int functionKey, bool shift) {
 }
 
 int CurveSequenceEditPage::activeFunctionKey() {
-    if (_editMode == EditMode::GlobalPhase || _editMode == EditMode::Wavefolder) {
+    if (_editMode == EditMode::GlobalPhase || _editMode == EditMode::Wavefolder1 || _editMode == EditMode::Wavefolder2) {
         return 4; // Function::Phase
     }
 

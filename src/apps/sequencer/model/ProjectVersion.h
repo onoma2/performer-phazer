@@ -117,6 +117,9 @@ enum ProjectVersion {
     // added CurveTrack dj filter
     Version44 = 44,
 
+    // added CurveTrack feedback parameters
+    Version45 = 45,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

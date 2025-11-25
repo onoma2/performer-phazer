@@ -14,7 +14,7 @@
 
 static Random rng;
 
-static float applyDjFilter(float input, float &lpfState, float control) {
+static float applyDjFilter(float input, float &lpfState, float control, float resonance) {
     // 1. Dead zone
     if (control > -0.02f && control < 0.02f) {
         return input;
@@ -22,18 +22,19 @@ static float applyDjFilter(float input, float &lpfState, float control) {
 
     float alpha;
     if (control < 0.f) { // LPF Mode (knob left)
-        // More turn (-> -1.0) = more filtering = lower alpha
         alpha = 1.f - std::abs(control);
     } else { // HPF Mode (knob right)
-        // More turn (-> +1.0) = more of a filtering effect.
-        // We remap the knob's travel to an effective alpha range that feels more linear.
         alpha = 0.1f + std::abs(control) * 0.85f;
     }
-    // The clamp and square can be applied to both to shape the response
-    alpha = clamp(alpha * alpha, 0.005f, 0.95f); // Clamp max to avoid instabilities
+    alpha = clamp(alpha * alpha, 0.005f, 0.95f);
+
+    // Add resonance (filter-to-filter feedback)
+    // The feedback is from the previous output of the LPF (lpfState)
+    float feedback = resonance * 4.f; // Scale resonance for a stronger effect
+    float feedback_input = input - lpfState * feedback;
 
     // Update the internal LPF state
-    lpfState = lpfState + alpha * (input - lpfState);
+    lpfState = lpfState + alpha * (feedback_input - lpfState);
 
     // 2. Correct LPF/HPF mapping
     if (control < 0.f) { // LPF
@@ -90,6 +91,7 @@ void CurveTrackEngine::reset() {
     _activity = false;
     _gateOutput = false;
     _lpfState = 0.f;
+    _feedbackState = 0.f;
 
     _recorder.reset();
     _gateQueue.clear();
@@ -104,6 +106,7 @@ void CurveTrackEngine::restart() {
     _phasedStep = -1;
     _phasedStepFraction = 0.f;
     _lpfState = 0.f;
+    _feedbackState = 0.f;
 }
 
 TrackEngine::TickResult CurveTrackEngine::tick(uint32_t tick) {
@@ -300,31 +303,38 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
 
         const auto &step = evalSequence.step(lookupStep);
 
-        // 1. Get the original normalized shape value
-        float shapeValue = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, lookupFraction);
+        float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, lookupFraction);
 
-        // 2. Get wavefolder parameters from the track
-        float fold_linear = _curveTrack.wavefolderFold();
-        // Apply an exponential curve for more fine-grained control at low values
-        float fold = fold_linear * fold_linear;
+        // 2. Get wavefolder and feedback parameters
+        float fold = _curveTrack.wavefolderFold();
+        float shaperFeedback = _curveTrack.foldF();
 
-        // 3. Apply wavefolder if enabled (fold > 0)
+        // 3. Apply shaper feedback (filter-to-fold)
+        float folderInput = value + _feedbackState * shaperFeedback;
+
+        // 4. Apply wavefolder if enabled
         if (fold > 0.f) {
             float gain = _curveTrack.wavefolderGain();
             float symmetry = _curveTrack.wavefolderSymmetry();
-            shapeValue = applyWavefolder(shapeValue, fold, gain, symmetry);
+            // Apply exponential curve to fold control for better resolution
+            float fold_exp = fold * fold;
+            folderInput = applyWavefolder(folderInput, fold_exp, gain, symmetry);
         }
 
-        // 4. Denormalize the final value to voltage
-        float value = range.denormalize(shapeValue);
+        // 5. Denormalize to voltage
+        float voltage = range.denormalize(folderInput);
 
-        // 5. Apply DJ Filter
+        // 6. Apply DJ Filter
         float filterControl = _curveTrack.djFilter();
-        if (filterControl != 0.f) {
-            value = applyDjFilter(value, _lpfState, filterControl);
-        }
+        float filterResonance = _curveTrack.filterF();
+        // The filter is always active to calculate state, but only applied if control is not 0
+        voltage = applyDjFilter(voltage, _lpfState, filterControl, filterResonance);
 
-        _cvOutputTarget = value;
+        // 7. Update feedback state for next tick
+        _feedbackState = voltage;
+
+        // 8. Set final target
+        _cvOutputTarget = voltage;
     }
 
     _engine.midiOutputEngine().sendCv(_track.trackIndex(), _cvOutputTarget);

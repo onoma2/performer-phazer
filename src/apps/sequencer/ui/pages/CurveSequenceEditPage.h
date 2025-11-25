@@ -61,7 +61,8 @@ private:
     enum class EditMode {
         Step,
         GlobalPhase,
-        Wavefolder,
+        Wavefolder1,
+        Wavefolder2
     };
 
     int _section = 0;

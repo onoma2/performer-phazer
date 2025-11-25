@@ -37,6 +37,8 @@ void CurveTrack::clear() {
     setWavefolderGain(1.f);
     setWavefolderSymmetry(0.f);
     setDjFilter(0.f);
+    setFoldF(0.f);
+    setFilterF(0.f);
 
     for (auto &sequence : _sequences) {
         sequence.clear();
@@ -57,6 +59,8 @@ void CurveTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_wavefolderGain);
     writer.write(_wavefolderSymmetry);
     writer.write(_djFilter);
+    writer.write(_foldF);
+    writer.write(_filterF);
     writeArray(writer, _sequences);
 }
 
@@ -89,6 +93,13 @@ void CurveTrack::read(VersionedSerializedReader &reader) {
         reader.read(_djFilter);
     } else {
         setDjFilter(0.f);
+    }
+    if (reader.dataVersion() >= ProjectVersion::Version45) {
+        reader.read(_foldF);
+        reader.read(_filterF);
+    } else {
+        setFoldF(0.f);
+        setFilterF(0.f);
     }
     readArray(reader, _sequences);
 }
