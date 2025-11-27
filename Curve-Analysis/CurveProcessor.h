@@ -75,7 +75,8 @@ public:
         bool invert = false;
 
         // Hardware simulation parameters
-        int dacResolutionBits = 16;        // PEW|FORMER uses 16-bit DAC (though effective resolution may vary)
+        int dacResolutionBits = 16;        // PEW|FORMER uses 16-bit DAC8568 (16-bit resolution)
+        float dacResolutionFloatProxy = 16.0f;  // Float proxy for UI control (matches dacResolutionBits)
         float dacUpdateRate = 1.0f;        // Update interval in milliseconds (PEW|FORMER: 1.0ms for 1000Hz update rate)
         float timingJitter = 0.0f;         // Timing inaccuracy in milliseconds (minimal in real hardware)
     };

@@ -148,9 +148,15 @@ private:
 
         // Hardware limitation controls
         y += 20;
-        m_controls.push_back({"DAC Resolution (bits)", (float*)&m_params.dacResolutionBits, 8.0f, 24.0f, 1.0f, {250, y, controlWidth, controlHeight}, false, {0,0,0,0}}); y += controlHeight + spacing;
-        m_controls.push_back({"DAC Update Rate", &m_params.dacUpdateRate, 0.001f, 10.0f, 0.001f, {250, y, controlWidth, controlHeight}, false, {0,0,0,0}}); y += controlHeight + spacing;  // Update rate in ms (0.001ms to 10ms)
-        m_controls.push_back({"Timing Jitter (ms)", &m_params.timingJitter, 0.0f, 1.0f, 0.01f, {250, y, controlWidth, controlHeight}, false, {0,0,0,0}}); y += controlHeight + spacing;  // Reduced jitter range
+        // Add a float proxy for the dacResolutionBits integer parameter to work with the control system
+        // We'll handle conversion in the update method
+        m_controls.push_back({"DAC Resolution (bits)", &m_params.dacResolutionFloatProxy, 12.0f, 16.0f, 1.0f, {250, y, controlWidth, controlHeight}, false, {0,0,0,0}}); y += controlHeight + spacing;  // PEW|FORMER uses 16-bit DAC8568
+        m_controls.push_back({"DAC Update Rate", &m_params.dacUpdateRate, 0.1f, 5.0f, 0.001f, {250, y, controlWidth, controlHeight}, false, {0,0,0,0}}); y += controlHeight + spacing;  // Update rate in ms (0.1ms to 5ms, default 1.0ms for 1000Hz)
+        m_controls.push_back({"Timing Jitter (ms)", &m_params.timingJitter, 0.0f, 0.5f, 0.01f, {250, y, controlWidth, controlHeight}, false, {0,0,0,0}}); y += controlHeight + spacing;  // Reduced jitter range (real hardware has minimal jitter)
+
+        // Fine control for foldF parameter (0.0 to 0.1 with high precision)
+        y += 20;
+        m_controls.push_back({"Fine Fold-F (0.0-0.1)", &m_params.foldF, 0.0f, 0.1f, 0.0001f, {250, y, controlWidth, controlHeight}, false, {0,0,0,0}}); y += controlHeight + spacing;  // Fine control for foldF
     }
 
     void resetControls() {
@@ -277,14 +283,25 @@ private:
 
         // Update positions for hardware limitation controls (last 3)
         y += 20;
-        for (int i = 23; i < static_cast<int>(m_controls.size()); ++i) {
+        for (int i = 23; i < 26; ++i) { // Hardware limitation controls from index 23 to 25
             m_controls[i].rect = {controlX, y, controlWidth, controlHeight};
+            y += controlHeight + spacing;
+        }
+
+        // Update position for fine foldF control (last one)
+        if (m_controls.size() > 26) {
+            m_controls[26].rect = {controlX, y, controlWidth, controlHeight};
             y += controlHeight + spacing;
         }
     }
 
     void update() {
         updateControlsLayout();  // Update control positions based on window size
+
+        // Sync the integer dacResolutionBits with its float proxy for UI control
+        m_params.dacResolutionBits = static_cast<int>(m_params.dacResolutionFloatProxy);
+        // Ensure the float proxy matches the integer value (in case it was truncated)
+        m_params.dacResolutionFloatProxy = static_cast<float>(m_params.dacResolutionBits);
 
         m_params.min = m_min;
         m_params.max = m_max;
@@ -337,6 +354,50 @@ private:
             int x = controlPanelWidth + margin + col * (graphWidth + margin);
             int y = topMargin + margin + row * (graphHeight + margin + 30);
             drawGraph(graphs[i].first, *graphs[i].second, i, x, y, graphWidth, graphHeight);
+
+            // For the hardware limited output plot, detect and visualize stair-stepping artifacts
+            if (i == 5) {  // Hardware Limited Output plot
+                // Calculate differences between Final Output and Hardware Limited Output
+                const auto& finalOutput = m_signalData.finalOutput;
+                const auto& hardwareLimited = m_signalData.hardwareLimitedOutput;
+
+                if (finalOutput.size() == hardwareLimited.size() && !finalOutput.empty()) {
+                    float maxDiff = 0.0f;
+                    for (size_t j = 0; j < finalOutput.size(); ++j) {
+                        float diff = std::abs(finalOutput[j] - hardwareLimited[j]);
+                        maxDiff = std::max(maxDiff, diff);
+                    }
+
+                    // If difference is significant, indicate stair-stepping artifacts
+                    if (maxDiff > 0.1f) {  // Threshold for significant difference
+                        // Draw a red border around the graph to indicate stair-stepping
+                        SDL_SetRenderDrawColor(m_renderer, 255, 0, 0, 255);  // Red
+                        SDL_Rect border = {x, y, graphWidth, graphHeight};
+                        SDL_RenderDrawRect(m_renderer, &border);
+
+                        // Add an overlay indicator
+                        SDL_SetRenderDrawColor(m_renderer, 255, 0, 0, 100);  // Semi-transparent red
+                        SDL_Rect overlay = {x, y, graphWidth, graphHeight};
+                        SDL_RenderFillRect(m_renderer, &overlay);
+
+#ifdef HAS_SDL2_TTF
+                        if (m_font) {
+                            renderText("STAIR-STEPPING!", x + 10, y + 10, {255, 255, 255, 255});
+                        }
+#endif
+                    } else if (maxDiff > 0.05f) {  // Moderate difference
+                        // Draw an orange border
+                        SDL_SetRenderDrawColor(m_renderer, 255, 165, 0, 255);  // Orange
+                        SDL_Rect border = {x, y, graphWidth, graphHeight};
+                        SDL_RenderDrawRect(m_renderer, &border);
+
+                        // Add a semi-transparent overlay
+                        SDL_SetRenderDrawColor(m_renderer, 255, 165, 0, 50);  // Semi-transparent orange
+                        SDL_Rect overlay = {x, y, graphWidth, graphHeight};
+                        SDL_RenderFillRect(m_renderer, &overlay);
+                    }
+                }
+            }
         }
     }
 

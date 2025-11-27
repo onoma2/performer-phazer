@@ -86,3 +86,29 @@ This tool now accurately models the real hardware constraints found in the PEW|F
 - The tool includes performance monitoring to show CPU usage as percentage of available time
 - Time budget calculation based on sample rate and buffer size
 - Visual indicators alert when processing approaches hardware limits
+
+## Additional Implemented Features
+
+### Stair-Stepping Detection
+- Visual indicators on the "Hardware Limited Output" plot to show when stair-stepping artifacts occur
+- Red border and overlay with "STAIR-STEPPING!" text when differences exceed 0.1 threshold
+- Orange border for moderate differences (0.05-0.1 range)
+- Real-time detection comparing final output vs hardware-limited output
+
+### Fine Parameter Controls
+- Added fine control for foldF parameter (0.0-0.1 range with 0.0001 precision)
+- Allows precise adjustment of feedback from filter to wavefolder
+- 1000 steps for fine-tuning subtle effects
+
+### Improved UI and Responsiveness
+- Fixed integer-to-float control mapping to prevent memory access issues
+- Resizable window support with proper control repositioning
+- High-DPI display support for Retina and other high-resolution screens
+- Responsive layout that adapts to window size changes
+- Controls properly positioned and spaced
+
+### Updated Hardware Parameters
+- DAC Resolution control: 12-16 bits range (default 16 bits)
+- DAC Update Rate control: 0.1-5.0ms range (default 1.0ms for 1000Hz update rate)
+- Timing Jitter control: 0.0-0.5ms range (reflecting minimal jitter of real hardware)
+- All defaults set to match actual PEW|FORMER hardware specifications
