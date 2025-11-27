@@ -86,14 +86,23 @@ public:
         std::vector<float> spectrum_oversampled;
     };
 
+    struct PerformanceData {
+        float processTimeMs = 0.0f;      // Time taken for the process function in milliseconds
+        float timeBudgetMs = 0.0f;       // Available time budget for processing
+        float cpuUsagePercent = 0.0f;    // CPU usage as a percentage of available time
+        int sampleRate = 48000;          // The sample rate being used
+    };
+
     CurveProcessor(int bufferSize = 1024);
     ~CurveProcessor() = default;
 
     SignalData process(const Parameters& params, int sampleRate = 48000);
     void resetStates();
+    const PerformanceData& getPerformance() const { return m_performance; }
 
 private:
     int _bufferSize;
     float _lpfState;
     float _feedbackState;
+    PerformanceData m_performance;
 };

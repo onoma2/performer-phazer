@@ -161,10 +161,16 @@ static void process_once(const CurveProcessor::Parameters& params, CurveProcesso
 }
 
 
+#include <chrono>
+
 CurveProcessor::SignalData CurveProcessor::process(const CurveProcessor::Parameters& params, int sampleRate) {
     (void)sampleRate;
+
+    // Start timing the main process
+    auto start = std::chrono::high_resolution_clock::now();
+
     SignalData data;
-    
+
     // Process at normal sample rate
     data.originalSignal.resize(_bufferSize);
     data.phasedSignal.resize(_bufferSize); // Not used anymore, but let's keep it for now
@@ -208,6 +214,19 @@ CurveProcessor::SignalData CurveProcessor::process(const CurveProcessor::Paramet
         default: oversample_source_vector = &oversample_data.finalOutput; break;
     }
     data.spectrum_oversampled = computeSpectrum(*oversample_source_vector, true);
+
+    // End timing and calculate performance metrics
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    float totalProcessTimeMs = duration.count() / 1000.0f;  // Convert to milliseconds
+
+    // Calculate time per sample (average)
+    float timePerSampleMs = totalProcessTimeMs / _bufferSize;
+
+    m_performance.processTimeMs = totalProcessTimeMs;
+    m_performance.sampleRate = sampleRate;
+    m_performance.timeBudgetMs = 1000.0f / sampleRate;  // Time budget per sample in ms
+    m_performance.cpuUsagePercent = (timePerSampleMs / m_performance.timeBudgetMs) * 100.0f;
 
     return data;
 }

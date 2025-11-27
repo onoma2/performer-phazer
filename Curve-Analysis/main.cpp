@@ -315,14 +315,99 @@ private:
             {"Post Wavefolder", &m_signalData.postWavefolder},
             {"Post Filter", &m_signalData.postFilter},
             {"Post Compensation", &m_signalData.postCompensation},
-            {"Final Output", &m_signalData.finalOutput}
+            {"Final Output", &m_signalData.finalOutput},
+            {"Time Budget Estimation", &m_signalData.finalOutput}  // Using final output but with time budget overlay
         };
+
+        // Create an estimated time budget visualization based on signal characteristics
+        std::vector<float> estimatedTimeBudget;
+        if (!m_signalData.finalOutput.empty()) {
+            estimatedTimeBudget.resize(m_signalData.finalOutput.size());
+            const auto& perf = m_processor.getPerformance();
+
+            // Estimate time budget based on signal characteristics
+            // More complex signals (rapid changes, extreme values) may consume more CPU time
+            for (size_t i = 0; i < m_signalData.finalOutput.size(); ++i) {
+                float value = m_signalData.finalOutput[i];
+                float complexity = 0.0f;
+
+                // Calculate signal complexity based on absolute value and rate of change
+                if (i > 0) {
+                    float rateOfChange = std::abs(m_signalData.finalOutput[i] - m_signalData.finalOutput[i-1]);
+                    complexity = rateOfChange * 50.0f;  // Amplify for visibility
+
+                    // Also consider absolute value (extreme values may require more processing)
+                    complexity += std::abs(value) * 0.1f;
+                }
+
+                // Normalize to a percentage of the total CPU usage
+                float estimatedUsage = perf.cpuUsagePercent + (complexity * perf.cpuUsagePercent / 100.0f);
+
+                // Cap it to the maximum possible usage
+                estimatedTimeBudget[i] = std::min(estimatedUsage, 100.0f);
+            }
+        }
 
         for (size_t i = 0; i < graphs.size(); ++i) {
             int row = i / 3, col = i % 3;
             int x = controlPanelWidth + margin + col * (graphWidth + margin);
             int y = topMargin + margin + row * (graphHeight + margin + 30);
             drawGraph(graphs[i].first, *graphs[i].second, i, x, y, graphWidth, graphHeight);
+
+            // For the time budget estimation plot, show a visualization of time consumption
+            if (i == 5) {  // Time budget estimation plot
+                const auto& perf = m_processor.getPerformance();
+
+                // Draw estimated time budget as a waveform representing processing load variation
+                if (!estimatedTimeBudget.empty()) {
+                    SDL_SetRenderDrawColor(m_renderer, 100, 100, 255, 255); // Light blue for estimated time budget
+
+                    for (size_t j = 1; j < estimatedTimeBudget.size(); ++j) {
+                        float prevX = x + (j-1) * graphWidth / float(estimatedTimeBudget.size()-1);
+                        float currX = x + j * graphWidth / float(estimatedTimeBudget.size()-1);
+
+                        float prevY = y + graphHeight - (estimatedTimeBudget[j-1] * graphHeight / 100.0f);
+                        float currY = y + graphHeight - (estimatedTimeBudget[j] * graphHeight / 100.0f);
+
+                        SDL_RenderDrawLine(m_renderer, static_cast<int>(prevX), static_cast<int>(prevY),
+                                           static_cast<int>(currX), static_cast<int>(currY));
+                    }
+                }
+
+                // Draw a horizontal line representing the 100% time budget threshold (at bottom)
+                SDL_SetRenderDrawColor(m_renderer, 255, 0, 0, 255);  // Red line
+                SDL_RenderDrawLine(m_renderer, x, y + graphHeight, x + graphWidth, y + graphHeight);
+
+                // Draw another line representing the average CPU usage
+                int avgUsageY = y + graphHeight - static_cast<int>(perf.cpuUsagePercent * graphHeight / 100.0f);
+                SDL_SetRenderDrawColor(m_renderer, 0, 255, 0, 255);  // Green line
+                SDL_RenderDrawLine(m_renderer, x, avgUsageY, x + graphWidth, avgUsageY);
+
+                // Draw a warning area if the average CPU usage is high
+                if (perf.cpuUsagePercent > 95.0f) {
+                    SDL_SetRenderDrawColor(m_renderer, 255, 0, 0, 100);  // Red with transparency
+                    SDL_Rect warningRect = {x, avgUsageY, graphWidth, y + graphHeight - avgUsageY};
+                    SDL_RenderFillRect(m_renderer, &warningRect);
+                } else if (perf.cpuUsagePercent > 80.0f) {
+                    SDL_SetRenderDrawColor(m_renderer, 255, 255, 0, 100);  // Yellow with transparency
+                    SDL_Rect warningRect = {x, avgUsageY, graphWidth, y + graphHeight - avgUsageY};
+                    SDL_RenderFillRect(m_renderer, &warningRect);
+                }
+
+                // Add text label for the lines
+                SDL_SetRenderDrawColor(m_renderer, 255, 255, 255, 255);
+#ifdef HAS_SDL2_TTF
+                if (m_font) {
+                    char label[64];
+                    snprintf(label, sizeof(label), "%.1f%% Avg CPU", perf.cpuUsagePercent);
+                    renderText(label, x + 5, avgUsageY - 15, {0, 255, 0, 255});
+                    renderText("100% Budget", x + 5, y + graphHeight - 15, {255, 0, 0, 255});
+
+                    // Add a label explaining the visualization
+                    renderText("Est. Processing Load", x + 5, y + 5, {100, 100, 255, 255});
+                }
+#endif
+            }
         }
     }
 
@@ -499,22 +584,46 @@ private:
     void drawInfo() {
 #ifdef HAS_SDL2_TTF
         if (m_font) {
-            int y = 800;
-            renderText("Shape: " + std::string(Curve::name(m_selectedShape)), 20, y, {255,255,255,255}); y+=20;
-            renderText("Voltage Range: " + std::string(voltageRangeName(m_params.range)) + " (L to change)", 20, y, {255,255,255,255}); y+=20;
-            renderText("Controls: R-reset, S-var, I-inv, 1-8-shapes", 20, y, {255,255,255,255}); y+=20;
-            renderText("Sample Rate: " + std::to_string(m_sampleRate) + "Hz (Z-M)", 20, y, {255,255,255,255}); y+=20;
-            
+            // Get window dimensions to calculate positioning
+            int winWidth, winHeight;
+            SDL_GetWindowSize(m_window, &winWidth, &winHeight);
+
+            // Calculate position just below the control panel
+            const int controlPanelWidth = std::max(300, static_cast<int>(winWidth / 4));
+            const int margin = static_cast<int>(20 * std::min(float(winWidth)/1600.0f, float(winHeight)/1200.0f));
+            int x = controlPanelWidth + margin;  // Position to the right of the control panel
+            int y = 30;  // Start at the same vertical level as the controls
+
+            renderText("Shape: " + std::string(Curve::name(m_selectedShape)), x, y, {255,255,255,255}); y+=20;
+            renderText("Voltage Range: " + std::string(voltageRangeName(m_params.range)) + " (L to change)", x, y, {255,255,255,255}); y+=20;
+            renderText("Controls: R-reset, S-var, I-inv, 1-8-shapes", x, y, {255,255,255,255}); y+=20;
+            renderText("Sample Rate: " + std::to_string(m_sampleRate) + "Hz (Z-M)", x, y, {255,255,255,255}); y+=20;
+
+            // Draw performance information
+            const auto& perf = m_processor.getPerformance();
+            y += 10;
+            renderText("Performance:", x, y, {255,255,255,255}); y+=20;
+            char perfText[128];
+            snprintf(perfText, sizeof(perfText), "Process: %.3f ms", perf.processTimeMs);
+            renderText(perfText, x, y, {255,255,255,255}); y+=20;
+            snprintf(perfText, sizeof(perfText), "Time Budget: %.3f ms", perf.timeBudgetMs);
+            renderText(perfText, x, y, {255,255,255,255}); y+=20;
+            snprintf(perfText, sizeof(perfText), "CPU Usage: %.1f%%", perf.cpuUsagePercent);
+            SDL_Color perfColor = {0, 255, 0, 255};  // Green by default
+            if (perf.cpuUsagePercent > 80.0f) perfColor = {255, 255, 0, 255};  // Yellow for 80%+
+            if (perf.cpuUsagePercent > 95.0f) perfColor = {255, 0, 0, 255};    // Red for 95%+
+            renderText(perfText, x, y, perfColor); y+=20;
+
             y+=20;
-            renderText("Spectrum Source (A,D,F,G,H):", 20, y, {255,255,255,255}); y+=20;
+            renderText("Spectrum Source (A,D,F,G,H):", x, y, {255,255,255,255}); y+=20;
             const char* sourceNames[] = {"Input", "Post Wavefolder", "Post Filter", "Post Compensation", "Final Output"};
             for(int i = 0; i < int(SpectrumSource::Last); ++i) {
                 SDL_Color color = (i == int(m_selectedSpectrumSource)) ? SDL_Color{255, 255, 0, 255} : SDL_Color{255, 255, 255, 255};
-                renderText(sourceNames[i], 40 + i * 150, y, color);
+                renderText(sourceNames[i], x + i * 150, y, color);
             }
 
             y+=40;
-            renderText("Advanced Controls (Q/W, E/T, ...):", 20, y, {255,255,255,255});
+            renderText("Advanced Controls (Q/W, E/T, ...):", x, y, {255,255,255,255});
         }
 #endif
     }
