@@ -7,7 +7,7 @@ A visualization tool for analyzing the signal processing pipeline in the CurveTr
 This tool provides real-time visualization of how parameters affect the signal path in the CurveTrackEngine, allowing developers to:
 
 - Visually analyze how parameters affect the signal at each stage
-- See the intermediate processing steps (original, after wavefolding, after filtering, etc.)
+- See the intermediate processing steps (original, after phase skew, after wavefolding, after filtering, etc.)
 - Adjust sample rates to see how they affect the processing
 - View real-time parameter values and their effects
 - Verify that changes to the signal processing code produce expected results
@@ -17,98 +17,80 @@ This tool provides real-time visualization of how parameters affect the signal p
 
 The tool simulates the complete signal path from phased shape evaluation to CV output, implementing the exact same functions used in the CurveTrackEngine:
 
-1. **Phased Step Evaluation**: Using `evalStepShape` function with variation and invert capabilities
-2. **Wavefolding**: Using `applyWavefolder` function with fold, gain, and symmetry parameters
-3. **DJ Filter**: Using `applyDjFilter` function with LPF/HPF modes and resonance
-4. **Amplitude Compensation**: Using `calculateAmplitudeCompensation` function
-5. **Crossfading**: Between original phased shape and processed signal
-6. **LFO-appropriate Limiting**: Using `applyLfoLimiting` function
-7. **Feedback Processing**: Using feedback state for iterative processing
+1.  **Phase Generation**: Linear phase ramp 0->1 based on Frequency.
+2.  **Phase Skew (NEW)**: Warps the time domain logarithmically/exponentially (Rushing/Dragging feel).
+    *   Feedback: Shape -> Skew, Filter -> Skew.
+3.  **Phase Mirror (NEW)**: Reflects the phase (Ping-Pong / Through-Zero).
+    *   Feedback: Shape -> Mirror.
+4.  **Shape Evaluation**: `evalStepShape` generates the base waveform (Sine, Tri, etc.).
+5.  **Wavefolding**: `applyWavefolder` with fold, gain, and symmetry.
+    *   Feedback: Shape -> Fold, Filter -> Fold.
+6.  **DJ Filter**: `applyDjFilter` with LPF/HPF modes, resonance, and adjustable slope (6/12/24 dB/oct).
+    *   Feedback: Fold -> Filter Frequency.
+7.  **Amplitude Compensation**: `calculateAmplitudeCompensation` (Toggleable).
+8.  **Crossfading**: Between original phased shape and processed signal.
+9.  **LFO Limiting**: `applyLfoLimiting` (Soft limiting).
+10. **Hardware Output**: Simulation of DAC quantization and update rate (Sample & Hold).
 
 ## Usage
 
 - Run `./curve_analysis` from the build directory
-- Control parameters using the sliders on the left
-- Press number keys 1-8 to change curve shapes
-- Press S for shape variation, I for invert
-- Press R to reset internal states
-- Press F1-F6 to change sample rates (8kHz to 96kHz)
+- **Controls:**
+    - Click headers (`[+]`/`[-]`) to expand/collapse sections.
+    - Drag sliders to adjust values.
+    - **Shift + Click** a control to reset it to default.
+    - **Checkbox** toggles enable/disable entire processing blocks to save CPU or bypass effects.
+- **Audio Engine:**
+    - Press **'P'** to toggle Audio ON/OFF.
+    - Adjust "Audio Vol" and "Audio Mod Amt" in the bottom section.
+    - Hear the LFO modulating a 220Hz sine wave in real-time.
 
 ## Key Features
 
-- Real-time visualization of 6 signal stages:
-  - Original Signal
-  - Post Wavefolder
-  - Post Filter
-  - Post Compensation
-  - Final Output
-  - Hardware Limited Output (with real hardware constraints applied)
-- Grid lines and center references for accurate signal analysis
-- Parameter value displays
-- Sample rate control
-- Keyboard shortcuts for quick functionality
-- Performance monitoring with CPU usage and time budget analysis
-- Realistic hardware simulation:
-  - 16-bit DAC resolution
-  - 1ms CV update rate (1000Hz) matching PEW|FORMER hardware
-  - Sample-and-hold behavior between updates
-  - Quantization effects
-- Adjustable hardware limitation parameters:
-  - DAC Resolution (8-24 bits)
-  - DAC Update Rate (0.001-10ms interval)
-  - Timing Jitter (0-1ms)
-- Performance visualization showing estimated processing load variation across the signal cycle
-- Responsive UI that adapts to window size changes
-- Resizable window support for better workflow
-- High-DPI display support for Retina and other high-resolution screens
+### Visualization (4x2 Grid)
+- **Row 1:** Input Signal, Skewed Phase (Time Warp), Mirrored Phase, Post Wavefolder.
+- **Row 2:** Post Filter, Final Output, Hardware Limited Output, Post Compensation.
+- **Spectrum:** Real-time FFT analysis of the selected stage.
+
+### Signal Chain Features
+- **Phase Skew:** -1.0 (Rush) to +1.0 (Drag).
+- **Phase Mirror:** 0.0 (Saw) to 0.5 (Tri) to 1.0 (Inv Saw).
+- **Wavefolder:** Sine-based folding with Gain and Symmetry.
+- **DJ Filter:** 1-pole to 4-pole (6/12/24 dB) resonant filter.
+- **Feedback Matrix:** 6 distinct feedback paths (Shape->Fold, Fold->Filter, Filter->Fold, Shape->Skew, Filter->Skew, Shape->Mirror) with bipolar controls.
+
+### Hardware Simulation
+- **LFO Frequency:** 0.01Hz to 10Hz (Non-linear control).
+- **DAC Resolution:** 12-16 bits.
+- **DAC Update Rate:** 0.1ms - 5.0ms.
+- **Safety Analysis Panel:**
+    - **Max Step Jump:** Detects slew rate violations (>0.5V/ms).
+    - **Algo Cost:** Estimates CPU complexity score.
+    - **Clipping %:** Detects signal loss at ±5V rails.
+
+### Audio Engine
+- Real-time sonification of the LFO.
+- Phase-accurate playback (you hear the steps if they exist).
+- Safety limiter on audio output.
 
 ## Hardware Constraints Analysis
 
-This tool now accurately models the real hardware constraints found in the PEW|FORMER:
+This tool accurately models the real hardware constraints found in the PEW|FORMER:
 
 ### CV Update Rate
 - Real hardware updates CV outputs every 1ms (1000 Hz) regardless of musical timing
-- This is implemented in the engine task which runs with a 1ms period
-- The "Hardware Limited Output" plot now simulates this 1ms update rate correctly
+- The "Hardware Limited Output" plot simulates this 1ms update rate correctly.
+- **Stair-Stepping Detection:** Visual (Red Border) and text alert when the signal changes too fast for the hardware to track (>50mV jump).
 
 ### DAC Specifications
-- Uses 16-bit DAC (DAC8568) for output
-- SPI communication with ~200ns per channel update time
-- Output range limited to ±5.0V as in the real hardware
+- Uses 16-bit DAC (DAC8568) for output range ±5.0V.
 
 ### Processing Constraints
-- Engine runs with priority 4 and 1ms period
-- Maximum 1ms processing time available per update cycle
-- 4096-byte stack for the engine task
-- All track processing and CV calculations must complete within this time
+- **Algo Cost** metric helps you budget your CPU usage.
+- Keep "Algo Cost" below 10-15 for safety on STM32F4.
 
-### Memory and CPU Usage
-- The tool includes performance monitoring to show CPU usage as percentage of available time
-- Time budget calculation based on sample rate and buffer size
-- Visual indicators alert when processing approaches hardware limits
-
-## Additional Implemented Features
-
-### Stair-Stepping Detection
-- Visual indicators on the "Hardware Limited Output" plot to show when stair-stepping artifacts occur
-- Red border and overlay with "STAIR-STEPPING!" text when differences exceed 0.1 threshold
-- Orange border for moderate differences (0.05-0.1 range)
-- Real-time detection comparing final output vs hardware-limited output
-
-### Fine Parameter Controls
-- Added fine control for foldF parameter (0.0-0.1 range with 0.0001 precision)
-- Allows precise adjustment of feedback from filter to wavefolder
-- 1000 steps for fine-tuning subtle effects
-
-### Improved UI and Responsiveness
-- Fixed integer-to-float control mapping to prevent memory access issues
-- Resizable window support with proper control repositioning
-- High-DPI display support for Retina and other high-resolution screens
-- Responsive layout that adapts to window size changes
-- Controls properly positioned and spaced
-
-### Updated Hardware Parameters
-- DAC Resolution control: 12-16 bits range (default 16 bits)
-- DAC Update Rate control: 0.1-5.0ms range (default 1.0ms for 1000Hz update rate)
-- Timing Jitter control: 0.0-0.5ms range (reflecting minimal jitter of real hardware)
-- All defaults set to match actual PEW|FORMER hardware specifications
+## UI Improvements (v2.0)
+- **Collapsible Sections:** "Signal Chain", "Advanced Shaping", "Hardware Simulation", "Fine Tuning", "Audio Engine".
+- **Color-Coded Alerts:** Green/Orange/Red indicators for safety metrics.
+- **Smart Interaction:** Dragging works only inside controls; Shift+Click resets.
+- **Dense Layout:** Optimized to show 8 graphs and 40+ controls on a standard screen.

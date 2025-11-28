@@ -208,6 +208,11 @@ private:
         // Main Signal Path Controls
         m_controls.push_back(makeFloatControl("Global Phase", &m_params.globalPhase, -1.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
         m_controls.push_back(makeFloatControl("Phase Skew", &m_params.phaseSkew, -1.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
+        
+        // Inserted Phase Mirror Controls
+        m_controls.push_back(makeBoolControl("Enable Phase Mirror", &m_params.enablePhaseMirror, 20, y, 20, controlHeight)); y += controlHeight + spacing;
+        m_controls.push_back(makeFloatControl("Phase Mirror", &m_params.phaseMirror, 0.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
+
         m_controls.push_back(makeFloatControl("Wavefolder Fold", &m_params.wavefolderFold, 0.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
         m_controls.push_back(makeFloatControl("Wavefolder Gain", &m_params.wavefolderGain, 0.0f, 2.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
         m_controls.push_back(makeFloatControl("Wavefolder Symmetry", &m_params.wavefolderSymmetry, -1.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
@@ -237,6 +242,10 @@ private:
         y += 5; // Small spacing
         m_controls.push_back(makeBoolControl("Enable Filter -> Skew", &m_params.enableFilterToPhaseSkew, 20, y, 20, controlHeight)); y += controlHeight + spacing;
         m_controls.push_back(makeFloatControl("Filter -> Phase Skew", &m_params.filterToPhaseSkew, -1.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
+
+        y += 5; // Small spacing
+        m_controls.push_back(makeBoolControl("Enable Shape -> Mirror", &m_params.enableShapeToPhaseMirror, 20, y, 20, controlHeight)); y += controlHeight + spacing;
+        m_controls.push_back(makeFloatControl("Shape -> Phase Mirror", &m_params.shapeToPhaseMirror, -1.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
 
         m_controls.push_back(makeFloatControl("Min", &m_min, 0.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
         m_controls.push_back(makeFloatControl("Max", &m_max, 0.0f, 1.0f, 0.01f, 20, y, controlWidth, controlHeight)); y += controlHeight + spacing;
@@ -280,21 +289,20 @@ private:
         y += controlHeight + spacing;
         
         // Initialize Sections (Corrected counts and start indices)
-        // Recount:
-        // Signal Chain: 4 toggles + 10 floats + 5*(1 bool + 1 float) + 2 (min/max) = 4 + 10 + 10 + 2 = 26 controls
-        m_sections.push_back({"Signal Chain", 0, 26, false, {0,0,0,0}}); // Open by default
+        // Signal Chain: 30 controls (Indices 0-29)
+        m_sections.push_back({"Signal Chain", 0, 30, false, {0,0,0,0}}); // Open by default
         
-        // Advanced Shaping: 13 controls
-        m_sections.push_back({"Advanced Shaping", 26, 13, true, {0,0,0,0}}); // Collapsed by default
+        // Advanced Shaping: 13 controls (Indices 30-42)
+        m_sections.push_back({"Advanced Shaping", 30, 13, true, {0,0,0,0}}); // Collapsed by default
         
-        // Hardware Simulation: 4 controls
-        m_sections.push_back({"Hardware Simulation", 39, 4, true, {0,0,0,0}}); // Collapsed by default
+        // Hardware Simulation: 4 controls (Indices 43-46)
+        m_sections.push_back({"Hardware Simulation", 43, 4, true, {0,0,0,0}}); // Collapsed by default
         
-        // Fine Tuning: 2 controls
-        m_sections.push_back({"Fine Tuning", 43, 2, true, {0,0,0,0}}); // Collapsed by default
+        // Fine Tuning: 2 controls (Indices 47-48)
+        m_sections.push_back({"Fine Tuning", 47, 2, true, {0,0,0,0}}); // Collapsed by default
         
-        // Audio Engine: 2 controls
-        m_sections.push_back({"Audio Engine", 45, 2, true, {0,0,0,0}}); // Collapsed by default
+        // Audio Engine: 2 controls (Indices 49-50)
+        m_sections.push_back({"Audio Engine", 49, 2, true, {0,0,0,0}}); // Collapsed by default
     }
 
     void resetControls() {
