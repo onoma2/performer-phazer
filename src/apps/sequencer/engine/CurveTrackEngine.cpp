@@ -17,21 +17,6 @@
 
 static Random rng;
 
-// Convert linear feedback value to logarithmic scale for smoother control
-static float linearToLogarithmicFeedback(float linearValue) {
-    // Use a logarithmic curve to make low values more controllable
-    // The function maps 0.0-1.0 input to 0.0-1.0 output but with logarithmic response
-    // This makes low values more granular and high values less dramatic
-    if (linearValue <= 0.0f) return 0.0f;
-    if (linearValue >= 1.0f) return 1.0f;
-
-    // Logarithmic curve: map 0-1 to 0-1 but with more sensitivity at low values
-    // Using a function like: log_base(value + 1) which gives log(1)=0 to log(2)≈0.69
-    // Then scale to fit 0-1 range
-    float logValue = log10f(linearValue * 9.0f + 1.0f) / log10f(10.0f); // log10 base
-    return logValue;
-}
-
 static float applyDjFilter(float input, float &lpfState, float control, float resonance) {
     // 1. Dead zone
     if (control > -0.02f && control < 0.02f) {
@@ -46,20 +31,9 @@ static float applyDjFilter(float input, float &lpfState, float control, float re
     }
     alpha = clamp(alpha * alpha, 0.005f, 0.95f);
 
-    // Add resonance (filter-to-filter feedback)
-    // The feedback is from the previous output of the LPF (lpfState)
-    // Convert linear resonance to logarithmic scale for smoother control
-    float logResonance = linearToLogarithmicFeedback(resonance);
-
-    // Limit resonance feedback to prevent self-oscillation
-    // When filter is at extreme settings, reduce feedback to prevent instability
-    float absControl = std::abs(control);
-    if (absControl > 0.7f) {  // Reduce feedback when filter is at higher settings
-        logResonance *= (1.0f - (absControl - 0.7f) * 0.8f);  // Reduce resonance effect as filter increases
-    }
-
-    float feedback = logResonance * 1.5f; // Further reduced from 2.f to be more conservative
-    float feedback_input = input - lpfState * feedback;
+    // Resonance logic removed for now (was dependent on linearToLogarithmicFeedback)
+    
+    float feedback_input = input; 
 
     // Update the internal LPF state
     lpfState = lpfState + alpha * (feedback_input - lpfState);
@@ -75,13 +49,11 @@ static float applyDjFilter(float input, float &lpfState, float control, float re
     }
 }
 
-static float applyWavefolder(float input, float fold, float gain, float symmetry) {
+static float applyWavefolder(float input, float fold, float gain) {
     // map from [0, 1] to [-1, 1]
     float bipolar_input = (input * 2.f) - 1.f;
-    // apply symmetry
-    float biased_input = bipolar_input + symmetry;
     // apply gain
-    float gained_input = biased_input * gain;
+    float gained_input = bipolar_input * gain;
     // apply folding using sine function. fold parameter controls frequency.
     // map fold from [0, 1] to a range of number of folds, e.g. 1 to 9
     float fold_count = 1.f + fold * 8.f;
@@ -90,50 +62,10 @@ static float applyWavefolder(float input, float fold, float gain, float symmetry
     return (folded_output + 1.f) * 0.5f;
 }
 
-// LFO-appropriate limiter function to tame high resonance and ensure max 5V output
+// LFO-appropriate limiter function to ensure max 5V output
 static float applyLfoLimiting(float input, float resonance) {
-    // Higher resonance requires more aggressive limiting
-    float threshold = 5.0f - (resonance * 3.0f); // Lower threshold as resonance increases
-    // Ensure we never exceed 5V absolute maximum
-    float maxThreshold = 5.0f;
-    threshold = std::max(0.5f, std::min(threshold, maxThreshold)); // Clamp between 0.5V and 5V
-
-    // Apply hard limit to ensure output stays within ±5V
-    input = std::max(-maxThreshold, std::min(maxThreshold, input));
-
-    return input;
-}
-
-static float calculateAmplitudeCompensation(float fold, float filterControl, float filterResonance) {
-    // No compensation needed if there's no folding
-    if (fold < 0.01f) {
-        return 1.0f;
-    }
-
-    // Calculate base compensation based on fold amount
-    // Higher fold creates more harmonics that get filtered out
-    float foldCompensation = 1.0f + (fold * 0.8f); // Base compensation for folding
-
-    // Adjust based on filter type and cutoff
-    float filterCompensation = 1.0f;
-    if (filterControl < 0.0f) { // LPF
-        // For LPF, more compensation needed when cutoff is low (more harmonics filtered)
-        float absFilterControl = std::abs(filterControl);
-        filterCompensation = 1.0f + (absFilterControl * 0.3f);
-    } else if (filterControl > 0.0f) { // HPF
-        // For HPF, compensation increases as more of the fundamental is cut
-        filterCompensation = 1.0f + (filterControl * 0.5f);
-    }
-
-    // Factor in resonance effect - but reduce the compensation at high resonance to prevent overloading
-    // High resonance can cause significant output increases which should be handled separately by limiting
-    float resonanceCompensation = 1.0f + (filterResonance * 0.1f); // Reduced from 0.2f
-
-    // Combine all compensation factors
-    float compensation = foldCompensation * filterCompensation * resonanceCompensation;
-
-    // Apply upper limit to prevent excessive amplification
-    return clamp(compensation, 1.0f, 2.5f); // Reduced from 3.0f to be more conservative
+    // Simple hard clamp for now
+    return std::max(-5.0f, std::min(5.0f, input));
 }
 
 static float evalStepShape(const CurveSequence::Step &step, bool variation, bool invert, float fraction) {
@@ -387,15 +319,9 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
 
         // 2. Get wavefolder and feedback parameters
         float fold = _curveTrack.wavefolderFold();
-        float shaperFeedback = _curveTrack.foldF();
 
-        // 3. Apply shaper feedback (filter-to-fold) only if wavefolding is active
+        // 3. Prepare wavefolder input
         float folderInput = value;
-        if (fold > 0.0f) {
-            // Apply logarithmic transformation to Fold-F for smoother control
-            float logShaperFeedback = linearToLogarithmicFeedback(shaperFeedback);
-            folderInput = value + _feedbackState * logShaperFeedback;
-        }
 
         // 5. Apply wavefolder if enabled
         if (fold > 0.f) {
@@ -403,10 +329,9 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
             // Map UI gain from 0.0-2.0 to internal gain range 1.0-5.0
             // 0.0 (standard) -> 1.0, 1.0 (extra) -> 3.0, 2.0 (extreme) -> 5.0
             float gain = 1.0f + (uiGain * 2.0f);
-            float symmetry = _curveTrack.wavefolderSymmetry();
             // Apply exponential curve to fold control for better resolution
             float fold_exp = fold * fold;
-            folderInput = applyWavefolder(folderInput, fold_exp, gain, symmetry);
+            folderInput = applyWavefolder(folderInput, fold_exp, gain);
         }
 
         // 6. Denormalize to voltage
@@ -414,26 +339,20 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
 
         // 7. Apply DJ Filter
         float filterControl = _curveTrack.djFilter();
-        float filterResonance = _curveTrack.filterF();
         // The filter is always active to calculate state, but only applied if control is not 0
-        voltage = applyDjFilter(voltage, _lpfState, filterControl, filterResonance);
+        // Resonance removed for now
+        voltage = applyDjFilter(voltage, _lpfState, filterControl, 0.0f);
 
-        // 6. Apply amplitude compensation for filtering effects (when filter is active)
-        // This accounts for amplitude changes from the filter even when no wavefolding occurs
-        if (filterControl < -0.02f || filterControl > 0.02f) {
-            float compensation = calculateAmplitudeCompensation(fold, filterControl, filterResonance);
-            voltage *= compensation;
-        }
-
-        // Store the processed signal (before crossfade) for feedback
+        // Store the processed signal (before crossfade)
         float processedSignal = voltage;
 
         // 7. Apply crossfade between original phased shape and processed signal
         float xFade = _curveTrack.xFade();
         voltage = originalValue * (1.0f - xFade) + voltage * xFade;
 
-        // 8. Apply LFO-appropriate limiting to tame high resonance and ensure max 5V output
-        processedSignal = applyLfoLimiting(processedSignal, filterResonance);
+        // 8. Apply LFO-appropriate limiting to ensure max 5V output
+        // Resonance parameter removed from limiting for now
+        processedSignal = applyLfoLimiting(processedSignal, 0.0f);
 
         // 9. Update feedback state for next tick (from processed signal before crossfading)
         // Apply additional limiting to feedback state to prevent runaway feedback

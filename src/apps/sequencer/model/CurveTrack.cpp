@@ -35,10 +35,7 @@ void CurveTrack::clear() {
     setGlobalPhase(0.f);
     setWavefolderFold(0.f);
     setWavefolderGain(0.f);  // Standard gain maps to 0.0 in the new UI system
-    setWavefolderSymmetry(0.f);
     setDjFilter(0.f);
-    setFoldF(0.f);
-    setFilterF(0.f);
     setXFade(1.f);  // Start with fully processed signal
 
     for (auto &sequence : _sequences) {
@@ -58,10 +55,7 @@ void CurveTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_globalPhase);
     writer.write(_wavefolderFold);
     writer.write(_wavefolderGain);
-    writer.write(_wavefolderSymmetry);
     writer.write(_djFilter);
-    writer.write(_foldF);
-    writer.write(_filterF);
     writer.write(_xFade);
     writeArray(writer, _sequences);
 }
@@ -90,11 +84,12 @@ void CurveTrack::read(VersionedSerializedReader &reader) {
         // Use the inverse of the engine mapping: (internalGain - 1.0) / 2.0
         _wavefolderGain = (_wavefolderGain - 1.0f) / 2.0f;
         _wavefolderGain = clamp(_wavefolderGain, 0.f, 2.f);
-        reader.read(_wavefolderSymmetry);
+        float dummy;
+        reader.read(dummy); // _wavefolderSymmetry
     } else {
         setWavefolderFold(0.f);
         setWavefolderGain(0.f);  // Standard gain maps to 0.0 in the new UI system
-        setWavefolderSymmetry(0.f);
+        // setWavefolderSymmetry(0.f); // Removed
     }
     if (reader.dataVersion() >= ProjectVersion::Version44) {
         reader.read(_djFilter);
@@ -102,12 +97,10 @@ void CurveTrack::read(VersionedSerializedReader &reader) {
         setDjFilter(0.f);
     }
     if (reader.dataVersion() >= ProjectVersion::Version45) {
-        reader.read(_foldF);
-        reader.read(_filterF);
-    } else {
-        setFoldF(0.f);
-        setFilterF(0.f);
-    }
+        float dummy;
+        reader.read(dummy); // _foldF
+        reader.read(dummy); // _filterF
+    } 
     if (reader.dataVersion() >= ProjectVersion::Version46) {
         reader.read(_xFade);
     } else {

@@ -223,31 +223,12 @@ public:
     void editWavefolderGain(int value, bool shift) { setWavefolderGain(wavefolderGain() + value * (shift ? 0.1f : 0.01f)); }
     void printWavefolderGain(StringBuilder &str) const { str("%.2f", wavefolderGain()); }
 
-    // wavefolderSymmetry
-
-    float wavefolderSymmetry() const { return _wavefolderSymmetry; }
-    void setWavefolderSymmetry(float value) { _wavefolderSymmetry = clamp(value, -1.f, 1.f); }
-    void editWavefolderSymmetry(int value, bool shift) { setWavefolderSymmetry(wavefolderSymmetry() + value * (shift ? 0.1f : 0.01f)); }
-    void printWavefolderSymmetry(StringBuilder &str) const { str("%+.2f", wavefolderSymmetry()); }
-
     // djFilter
 
     float djFilter() const { return _djFilter; }
     void setDjFilter(float value) { _djFilter = clamp(value, -1.f, 1.f); }
     void editDjFilter(int value, bool shift) { setDjFilter(djFilter() + value * (shift ? 0.1f : 0.01f)); }
     void printDjFilter(StringBuilder &str) const { str("%+.2f", djFilter()); }
-
-    // foldF
-    float foldF() const { return _foldF; }
-    void setFoldF(float value) { _foldF = clamp(value, 0.f, 1.f); }
-    void editFoldF(int value, bool shift) { setFoldF(foldF() + value * (shift ? 0.1f : 0.01f)); }
-    void printFoldF(StringBuilder &str) const { str("%.2f", foldF()); }
-
-    // filterF
-    float filterF() const { return _filterF; }
-    void setFilterF(float value) { _filterF = clamp(value, 0.f, 1.f); }
-    void editFilterF(int value, bool shift) { setFilterF(filterF() + value * (shift ? 0.1f : 0.01f)); }
-    void printFilterF(StringBuilder &str) const { str("%.2f", filterF()); }
 
     // xFade
     float xFade() const { return _xFade; }
@@ -313,10 +294,7 @@ private:
     float _globalPhase;
     float _wavefolderFold;
     float _wavefolderGain;
-    float _wavefolderSymmetry;
     float _djFilter;
-    float _foldF;
-    float _filterF;
     float _xFade;
 
     CurveSequenceArray _sequences;
