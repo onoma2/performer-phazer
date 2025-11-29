@@ -123,6 +123,9 @@ enum ProjectVersion {
     // added CurveTrack xFade parameter
     Version46 = 46,
 
+    // added Track::cvOutputRotate and Track::gateOutputRotate
+    Version47 = 47,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

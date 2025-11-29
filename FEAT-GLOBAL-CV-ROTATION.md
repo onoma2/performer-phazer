@@ -1,74 +1,86 @@
-# Feature: Global Output Rotation (CV & Gate)
+# Feature: Selective Output Rotation (CV & Gate)
 
 ## Concept
-Implement two system-wide "Rotation" parameters (one for CV, one for Gate) that shift the assignment of Tracks to Physical Outputs dynamically.
+Allow dynamic rotation of track-to-output assignments within a **user-defined subset** of tracks. This enables complex signal routing (e.g., rotating a chord voicing across 3 oscillators) while leaving other tracks (e.g., drums on track 4-8) static.
 
-**Crucial Constraint:** The rotation must respect the "active set" or configuration defined in the Layout/Routing page. It should not naively rotate 1-8, but intelligently cycle through the relevant assignments.
+## Architecture
+The "Active Rotation Pool" is defined dynamically by the **Routing Mask**.
+*   If a Track is targeted by the Rotation Route, it joins the pool.
+*   If a Track is NOT targeted (or has 0 rotation), it remains static on its assigned output.
 
-## Implementation Logic: "The Active Pool"
+## Algorithm: "The Modulated Pool"
 
-Instead of rotating the *Physical Index* directly `(i + rot) % 8`, we act on the **Values** stored in the mapping array.
-
-1.  **Identify Pool:** Collect all `Track Indices` currently assigned to physical outputs.
-    *   *Example:* Output 1->Trk1, Output 2->Trk2, Output 3->Trk1 (Mult).
-2.  **Rotate Values:** Apply the offset to the *Track Index* itself? No, that breaks specific assignments.
-
-**Correct "Subset" Logic:**
-The user likely wants to rotate the **Outputs**.
-*   *Setup:* Out 1 (VCO A), Out 2 (VCO B), Out 3 (VCO C).
-*   *Rotation 0:* 1->A, 2->B, 3->C.
-*   *Rotation 1:* 1->C, 2->A, 3->B.
-
-To achieve this without complex configuration, we can use a **Mask** or simply rotate the **Mapping Array** in memory (temporarily).
-
-### Refined Plan
-
-1.  **Parameters:**
-    *   `Routable<int8_t> _cvOutputRotate`
-    *   `Routable<int8_t> _gateOutputRotate`
-
-2.  **Algorithm:**
-    The rotation applies to the **Output Slots**.
+1.  **Setup (Engine Update):**
+    *   Scan all Physical Outputs.
+    *   Identify the **Source Track** for each output.
+    *   Check if that Source Track has a non-zero **Rotation Value** (modulated via Routing).
+    *   Build a list of **Pool Indices** (Outputs that are "in the game").
     
-    `TargetTrack[i] = BaseMapping[(i + Rotation) % 8]`
-    
-    *Constraint Handling:* If the user wants to restrict rotation to only Outputs 1-4, they simply leave Outputs 5-8 unassigned (or we implement a "Rotation Group Size" parameter, defaulting to 8).
-    
-    *Auto-Masking Idea:* We could scan the `_cvOutputTracks` array. If Outputs 5-8 are set to "None" or a specific disabled state, the modulo operator wraps at 4 instead of 8.
-    *   *Logic:* Find the highest connected output `max_active_output`.
-    *   `wrapped_index = (i + rotation) % (max_active_output + 1)`
+2.  **Execution:**
+    *   For each Output in the Pool:
+        *   Calculate its position in the pool list.
+        *   Apply the rotation offset (derived from the track's rotation parameter).
+        *   Find the **New Source Track** from the rotated position in the pool.
+    *   For Outputs NOT in the Pool:
+        *   Use the static assignment from Layout.
 
-## Revised Implementation Plan
+## Implementation Plan
 
-### 1. Model (`Project.h`, `Routing.h`)
-*   Add `_cvOutputRotate` and `_gateOutputRotate` (Routable).
-*   Add `Routing::Target::CvOutputRotate` and `Routing::Target::GateOutputRotate`.
+### 1. Model (`Track.h`, `Routing.h`)
+*   **Add Parameter:** `Routable<int8_t> _outputRotate` to **`Track`** class.
+    *   *Note:* We use a single parameter to control both CV and Gate rotation for that track, or split them if needed. Let's start with a unified `Target::OutputRotate` or separate `CvRotate`/`GateRotate`.
+    *   Let's use distinct targets: `Routing::Target::CvOutputRotate` and `Routing::Target::GateOutputRotate` (Per Track).
+*   **Routing:** Ensure these are flagged as `isTrackTarget`.
 
 ### 2. Engine (`Engine.cpp`)
-*   **Pre-Calculation:** At the start of `update`, calculate the effective rotation offsets (Base + Modulation).
-*   **Dispatch Loop:**
+*   **Logic:**
     ```cpp
-    // Determine Rotation Modulo (Group Size)
-    // Option A: Fixed 8 (Simple)
-    // Option B: Smart (Count non-disabled outputs)
+    // Pseudo-code for CV Rotation
+    std::vector<int> poolOutputs;
+    std::vector<int> poolTracks;
     
-    int rotCV = _project.cvOutputRotate();
-    int rotGate = _project.gateOutputRotate();
-    
+    // 1. Identify Pool
     for (int i = 0; i < 8; ++i) {
-        // Apply rotation to the LOOKUP index
-        int sourceIndexCV = (i + rotCV) % 8; 
-        int sourceIndexGate = (i + rotGate) % 8;
+        int trackIdx = _project.cvOutputTrack(i);
+        if (trackIdx != -1 && _project.track(trackIdx).cvOutputRotate() != 0) {
+            poolOutputs.push_back(i);
+            poolTracks.push_back(trackIdx);
+        }
+    }
+    
+    // 2. Dispatch
+    for (int i = 0; i < 8; ++i) {
+        int originalTrack = _project.cvOutputTrack(i);
+        if (originalTrack == -1) continue;
         
-        int trackID_CV = _project.cvOutputTrack(sourceIndexCV);
-        int trackID_Gate = _project.gateOutputTrack(sourceIndexGate);
-        
-        // Send data
-        driver.setCV(i, trackEngines[trackID_CV].cv());
-        driver.setGate(i, trackEngines[trackID_Gate].gate());
+        // Check if this output is in the pool
+        auto it = std::find(poolOutputs.begin(), poolOutputs.end(), i);
+        if (it != poolOutputs.end()) {
+            // It's rotating!
+            int poolIndex = std::distance(poolOutputs.begin(), it);
+            int rotation = _project.track(originalTrack).cvOutputRotate();
+            
+            // Wrap rotation within pool size
+            int poolSize = poolOutputs.size();
+            int rotatedIndex = (poolIndex - rotation) % poolSize;
+            if (rotatedIndex < 0) rotatedIndex += poolSize;
+            
+            // Assign the rotated track
+            driver.setCV(i, trackEngines[poolTracks[rotatedIndex]].cv());
+        } else {
+            // Static
+            driver.setCV(i, trackEngines[originalTrack].cv());
+        }
     }
     ```
 
 ## Resource Cost
-*   **CPU:** Still negligible (~32 integer ops).
-*   **RAM:** 4 bytes.
+*   **CPU:** Light. Two loops over 8 items. Vector/Find operations are tiny on size 8.
+*   **RAM:** Per-track variable (8 bytes).
+
+## Usage Example
+1.  **Layout:** Track 1->Out 1, Track 2->Out 2, Track 3->Out 3, Track 4->Out 4.
+2.  **Routing:** LFO1 -> `CvOutputRotate` -> Tracks **1, 2, 3** (Amount 100%).
+3.  **Result:**
+    *   Outputs 1, 2, 3 rotate sources (1->2->3->1...).
+    *   Output 4 stays firmly connected to Track 4.
