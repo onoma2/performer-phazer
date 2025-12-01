@@ -211,81 +211,6 @@ public:
         str("%.2f", globalPhase());
     }
 
-    // wavefolderFold
-
-    float wavefolderFold() const { return _wavefolderFold; }
-    void setWavefolderFold(float value) { _wavefolderFold = clamp(value, 0.f, 1.f); }
-    void editWavefolderFold(int value, bool shift) { setWavefolderFold(wavefolderFold() + value * (shift ? 0.1f : 0.01f)); }
-    void printWavefolderFold(StringBuilder &str) const { str("%.2f", wavefolderFold()); }
-
-    // wavefolderGain
-
-    float wavefolderGain() const { return _wavefolderGain; }
-    void setWavefolderGain(float value) { _wavefolderGain = clamp(value, 0.f, 2.f); }
-    void editWavefolderGain(int value, bool shift) { setWavefolderGain(wavefolderGain() + value * (shift ? 0.1f : 0.01f)); }
-    void printWavefolderGain(StringBuilder &str) const { str("%.2f", wavefolderGain()); }
-
-    // djFilter
-
-    float djFilter() const { return _djFilter; }
-    void setDjFilter(float value) { _djFilter = clamp(value, -1.f, 1.f); }
-    void editDjFilter(int value, bool shift) { setDjFilter(djFilter() + value * (shift ? 0.1f : 0.01f)); }
-    void printDjFilter(StringBuilder &str) const { str("%+.2f", djFilter()); }
-
-    // xFade
-    float xFade() const { return _xFade; }
-    void setXFade(float value) { _xFade = clamp(value, 0.f, 1.f); }
-    void editXFade(int value, bool shift) { setXFade(xFade() + value * (shift ? 0.1f : 0.01f)); }
-    void printXFade(StringBuilder &str) const { str("%.2f", xFade()); }
-
-    // Chaos
-
-    enum class ChaosAlgorithm : uint8_t {
-        Latoocarfian,
-        Lorenz,
-        Last
-    };
-
-    static const char *chaosAlgorithmName(ChaosAlgorithm algo) {
-        switch (algo) {
-        case ChaosAlgorithm::Latoocarfian: return "Latoocarfian";
-        case ChaosAlgorithm::Lorenz:       return "Lorenz";
-        case ChaosAlgorithm::Last:         break;
-        }
-        return nullptr;
-    }
-
-    int chaosAmount() const { return _chaosAmount; }
-    void setChaosAmount(int value) { _chaosAmount = clamp(value, 0, 100); }
-    void editChaosAmount(int value, bool shift) { setChaosAmount(chaosAmount() + value * (shift ? 5 : 1)); }
-    void printChaosAmount(StringBuilder &str) const { str("%d%%", chaosAmount()); }
-
-    ChaosAlgorithm chaosAlgo() const { return _chaosAlgo; }
-    void setChaosAlgo(ChaosAlgorithm algo) { _chaosAlgo = ModelUtils::clampedEnum(algo); }
-    void editChaosAlgo(int value, bool shift) { setChaosAlgo(ModelUtils::adjustedEnum(chaosAlgo(), value)); }
-    void printChaosAlgo(StringBuilder &str) const { str(chaosAlgorithmName(chaosAlgo())); }
-
-    int chaosRate() const { return _chaosRate; }
-    void setChaosRate(int value) { _chaosRate = clamp(value, 0, 127); }
-    void editChaosRate(int value, bool shift) { setChaosRate(chaosRate() + value * (shift ? 5 : 1)); }
-    float chaosHz() const { return 0.1f + std::pow(_chaosRate / 127.f, 4.f) * 100.f; }
-    void printChaosRate(StringBuilder &str) const {
-        float rate = chaosHz();
-        if (rate < 1.f) str("%.2fHz", rate);
-        else if (rate < 10.f) str("%.1fHz", rate);
-        else str("%.0fHz", rate);
-    }
-
-    int chaosParam1() const { return _chaosParam1; }
-    void setChaosParam1(int value) { _chaosParam1 = clamp(value, 0, 100); }
-    void editChaosParam1(int value, bool shift) { setChaosParam1(chaosParam1() + value * (shift ? 5 : 1)); }
-    void printChaosParam1(StringBuilder &str) const { str("%d", chaosParam1()); }
-
-    int chaosParam2() const { return _chaosParam2; }
-    void setChaosParam2(int value) { _chaosParam2 = clamp(value, 0, 100); }
-    void editChaosParam2(int value, bool shift) { setChaosParam2(chaosParam2() + value * (shift ? 5 : 1)); }
-    void printChaosParam2(StringBuilder &str) const { str("%d", chaosParam2()); }
-
     // sequences
 
     const CurveSequenceArray &sequences() const { return _sequences; }
@@ -342,16 +267,6 @@ private:
     Routable<int8_t> _shapeProbabilityBias;
     Routable<int8_t> _gateProbabilityBias;
     float _globalPhase;
-    float _wavefolderFold;
-    float _wavefolderGain;
-    float _djFilter;
-    float _xFade;
-
-    int _chaosAmount;
-    ChaosAlgorithm _chaosAlgo;
-    int _chaosRate;
-    int _chaosParam1;
-    int _chaosParam2;
 
     CurveSequenceArray _sequences;
 

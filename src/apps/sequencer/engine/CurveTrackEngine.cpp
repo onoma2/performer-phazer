@@ -224,31 +224,33 @@ void CurveTrackEngine::update(float dt) {
     }
 
     // Update Chaos
-    float p1 = _curveTrack.chaosParam1() / 100.f;
-    float p2 = _curveTrack.chaosParam2() / 100.f;
+    if (_sequence != nullptr) {
+        float p1 = _sequence->chaosParam1() / 100.f;
+        float p2 = _sequence->chaosParam2() / 100.f;
 
-    if (_curveTrack.chaosAlgo() == CurveTrack::ChaosAlgorithm::Latoocarfian) {
-        float rate = _curveTrack.chaosHz();
-        _chaosPhase += rate * dt;
-        if (_chaosPhase >= 1.f) {
-            _chaosPhase -= 1.f;
-            // Map params to chaotic regions (approx 0.5 to 3.0)
-            float a = 0.5f + p1 * 2.5f;
-            float b = 0.5f + p1 * 2.5f;
-            float c = 0.5f + p2 * 2.5f;
-            float d = 0.5f + p2 * 2.5f;
-            _chaosValue = _latoocarfian.next(a, b, c, d);
+        if (_sequence->chaosAlgo() == CurveSequence::ChaosAlgorithm::Latoocarfian) {
+            float rate = _sequence->chaosHz();
+            _chaosPhase += rate * dt;
+            if (_chaosPhase >= 1.f) {
+                _chaosPhase -= 1.f;
+                // Map params to chaotic regions (approx 0.5 to 3.0)
+                float a = 0.5f + p1 * 2.5f;
+                float b = 0.5f + p1 * 2.5f;
+                float c = 0.5f + p2 * 2.5f;
+                float d = 0.5f + p2 * 2.5f;
+                _chaosValue = _latoocarfian.next(a, b, c, d);
+            }
+        } else if (_sequence->chaosAlgo() == CurveSequence::ChaosAlgorithm::Lorenz) {
+            // Lorenz runs at full update rate (1ms) for smoothness
+            // Map "Hz" rate knob to speed factor (0.1 to 10.0)
+            float speed = 0.1f + powf(_sequence->chaosRate() / 127.f, 4.f) * 10.f;
+            // Map P1 to Rho (Rayleigh number) - 10.0 to 50.0
+            float rho = 10.0f + p1 * 40.0f;
+            // Map P2 to Beta (Geometric factor) - 0.5 to 4.0
+            float beta = 0.5f + p2 * 3.5f;
+            
+            _chaosValue = _lorenz.next(dt * speed, rho, beta);
         }
-    } else if (_curveTrack.chaosAlgo() == CurveTrack::ChaosAlgorithm::Lorenz) {
-        // Lorenz runs at full update rate (1ms) for smoothness
-        // Map "Hz" rate knob to speed factor (0.1 to 10.0)
-        float speed = 0.1f + powf(_curveTrack.chaosRate() / 127.f, 4.f) * 10.f;
-        // Map P1 to Rho (Rayleigh number) - 10.0 to 50.0
-        float rho = 10.0f + p1 * 40.0f;
-        // Map P2 to Beta (Geometric factor) - 0.5 to 4.0
-        float beta = 0.5f + p2 * 3.5f;
-        
-        _chaosValue = _lorenz.next(dt * speed, rho, beta);
     }
 }
 
@@ -353,8 +355,8 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, lookupFraction);
 
         // Apply Chaos (Pre-fold)
-        if (_curveTrack.chaosAmount() > 0) {
-            float chaosAmount = _curveTrack.chaosAmount() / 100.f;
+        if (evalSequence.chaosAmount() > 0) {
+            float chaosAmount = evalSequence.chaosAmount() / 100.f;
             value += _chaosValue * chaosAmount;
         }
 
@@ -362,14 +364,14 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         float originalValue = range.denormalize(value);
 
         // 2. Get wavefolder and feedback parameters
-        float fold = _curveTrack.wavefolderFold();
+        float fold = evalSequence.wavefolderFold();
 
         // 3. Prepare wavefolder input
         float folderInput = value;
 
         // 5. Apply wavefolder if enabled
         if (fold > 0.f) {
-            float uiGain = _curveTrack.wavefolderGain();
+            float uiGain = evalSequence.wavefolderGain();
             // Map UI gain from 0.0-2.0 to internal gain range 1.0-5.0
             // 0.0 (standard) -> 1.0, 1.0 (extra) -> 3.0, 2.0 (extreme) -> 5.0
             float gain = 1.0f + (uiGain * 2.0f);
@@ -382,7 +384,7 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         float voltage = range.denormalize(folderInput);
 
         // 7. Apply DJ Filter
-        float filterControl = _curveTrack.djFilter();
+        float filterControl = evalSequence.djFilter();
         // The filter is always active to calculate state, but only applied if control is not 0
         // Resonance removed for now
         voltage = applyDjFilter(voltage, _lpfState, filterControl, 0.0f);
@@ -391,7 +393,7 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         float processedSignal = voltage;
 
         // 7. Apply crossfade between original phased shape and processed signal
-        float xFade = _curveTrack.xFade();
+        float xFade = evalSequence.xFade();
         voltage = originalValue * (1.0f - xFade) + voltage * xFade;
 
         // 8. Apply LFO-appropriate limiting to ensure max 5V output

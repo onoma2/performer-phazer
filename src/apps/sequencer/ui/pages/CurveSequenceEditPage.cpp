@@ -190,24 +190,24 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
             // Get data for the current parameter
             switch (i) {
             case 0: // FOLD
-                value = track.wavefolderFold();
-                track.printWavefolderFold(valueStr);
+                value = sequence.wavefolderFold();
+                sequence.printWavefolderFold(valueStr);
                 break;
             case 1: // GAIN
-                value = track.wavefolderGain();
+                value = sequence.wavefolderGain();
                 max = 2.f;  // New range is 0.0 to 2.0
-                track.printWavefolderGain(valueStr);
+                sequence.printWavefolderGain(valueStr);
                 break;
             case 2: // FILTER
-                value = track.djFilter();
+                value = sequence.djFilter();
                 max = 1.f;
                 bipolar = true;
-                track.printDjFilter(valueStr);
+                sequence.printDjFilter(valueStr);
                 break;
             case 3: // XFADE
-                value = track.xFade();
+                value = sequence.xFade();
                 max = 1.f;
-                track.printXFade(valueStr);
+                sequence.printXFade(valueStr);
                 break;
             }
 
@@ -255,7 +255,7 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
         canvas.setColor(Color::Medium);
         // Assuming "AMT" is at index 0 (x=0)
         // Center text under the bar
-        if (track.chaosAlgo() == CurveTrack::ChaosAlgorithm::Latoocarfian) {
+        if (sequence.chaosAlgo() == CurveSequence::ChaosAlgorithm::Latoocarfian) {
              const char* line1 = "Latoo-";
              const char* line2 = "carfian";
              int x1 = 0 + (colWidth - canvas.textWidth(line1)) / 2;
@@ -264,7 +264,7 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
              canvas.drawText(x2, 50, line2);
         } else {
             FixedStringBuilder<16> algoName;
-            track.printChaosAlgo(algoName);
+            sequence.printChaosAlgo(algoName);
             int algoX = 0 + (colWidth - canvas.textWidth(algoName)) / 2;
             canvas.drawText(algoX, 44, algoName);
         }
@@ -280,24 +280,24 @@ void CurveSequenceEditPage::draw(Canvas &canvas) {
 
             switch (i) {
             case 0: // AMT
-                value = track.chaosAmount();
+                value = sequence.chaosAmount();
                 max = 100.f;
-                track.printChaosAmount(valueStr);
+                sequence.printChaosAmount(valueStr);
                 break;
             case 1: // HZ
-                value = track.chaosRate();
+                value = sequence.chaosRate();
                 max = 127.f;
-                track.printChaosRate(valueStr);
+                sequence.printChaosRate(valueStr);
                 break;
             case 2: // P1
-                value = track.chaosParam1();
+                value = sequence.chaosParam1();
                 max = 100.f;
-                track.printChaosParam1(valueStr);
+                sequence.printChaosParam1(valueStr);
                 break;
             case 3: // P2
-                value = track.chaosParam2();
+                value = sequence.chaosParam2();
                 max = 100.f;
-                track.printChaosParam2(valueStr);
+                sequence.printChaosParam2(valueStr);
                 break;
             }
 
@@ -560,9 +560,9 @@ void CurveSequenceEditPage::keyPress(KeyPressEvent &event) {
         if (function >= 0 && function < 4) {
             if (key.shiftModifier() && function == 0) {
                 // Toggle Algo on Shift + F1
-                auto algo = _project.selectedTrack().curveTrack().chaosAlgo();
-                auto newAlgo = CurveTrack::ChaosAlgorithm((int(algo) + 1) % int(CurveTrack::ChaosAlgorithm::Last));
-                _project.selectedTrack().curveTrack().setChaosAlgo(newAlgo);
+                auto algo = sequence.chaosAlgo();
+                auto newAlgo = CurveSequence::ChaosAlgorithm((int(algo) + 1) % int(CurveSequence::ChaosAlgorithm::Last));
+                sequence.setChaosAlgo(newAlgo);
             } else {
                 _chaosRow = function;
             }
@@ -608,10 +608,10 @@ void CurveSequenceEditPage::encoder(EncoderEvent &event) {
             _wavefolderRow = clamp(_wavefolderRow + event.value(), 0, 3);
         } else {
             switch (_wavefolderRow) {
-            case 0: track.editWavefolderFold(event.value(), shift); break;
-            case 1: track.editWavefolderGain(event.value(), shift); break;
-            case 2: track.editDjFilter(event.value(), shift); break;
-            case 3: track.editXFade(event.value(), shift); break;
+            case 0: sequence.editWavefolderFold(event.value(), shift); break;
+            case 1: sequence.editWavefolderGain(event.value(), shift); break;
+            case 2: sequence.editDjFilter(event.value(), shift); break;
+            case 3: sequence.editXFade(event.value(), shift); break;
             }
         }
         event.consume();
@@ -621,10 +621,10 @@ void CurveSequenceEditPage::encoder(EncoderEvent &event) {
             _chaosRow = clamp(_chaosRow + event.value(), 0, 3);
         } else {
             switch (_chaosRow) {
-            case 0: track.editChaosAmount(event.value(), shift); break;
-            case 1: track.editChaosRate(event.value(), shift); break;
-            case 2: track.editChaosParam1(event.value(), shift); break;
-            case 3: track.editChaosParam2(event.value(), shift); break;
+            case 0: sequence.editChaosAmount(event.value(), shift); break;
+            case 1: sequence.editChaosRate(event.value(), shift); break;
+            case 2: sequence.editChaosParam1(event.value(), shift); break;
+            case 3: sequence.editChaosParam2(event.value(), shift); break;
             }
         }
         event.consume();
@@ -954,66 +954,70 @@ void CurveSequenceEditPage::settingsContextAction(int index) {
 }
 
 void CurveSequenceEditPage::initSettings() {
-    auto &track = _project.selectedTrack().curveTrack();
+    auto &sequence = _project.selectedCurveSequence();
     if (_editMode == EditMode::Wavefolder1) {
-        track.setWavefolderFold(0.f);
-        track.setWavefolderGain(0.f);
-        track.setDjFilter(0.f);
-        track.setXFade(1.f);
+        sequence.setWavefolderFold(0.f);
+        sequence.setWavefolderGain(0.f);
+        sequence.setDjFilter(0.f);
+        sequence.setXFade(1.f);
         showMessage("WAVEFOLDER INITIALIZED");
     } else if (_editMode == EditMode::Chaos) {
-        track.setChaosAmount(0);
-        track.setChaosRate(0);
-        track.setChaosParam1(0);
-        track.setChaosParam2(0);
-        track.setChaosAlgo(CurveTrack::ChaosAlgorithm::Latoocarfian);
+        sequence.setChaosAmount(0);
+        sequence.setChaosRate(0);
+        sequence.setChaosParam1(0);
+        sequence.setChaosParam2(0);
+        sequence.setChaosAlgo(CurveSequence::ChaosAlgorithm::Latoocarfian);
         showMessage("CHAOS INITIALIZED");
     }
 }
 
 void CurveSequenceEditPage::randomizeSettings() {
-    auto &track = _project.selectedTrack().curveTrack();
+    auto &sequence = _project.selectedCurveSequence();
     if (_editMode == EditMode::Wavefolder1) {
-        track.setWavefolderFold(float(rng.nextRange(100)) / 100.f);
-        track.setWavefolderGain(float(rng.nextRange(200)) / 100.f);
-        track.setDjFilter((float(rng.nextRange(200)) / 100.f) - 1.f);
-        track.setXFade(float(rng.nextRange(100)) / 100.f);
+        sequence.setWavefolderFold(float(rng.nextRange(100)) / 100.f);
+        sequence.setWavefolderGain(float(rng.nextRange(200)) / 100.f);
+        sequence.setDjFilter((float(rng.nextRange(200)) / 100.f) - 1.f);
+        sequence.setXFade(float(rng.nextRange(100)) / 100.f);
         showMessage("WAVEFOLDER RANDOMIZED");
     } else if (_editMode == EditMode::Chaos) {
-        track.setChaosAmount(rng.nextRange(101));
-        track.setChaosRate(rng.nextRange(128));
-        track.setChaosParam1(rng.nextRange(101));
-        track.setChaosParam2(rng.nextRange(101));
-        track.setChaosAlgo(CurveTrack::ChaosAlgorithm(rng.nextRange(int(CurveTrack::ChaosAlgorithm::Last))));
+        sequence.setChaosAmount(rng.nextRange(101));
+        sequence.setChaosRate(rng.nextRange(128));
+        sequence.setChaosParam1(rng.nextRange(101));
+        sequence.setChaosParam2(rng.nextRange(101));
+        sequence.setChaosAlgo(CurveSequence::ChaosAlgorithm(rng.nextRange(int(CurveSequence::ChaosAlgorithm::Last))));
         showMessage("CHAOS RANDOMIZED");
     }
 }
 
 void CurveSequenceEditPage::copySettings() {
-    auto &track = _project.selectedTrack().curveTrack();
-    _settingsClipboard.wavefolderFold = track.wavefolderFold();
-    _settingsClipboard.wavefolderGain = track.wavefolderGain();
-    _settingsClipboard.djFilter = track.djFilter();
-    _settingsClipboard.xFade = track.xFade();
-    _settingsClipboard.chaosAmount = track.chaosAmount();
-    _settingsClipboard.chaosRate = track.chaosRate();
-    _settingsClipboard.chaosParam1 = track.chaosParam1();
-    _settingsClipboard.chaosParam2 = track.chaosParam2();
-    _settingsClipboard.chaosAlgo = track.chaosAlgo();
+    auto &sequence = _project.selectedCurveSequence();
+    _settingsClipboard.wavefolderFold = sequence.wavefolderFold();
+    _settingsClipboard.wavefolderGain = sequence.wavefolderGain();
+    _settingsClipboard.djFilter = sequence.djFilter();
+    _settingsClipboard.xFade = sequence.xFade();
+    _settingsClipboard.chaosAmount = sequence.chaosAmount();
+    _settingsClipboard.chaosRate = sequence.chaosRate();
+    _settingsClipboard.chaosParam1 = sequence.chaosParam1();
+    _settingsClipboard.chaosParam2 = sequence.chaosParam2();
+    // Cast sequence enum to track enum for clipboard compatibility (if needed, or update clipboard)
+    // Actually clipboard uses CurveTrack::ChaosAlgorithm, but we moved it to CurveSequence.
+    // We should update the Clipboard struct to use CurveSequence::ChaosAlgorithm.
+    // For now, casting is safe as they are identical.
+    _settingsClipboard.chaosAlgo = sequence.chaosAlgo();
     showMessage("SETTINGS COPIED");
 }
 
 void CurveSequenceEditPage::pasteSettings() {
-    auto &track = _project.selectedTrack().curveTrack();
-    track.setWavefolderFold(_settingsClipboard.wavefolderFold);
-    track.setWavefolderGain(_settingsClipboard.wavefolderGain);
-    track.setDjFilter(_settingsClipboard.djFilter);
-    track.setXFade(_settingsClipboard.xFade);
-    track.setChaosAmount(_settingsClipboard.chaosAmount);
-    track.setChaosRate(_settingsClipboard.chaosRate);
-    track.setChaosParam1(_settingsClipboard.chaosParam1);
-    track.setChaosParam2(_settingsClipboard.chaosParam2);
-    track.setChaosAlgo(_settingsClipboard.chaosAlgo);
+    auto &sequence = _project.selectedCurveSequence();
+    sequence.setWavefolderFold(_settingsClipboard.wavefolderFold);
+    sequence.setWavefolderGain(_settingsClipboard.wavefolderGain);
+    sequence.setDjFilter(_settingsClipboard.djFilter);
+    sequence.setXFade(_settingsClipboard.xFade);
+    sequence.setChaosAmount(_settingsClipboard.chaosAmount);
+    sequence.setChaosRate(_settingsClipboard.chaosRate);
+    sequence.setChaosParam1(_settingsClipboard.chaosParam1);
+    sequence.setChaosParam2(_settingsClipboard.chaosParam2);
+    sequence.setChaosAlgo(_settingsClipboard.chaosAlgo);
     showMessage("SETTINGS PASTED");
 }
 

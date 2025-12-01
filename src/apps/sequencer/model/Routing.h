@@ -76,6 +76,34 @@ public:
         RootNote,
         SequenceLast = RootNote,
 
+        // Tuesday Track Targets
+        TuesdayFirst,
+        Algorithm = TuesdayFirst,
+        Flow,
+        Ornament,
+        Power,
+        Glide,
+        Trill,
+        GateOffset,
+        Scan,
+        TuesdayLast = Scan,
+
+        // Chaos Targets
+        ChaosFirst,
+        ChaosAmount = ChaosFirst,
+        ChaosRate,
+        ChaosParam1,
+        ChaosParam2,
+        ChaosLast = ChaosParam2,
+
+        // Wavefolder Targets
+        WavefolderFirst,
+        WavefolderFold = WavefolderFirst,
+        WavefolderGain,
+        DjFilter,
+        XFade,
+        WavefolderLast = XFade,
+
         Last,
     };
 
@@ -116,6 +144,25 @@ public:
         case Target::Divisor:                   return "Divisor";
         case Target::Scale:                     return "Scale";
         case Target::RootNote:                  return "Root Note";
+
+        case Target::Algorithm:                 return "Algorithm";
+        case Target::Flow:                      return "Flow";
+        case Target::Ornament:                  return "Ornament";
+        case Target::Power:                     return "Power";
+        case Target::Glide:                     return "Glide";
+        case Target::Trill:                     return "Trill";
+        case Target::GateOffset:                return "Gate Offset";
+        case Target::Scan:                      return "Scan";
+
+        case Target::ChaosAmount:               return "Chaos Amount";
+        case Target::ChaosRate:                 return "Chaos Rate";
+        case Target::ChaosParam1:               return "Chaos P1";
+        case Target::ChaosParam2:               return "Chaos P2";
+
+        case Target::WavefolderFold:            return "Fold";
+        case Target::WavefolderGain:            return "Fold Gain";
+        case Target::DjFilter:                  return "DJ Filter";
+        case Target::XFade:                     return "XFade";
 
         case Target::Last:                      break;
         }
@@ -186,8 +233,21 @@ public:
         return target >= Target::SequenceFirst && target <= Target::SequenceLast;
     }
 
+    static bool isTuesdayTarget(Target target) {
+        return target >= Target::TuesdayFirst && target <= Target::TuesdayLast;
+    }
+
+    static bool isChaosTarget(Target target) {
+        return target >= Target::ChaosFirst && target <= Target::ChaosLast;
+    }
+
+    static bool isWavefolderTarget(Target target) {
+        return target >= Target::WavefolderFirst && target <= Target::WavefolderLast;
+    }
+
     static bool isPerTrackTarget(Target target) {
-        return isPlayStateTarget(target) || isTrackTarget(target) || isSequenceTarget(target);
+        return isPlayStateTarget(target) || isTrackTarget(target) || isSequenceTarget(target) ||
+               isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target);
     }
 
     enum class Source : uint8_t {

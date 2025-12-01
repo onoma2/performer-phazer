@@ -77,7 +77,7 @@ private:
         int chaosRate;
         int chaosParam1;
         int chaosParam2;
-        CurveTrack::ChaosAlgorithm chaosAlgo;
+        CurveSequence::ChaosAlgorithm chaosAlgo;
     };
 
     static SettingsClipboard _settingsClipboard;

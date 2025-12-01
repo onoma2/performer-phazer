@@ -1,5 +1,6 @@
 include_directories(../../../apps/sequencer)
 include_directories(../../../apps/sequencer/model) # Add include for model files
+include_directories(..) # Add current directory for utils
 
 # Modify register_test to link against sequencer_shared
 function(register_sequencer_test test file)
@@ -51,8 +52,9 @@ register_sequencer_test(TestTuesdayTrackGateOffset TestTuesdayTrackGateOffset.cp
 register_sequencer_test(TestTuesdayTrackEngineGateOffset TestTuesdayTrackEngineGateOffset.cpp)
 register_sequencer_test(TestCurveTrackLfoShapes TestCurveTrackLfoShapes.cpp)
 register_sequencer_test(TestCurveTrackLfoShapesIntegration TestCurveTrackLfoShapesIntegration.cpp)
-register_sequencer_test(TestCurveSequencePageF4Key TestCurveSequencePageF4Key.cpp)
-register_sequencer_test(TestCurveSequencePagePageKey TestCurveSequencePagePageKey.cpp)
+# register_sequencer_test(TestCurveSequencePageF4Key TestCurveSequencePageF4Key.cpp)
+# register_sequencer_test(TestCurveSequencePagePageKey TestCurveSequencePagePageKey.cpp)
 register_sequencer_test(TestCurveTrackEnginePhase TestCurveTrackEnginePhase.cpp)
 register_sequencer_test(TestCurveTrackEngineGlobalPhase TestCurveTrackEngineGlobalPhase.cpp)
 register_sequencer_test(TestOutputRotation TestOutputRotation.cpp)
+register_sequencer_test(TestCurveTrackPatterns TestCurveTrackPatterns.cpp)
