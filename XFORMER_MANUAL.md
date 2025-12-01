@@ -26,6 +26,10 @@ its open sourced code).
    	- Harmony Engine (Inspired by Instruo Harmonaig and based on its manual),
 	- Accumulator (Inspired by Intellijel Metropolix and based on its manual).
 	- Basic Pulse Count and Gate Modes (same as previous)
+- Curve Track:
+		- Phase
+		- Folder
+- CV and GATE Ouput Rotation with Routing matrix  
 
 It assumes you are already familiar with the standard functionality of the Westlicht PER|FORMER..
 
