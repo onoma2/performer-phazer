@@ -6,21 +6,21 @@ static const char *algorithmNames[] = {
     "SIMPLE",     // 0
     "TRITRANCE",  // 1
     "STOMPER",    // 2
-    "MARKOV",     // 3
-    "CHIPARP",    // 4
-    "GOACID",     // 5
-    "SNH",        // 6
-    "WOBBLE",     // 7
-    "TECHNO",     // 8
-    "FUNK",       // 9
-    "DRONE",      // 10
-    "PHASE",      // 11
-    "RAGA",       // 12
-    "AMBIENT",    // 13
-    "ACID",       // 14
-    "DRILL",      // 15
-    "MINIMAL",    // 16
-    "KRAFT",      // 17
+    "RESERVED3",  // 3 (MARKOV - not kept)
+    "RESERVED4",  // 4 (CHIPARP - not kept)
+    "RESERVED5",  // 5 (GOACID - not kept)
+    "RESERVED6",  // 6 (SNH - not kept)
+    "RESERVED7",  // 7 (WOBBLE - not kept)
+    "RESERVED8",  // 8 (TECHNO - not kept)
+    "RESERVED9",  // 9 (FUNK - not kept)
+    "RESERVED10", // 10 (DRONE - not kept)
+    "RESERVED11", // 11 (PHASE - not kept)
+    "RESERVED12", // 12 (RAGA - not kept)
+    "RESERVED13", // 13 (AMBIENT - not kept)
+    "RESERVED14", // 14 (ACID - not kept)
+    "RESERVED15", // 15 (DRILL - not kept)
+    "RESERVED16", // 16 (MINIMAL - not kept)
+    "RESERVED17", // 17 (KRAFT - not kept)
     "APHEX",      // 18
     "AUTECH",     // 19
     "STEPWAVE",   // 20
@@ -35,7 +35,7 @@ static const int loopLengthValues[] = {
 
 void TuesdaySequence::printAlgorithm(StringBuilder &str) const {
     int algo = algorithm();
-    if (algo < 21) {
+    if (algo >= 0 && algo <= 20) {
         str(algorithmNames[algo]);
     } else {
         str("???");

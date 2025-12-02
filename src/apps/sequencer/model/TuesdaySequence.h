@@ -34,7 +34,32 @@ public:
 
     void editAlgorithm(int value, bool shift) {
         if (!isRouted(Routing::Target::Algorithm)) {
-            setAlgorithm(algorithm() + value);
+            // Cycle only through valid algorithms: 0, 1, 2, 18, 19, 20
+            // Map to indices: [0]=0, [1]=1, [2]=2, [3]=18, [4]=19, [5]=20
+            static const int VALID_ALGORITHMS[] = {0, 1, 2, 18, 19, 20};
+            const int VALID_COUNT = 6;
+
+            // Find current algorithm position in valid array
+            int currentIdx = -1;
+            for (int i = 0; i < VALID_COUNT; i++) {
+                if (VALID_ALGORITHMS[i] == algorithm()) {
+                    currentIdx = i;
+                    break;
+                }
+            }
+
+            // If current algorithm is not valid, start at beginning
+            if (currentIdx == -1) {
+                currentIdx = 0;
+            }
+
+            // Cycle to new position (with wrapping)
+            int newIdx = (currentIdx + value) % VALID_COUNT;
+            if (newIdx < 0) {
+                newIdx = (newIdx + VALID_COUNT) % VALID_COUNT; // Handle negative wrap
+            }
+
+            setAlgorithm(VALID_ALGORITHMS[newIdx]);
         }
     }
 
