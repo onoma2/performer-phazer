@@ -51,8 +51,8 @@ public:
             return Routing::Target::Glide;
         case Trill:
             return Routing::Target::Trill;
-        case GateOffset:
-            return Routing::Target::GateOffset;
+        case GateLength:
+            return Routing::Target::GateLength;
         case Scan:
             return Routing::Target::Scan;
         case Rotate:
@@ -83,7 +83,7 @@ private:
         Rotate,
         Glide,
         Skew,
-        GateOffset,
+        GateLength, // Added
         CvUpdateMode,
         Trill,
         UseScale,
@@ -107,7 +107,7 @@ private:
         case Rotate:        return "Rotate";
         case Glide:         return "Glide";
         case Skew:          return "Skew";
-        case GateOffset:    return "Gate Offset";
+        case GateLength:    return "Gate Length";
         case CvUpdateMode:  return "CV Mode";
         case Trill:         return "Trill";
         case UseScale:      return "Use Scale";
@@ -155,8 +155,8 @@ private:
         case Skew:
             _sequence->printSkew(str);
             break;
-        case GateOffset:
-            _sequence->printGateOffset(str);
+        case GateLength:
+            _sequence->printGateLength(str);
             break;
         case CvUpdateMode:
             _sequence->printCvUpdateMode(str);
@@ -219,8 +219,8 @@ private:
         case Skew:
             _sequence->editSkew(value, shift);
             break;
-        case GateOffset:
-            _sequence->editGateOffset(value, shift);
+        case GateLength:
+            _sequence->editGateLength(value, shift);
             break;
         case CvUpdateMode:
             _sequence->editCvUpdateMode(value, shift);

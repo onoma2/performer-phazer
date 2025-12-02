@@ -141,7 +141,7 @@ int TuesdayEditPage::paramForPage(int page, int slot) const {
     static const int pageParams[PageCount][ParamsPerPage] = {
         { Algorithm, Flow, Ornament, Power },           // Page 1
         { LoopLength, Scan, Rotate, CvUpdateMode },     // Page 2
-        { Skew, GateOffset, Glide, Trill },             // Page 3
+        { Skew, GateLength, Glide, Trill },             // Page 3
     };
 
     if (page < 0 || page >= PageCount || slot < 0 || slot >= ParamsPerPage) {
@@ -161,7 +161,7 @@ const char *TuesdayEditPage::paramName(int param) const {
     case Rotate:        return "Rotate";
     case Glide:         return "Glide";
     case Skew:          return "Skew";
-    case GateOffset:    return "Gate Offset";
+    case GateLength:    return "Gate Length";
     case CvUpdateMode:  return "CV Mode";
     case Trill:         return "Trill";
     default:            return "-";
@@ -179,7 +179,7 @@ const char *TuesdayEditPage::paramShortName(int param) const {
     case Rotate:        return "ROT";
     case Glide:         return "GLIDE";
     case Skew:          return "SKEW";
-    case GateOffset:    return "GOFS";
+    case GateLength:    return "GATE";
     case CvUpdateMode:  return "CVUPD";
     case Trill:         return "TRILL";
     default:            return "-";
@@ -228,8 +228,8 @@ void TuesdayEditPage::formatParamValue(int param, StringBuilder &str) const {
     case Skew:
         str("%+d", sequence.skew());
         break;
-    case GateOffset:
-        str("%d%%", sequence.gateOffset());
+    case GateLength:
+        str("%d%%", sequence.gateLength());
         break;
     case CvUpdateMode:
         sequence.printCvUpdateMode(str);
@@ -256,7 +256,7 @@ int TuesdayEditPage::paramValue(int param) const {
     case Rotate:        return sequence.rotate();
     case Glide:         return sequence.glide();
     case Skew:          return sequence.skew();
-    case GateOffset:    return sequence.gateOffset();
+    case GateLength:    return sequence.gateLength();
     case CvUpdateMode:  return sequence.cvUpdateMode();
     case Trill:         return sequence.trill();
     default:            return 0;
@@ -274,7 +274,7 @@ int TuesdayEditPage::paramMax(int param) const {
     case Rotate:        return 63;   // Bipolar: -63 to +63
     case Glide:         return 100;
     case Skew:          return 8;    // Bipolar: -8 to +8
-    case GateOffset:    return 100;  // Percentage: 0-100%
+    case GateLength:    return 100;  // Percentage: 0-100%
     case CvUpdateMode:  return 1;
     case Trill:         return 100;
     default:            return 0;
@@ -318,8 +318,8 @@ void TuesdayEditPage::editParam(int param, int value, bool shift) {
     case Skew:
         sequence.editSkew(value, shift);
         break;
-    case GateOffset:
-        sequence.editGateOffset(value, shift);
+    case GateLength:
+        sequence.editGateLength(value, shift);
         break;
     case CvUpdateMode:
         sequence.editCvUpdateMode(value, shift);

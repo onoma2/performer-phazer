@@ -86,7 +86,8 @@ public:
         Trill,
         GateOffset,
         Scan,
-        TuesdayLast = Scan,
+        GateLength, // Added
+        TuesdayLast = GateLength,
 
         // Chaos Targets
         ChaosFirst,
@@ -640,4 +641,17 @@ struct Routable {
 
     inline void set(T value, bool selectRouted) { values[selectRouted] = value; }
     inline T get(bool selectRouted) const { return values[selectRouted]; }
+
+    inline void clear() { base = 0; routed = 0; }
+    inline void setBase(T value) { base = value; }
+    inline void write(int value) { routed = value; } // For Routing::writeTarget (writes to routed slot)
+
+    inline void write(VersionedSerializedWriter &writer) const {
+        writer.write(base);
+    }
+
+    inline void read(VersionedSerializedReader &reader) {
+        reader.read(base);
+        routed = 0; // Reset routed value on read
+    }
 };

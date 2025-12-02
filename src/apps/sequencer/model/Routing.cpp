@@ -328,6 +328,7 @@ static const TargetInfo targetInfos[int(Routing::Target::Last)] = {
     [int(Routing::Target::Glide)]                           = { 0,      100,    0,      100,    10      },
     [int(Routing::Target::Trill)]                           = { 0,      100,    0,      100,    10      },
     [int(Routing::Target::GateOffset)]                      = { 0,      100,    0,      100,    10      },
+    [int(Routing::Target::GateLength)]                      = { 0,      100,    0,      100,    10      },
     [int(Routing::Target::Scan)]                            = { 0,      63,     0,      63,     16      },
     // Chaos targets
     [int(Routing::Target::ChaosAmount)]                     = { 0,      100,    0,      100,    10      },
@@ -421,6 +422,7 @@ void Routing::printTargetValue(Routing::Target target, float normalized, StringB
         break;
     case Target::Glide:
     case Target::Trill:
+    case Target::GateLength:
     case Target::GateOffset:
     case Target::ChaosAmount:
     case Target::ChaosParam1:

@@ -35,9 +35,8 @@ private:
         Scan,
         Rotate,
         Glide,
-        // Page 3
         Skew,
-        GateOffset,
+        GateLength,
         CvUpdateMode,
         Trill,
         // Total

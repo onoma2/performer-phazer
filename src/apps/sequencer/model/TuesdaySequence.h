@@ -34,10 +34,10 @@ public:
 
     void editAlgorithm(int value, bool shift) {
         if (!isRouted(Routing::Target::Algorithm)) {
-            // Cycle only through valid algorithms: 0, 1, 2, 18, 19, 20
-            // Map to indices: [0]=0, [1]=1, [2]=2, [3]=18, [4]=19, [5]=20
-            static const int VALID_ALGORITHMS[] = {0, 1, 2, 18, 19, 20};
-            const int VALID_COUNT = 6;
+            // Cycle only through valid algorithms: 0, 1, 2, 3(6), 4(7), 5(8), 6(9), 18, 19, 20
+            // 0=Test, 1=Tri, 2=Stomper, 6=Markov, 7=Chip1, 8=Chip2, 9=Wobble, 18=Aphex, 19=Aut, 20=Step
+            static const int VALID_ALGORITHMS[] = {0, 1, 2, 6, 7, 8, 9, 18, 19, 20};
+            const int VALID_COUNT = 10;
 
             // Find current algorithm position in valid array
             int currentIdx = -1;
@@ -359,6 +359,23 @@ public:
         str("%d", scan());
     }
 
+    // gateLength (0-100% scaling for gate duration)
+    int gateLength() const { return _gateLength.get(isRouted(Routing::Target::GateLength)); }
+    void setGateLength(int gateLength, bool routed = false) {
+        _gateLength.set(clamp(gateLength, 0, 100), routed);
+    }
+
+    void editGateLength(int value, bool shift) {
+        if (!isRouted(Routing::Target::GateLength)) {
+            setGateLength(this->gateLength() + value * (shift ? 10 : 1));
+        }
+    }
+
+    void printGateLength(StringBuilder &str) const {
+        printRouted(str, Routing::Target::GateLength);
+        str("%d%%", gateLength());
+    }
+
     // gateOffset (0-100% user override for algorithmic gate timing)
     int gateOffset() const { return _gateOffset.get(isRouted(Routing::Target::GateOffset)); }
     void setGateOffset(int gateOffset, bool routed = false) {
@@ -447,6 +464,7 @@ private:
     int8_t _rootNote = -1;  // Default: -1 (use project root)
     Routable<uint8_t> _scan;  // Default: 0 (no scan offset)
     Routable<int8_t> _rotate;  // Default: 0 (no rotation)
+    Routable<uint8_t> _gateLength; // Default: 50% (Standard)
     Routable<uint8_t> _gateOffset;  // Default: 0% (no gate timing offset)
 
     friend class TuesdayTrack;
