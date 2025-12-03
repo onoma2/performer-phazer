@@ -132,8 +132,18 @@ void TuesdayTrackEngine::initAlgorithm() {
 
     case 4: // AUTECHRE (Mapped from 19)
     case 19:
-        _autechre_pattern[0] = 0; _autechre_pattern[1] = 0; _autechre_pattern[2] = 24; _autechre_pattern[3] = 0;
-        _autechre_pattern[4] = 0; _autechre_pattern[5] = 24; _autechre_pattern[6] = 0; _autechre_pattern[7] = 36;
+        // Seed pattern with variation based on Flow
+        _rng = Random(flowSeed);
+        for (int i = 0; i < 8; ++i) {
+            // 50% chance of root, 25% +1oct, 25% +2oct
+            int r = _rng.next() % 4;
+            if (r == 0) _autechre_pattern[i] = 12; // +1 oct
+            else if (r == 1) _autechre_pattern[i] = 24; // +2 oct
+            else _autechre_pattern[i] = 0; // root
+            
+            // Add some melodic movement
+            if (_rng.nextBinary()) _autechre_pattern[i] += (_rng.next() % 5) * 2; // 0, 2, 4, 6, 8
+        }
         _autechre_rule_timer = 8 + (flow * 4);
 
         _rng = Random(ornamentSeed);
@@ -317,6 +327,22 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
     const auto &sequence = tuesdayTrack().sequence(pattern());
     int algorithm = sequence.algorithm();
     
+    // --- CONTEXT CALCULATION (Porting Tick/Beat/Loop) ---
+    
+    // 1. Derive TPB (Ticks Per Beat) based on Quarter Note (192 PPQN)
+    // This ensures "Beat" based algorithms lock to the musical grid.
+    uint32_t stepTicks = sequence.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
+    int tpb = 1;
+    if (stepTicks > 0) {
+        // Round to nearest integer to handle slight timing drifts or swing if applied globally (unlikely here)
+        tpb = std::max(1, (int)((192 + (stepTicks/2)) / stepTicks));
+    }
+    
+    // 2. Derive Effective Loop Length
+    // If infinite (0), assume 32 steps (2 bars of 16ths) for LFO scaling
+    int loopLength = sequence.actualLoopLength();
+    int effectiveLoopLength = (loopLength > 0) ? loopLength : 32;
+
     TuesdayTickResult result;
     result.velocity = 255; // Default high velocity
 
@@ -363,6 +389,8 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                 result.slide = true;
             }
 
+            // Note: TriTrance uses modulo 3, which is its own rhythmic grid (Polyrhythm).
+            // It does NOT use the Beat (TPB) concept, so we leave it as is.
             int phase = (_stepIndex + _triB2) % 3;
             switch (phase) {
             case 0:
@@ -415,9 +443,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                 }
                 
                 // Randomize notes periodically (simulated "PercChance 100" from original)
-                // In original, PercChance(100) means ~60% chance? Or 100%?
-                // Original: if (Tuesday_PercChance(R, 100)) -> if ((Rand >> 6) & 0xFF >= 100)
-                // 0..255 >= 100 -> ~60% true.
                 if (_rng.nextRange(256) >= 100) _stomperLowNote = _rng.next() % 3;
                 if (_rng.nextRange(256) >= 100) _stomperHighNote[0] = _rng.next() % 7;
                 if (_rng.nextRange(256) >= 100) _stomperHighNote[1] = _rng.next() % 5;
@@ -487,14 +512,12 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                 _stomperLastOctave = result.octave;
                 
                 // Calculate velocity
-                // Original: (Tuesday_Rand(&Extra) / 4) + veloffset;
                 result.velocity = (_extraRng.nextRange(256) / 4) + veloffset;
                 // Accent logic: PercChance(50 + accentoffs)
                 if (_rng.nextRange(256) >= (50 + accentoffs)) {
                      result.accent = true;
                 }
                 
-                // Chaos for trills
                 result.chaos = 18; // Base chaos
             }
         }
@@ -502,88 +525,112 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
 
     case 3: // APHEX
         {
-            // Track 1: Main Melody
-            result.note = _aphex_track1_pattern[_aphex_pos1];
+            // Polyrhythmic Time Warping
+            // Ornament controls the time base for the Modifier Track (Track 2)
+            // 0-4: Straight, 5-8: Triplet (3:4), 9-12: Quintuplet (5:4), 13-16: Septuplet (7:4)
+            int ornament = sequence.ornament();
+            uint32_t modifierStep = _stepIndex;
+            if (ornament >= 5 && ornament <= 8) modifierStep = (_stepIndex * 3) / 4;
+            else if (ornament >= 9 && ornament <= 12) modifierStep = (_stepIndex * 5) / 4;
+            else if (ornament >= 13) modifierStep = (_stepIndex * 7) / 4;
+
+            // Track 1: Main Melody (Straight)
+            // Use the standard position counters but update them based on warped steps?
+            // No, simpler: Use the calculated steps directly to look up pattern.
+            // But Aphex uses stateful position counters (_aphex_pos1).
+            // We must advance the state differently.
+            // Let's apply the warping to the *increment* decision.
+            
+            // Actually, since we run live every step, we can't skip updates.
+            // We must index into the pattern using the warped step.
+            
+            // Re-calculate positions based on warped indices
+            // This makes the algo stateless (good for loop points!)
+            int pos1 = _stepIndex % 4; // Track 1 is always straight 4/4
+            int pos2 = modifierStep % 3; // Track 2 is warped
+            int pos3 = _stepIndex % 5; // Track 3 is straight 5/4 (natural poly)
+
+            result.note = _aphex_track1_pattern[pos1];
             result.octave = 0;
             result.gateRatio = 75;
-            result.velocity = 180; // Standard Note
+            result.velocity = 180;
 
-            // Track 2: Modifier
-            // 0=Off, 1=Stutter/Ghost, 2=Slide/Legato
-            uint8_t modifier = _aphex_track2_pattern[_aphex_pos2];
+            uint8_t modifier = _aphex_track2_pattern[pos2];
             if (modifier == 1) {
-                // Stutter: Short gate, Low velocity (Ghost note), High Chaos (Ratchet candidate)
                 result.gateRatio = 25;
                 result.velocity = 80; 
                 result.chaos = 60; 
             } else if (modifier == 2) {
-                // Slide: Legato, Slide Request
                 result.gateRatio = 100;
                 result.slide = true;
             }
 
-            // Track 3: Bass Override
-            uint8_t bass = _aphex_track3_pattern[_aphex_pos3];
+            uint8_t bass = _aphex_track3_pattern[pos3];
             if (bass > 0) {
-                // Bass is always an Accent and Deep
                 result.note = bass;
                 result.octave = -1;
                 result.gateRatio = 90;
                 result.velocity = 255;
                 result.accent = true;
             }
-
-            _aphex_pos1 = (_aphex_pos1 + 1) % 4;
-            _aphex_pos2 = (_aphex_pos2 + 1) % 3;
-            _aphex_pos3 = (_aphex_pos3 + 1) % 5;
             
-            // Polyrhythmic Collision: Extreme Chaos
-            int polyCollision = ((_aphex_pos1 * 7) ^ (_aphex_pos2 * 5) ^ (_aphex_pos3 * 3)) % 12;
+            // Collision logic needs warped pos2
+            int polyCollision = ((pos1 * 7) ^ (pos2 * 5) ^ (pos3 * 3)) % 12;
             if (polyCollision > 9) {
                 result.chaos = 100;
-                result.velocity = 255; // Accentuate the glitch
+                result.velocity = 255;
             }
         }
         break;
         
     case 4: // AUTECHRE
         {
+            // Polyrhythmic Time Warping (Fast Tuplets)
+            int ornament = sequence.ornament();
+            int tupleN = 4;
+            
+            if (ornament >= 5 && ornament <= 8) tupleN = 3;
+            else if (ornament >= 9 && ornament <= 12) tupleN = 5;
+            else if (ornament >= 13) tupleN = 7;
+
+            // Determine if this is a Beat Start (Step 0, 4, 8, 12)
+            bool isBeatStart = (_stepIndex % 4) == 0;
+
+            if (tupleN != 4) {
+                if (isBeatStart) {
+                    // Arm Polyrhythm
+                    result.chaos = 100; // Signal to FX layer to trigger poly
+                    // We need to pass tupleN to FX layer. 
+                    // We can encode it in chaos or gateOffset?
+                    // Or rely on FX layer re-calculating it from Ornament.
+                } else {
+                    // Mute intermediate steps (1, 2, 3)
+                    result.velocity = 0; 
+                }
+            }
+
+            // ... (Algorithm Logic for Step 0) ...
             int patternVal = _autechre_pattern[_stepIndex % 8];
             result.note = patternVal % 12;
             result.octave = patternVal / 12;
             
             _autechre_rule_timer--;
             
-            // Default state
-            result.velocity = 160;
+            if (result.velocity > 0) result.velocity = 160;
             result.gateRatio = 75;
-            result.chaos = 10;
-
-            // Transformation Event
+            // ... (Transformation Logic) ...
             if (_autechre_rule_timer <= 0) {
                 uint8_t rule = _autechre_rule_sequence[_autechre_rule_index];
                 int intensity = sequence.power() / 2;
-                
-                // MARK THE EVENT: High Velocity Accent on transformation steps
-                result.velocity = 255;
-                result.accent = true;
-                result.chaos = 50; // Chance of ratchet on transformation
-                
-                // Phrasing based on Rule Type
-                if (rule <= 1) { 
-                    // Rotate/Reverse: Fluid/Legato
-                    result.gateRatio = 95; 
-                } else { 
-                    // Swap/Invert/Add: Glitch/Staccato
-                    result.gateRatio = 40; 
+                if (result.velocity > 0) {
+                    result.velocity = 255;
+                    result.accent = true;
                 }
-                
-                // Apply Transformation
-                if (rule == 0) { int8_t t = _autechre_pattern[7]; for(int i=7; i>0; --i) _autechre_pattern[i]=_autechre_pattern[i-1]; _autechre_pattern[0]=t; } // Rotate
-                else if (rule == 1) { for(int i=0;i<4;++i) std::swap(_autechre_pattern[i], _autechre_pattern[7-i]); } // Reverse
-                else if (rule == 2) { /* Invert */ for(int i=0;i<8;++i) { int o=_autechre_pattern[i]/12; int n=_autechre_pattern[i]%12; n=(6-(n-6)+12)%12; _autechre_pattern[i]=n+o*12; } }
-                else if (rule == 3) { for(int i=0;i<8;i+=2) std::swap(_autechre_pattern[i], _autechre_pattern[i+1]); } // Swap
-                else if (rule == 4) { for(int i=0;i<8;++i) { int o=_autechre_pattern[i]/12; int n=(_autechre_pattern[i]%12+intensity)%12; _autechre_pattern[i]=n+o*12; } } // Add
+                if (rule == 0) { int8_t t = _autechre_pattern[7]; for(int i=7; i>0; --i) _autechre_pattern[i]=_autechre_pattern[i-1]; _autechre_pattern[0]=t; }
+                else if (rule == 1) { for(int i=0;i<4;++i) std::swap(_autechre_pattern[i], _autechre_pattern[7-i]); }
+                else if (rule == 2) { for(int i=0;i<8;++i) { int o=_autechre_pattern[i]/12; int n=_autechre_pattern[i]%12; n=(6-(n-6)+12)%12; _autechre_pattern[i]=n+o*12; } }
+                else if (rule == 3) { for(int i=0;i<8;i+=2) std::swap(_autechre_pattern[i], _autechre_pattern[i+1]); }
+                else if (rule == 4) { for(int i=0;i<8;++i) { int o=_autechre_pattern[i]/12; int n=(_autechre_pattern[i]%12+intensity)%12; _autechre_pattern[i]=n+o*12; } }
 
                 _autechre_rule_timer = 8 + (sequence.flow() * 4);
                 _autechre_rule_index = (_autechre_rule_index + 1) % 8;
@@ -596,35 +643,48 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
              int flow = sequence.flow();
              int ornament = sequence.ornament();
              
-             int dir = (flow <= 7) ? -1 : (flow >= 9 ? 1 : 0);
-             int stepSize = (ornament <= 5) ? 2 : (ornament >= 11 ? 3 : (2 + _extraRng.next()%2));
+             int tupleN = 4;
+             if (ornament >= 5 && ornament <= 8) tupleN = 3;
+             else if (ornament >= 9 && ornament <= 12) tupleN = 5;
+             else if (ornament >= 13) tupleN = 7;
              
-             result.note = (_stepIndex * dir * stepSize) % 7;
-             if (result.note < 0) result.note += 7;
+             bool isBeatStart = (_stepIndex % 4) == 0;
              
-             result.velocity = 200;
-             
-             // Octave Jumps are Accents
-             if (_rng.nextRange(100) < (20 + flow * 3)) {
-                 result.octave = 2;
-                 result.velocity = 255;
-                 result.accent = true;
-             } else {
-                 result.octave = 0;
+             if (tupleN != 4) {
+                 if (isBeatStart) {
+                     result.chaos = 100;
+                 } else {
+                     result.velocity = 0;
+                 }
              }
              
-             // Probabilistic Slide Request (based on Glide param/Ornament)
-             // If slide is active, make it legato.
+             int dir;
+             if (flow <= 7) dir = -1;
+             else if (flow >= 9) dir = 1;
+             else dir = 1; 
+             
+             int stepSize = 2 + (_stepIndex % 2); 
+             
+             result.note = (_stepIndex * dir * stepSize) % 7; 
+             if (result.note < 0) result.note += 7;
+             
+             if (result.velocity > 0) {
+                 result.velocity = 200;
+                 if (_rng.nextRange(100) < (20 + flow * 3)) {
+                     result.octave = 2;
+                     result.velocity = 255;
+                     result.accent = true;
+                 } else {
+                     result.octave = 0;
+                 }
+             }
+             
              if (_rng.nextRange(100) < sequence.glide()) {
                  result.slide = true;
                  result.gateRatio = 100;
              } else {
-                 result.gateRatio = 75; // Stepped
+                 result.gateRatio = 75;
              }
-             
-             // High base chaos implies this algorithm LOVES to trill
-             // The FX layer catches Algo 20 specifically to do the "Climbing" trill
-             result.chaos = 80; 
         }
         break;
 
@@ -641,7 +701,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
             result.octave = _rng.nextBinary();
             
             // Random Slide/Length
-            // Logic from RandomSlideAndLength
             if (_rng.nextRange(100) < 50) result.gateRatio = 100 + (_rng.nextRange(4) * 25);
             else result.gateRatio = 75;
             
@@ -656,8 +715,8 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
     case 7: // CHIPARP 1
         {
             result.gateRatio = 75;
-            // Original uses I % TPB. Let's use stepIndex % 4 (1 beat)
-            int chordpos = _stepIndex % 4;
+            // Use TPB for beat-sync reset (replaces hardcoded % 4)
+            int chordpos = _stepIndex % tpb;
             
             if (chordpos == 0) {
                 result.accent = true;
@@ -666,13 +725,11 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                 if (_rng.nextRange(256) >= 0xF0) _chipDir = (_rng.next() >> 7) % 2;
             }
             
-            if (_chipDir == 1) chordpos = 4 - chordpos - 1;
+            if (_chipDir == 1) chordpos = tpb - chordpos - 1;
             
             if (_chipRng.nextRange(256) >= 0x20) result.accent = true;
             
             if (_chipRng.nextRange(256) >= 0x80) {
-                // slide = rand%3. 
-                // We map to bool slide
                 result.slide = true;
             }
             
@@ -685,7 +742,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                 result.gateRatio = (4 + 6 * rnd) * (100/6); // approx mapping
             }
             
-            // Vel from main RNG
             int extraVel = ((_stepIndex + _triB2) == 0) ? 127 : 0; // triB2 unused? Original used GENERIC.b2
             result.velocity = (_rng.nextRange(256) / 2) + extraVel; 
         }
@@ -738,6 +794,12 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
 
     case 9: // WOBBLE
         {
+            // Update PhaseSpeed based on Effective Loop Length
+            // Original: 0xffffffff / Length
+            // We update it dynamically here to allow breathing with Loop Length changes
+            _wobblePhaseSpeed = 0xFFFFFFFF / std::max(1, effectiveLoopLength);
+            _wobblePhaseSpeed2 = 0xCFFFFFFF / std::max(1, effectiveLoopLength / 4);
+
             _wobblePhase += _wobblePhaseSpeed;
             _wobblePhase2 += _wobblePhaseSpeed2;
             
@@ -745,7 +807,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
             // Map ornament 0-16 to 0-255 threshold
             if (_rng.nextRange(256) >= (sequence.ornament() * 16)) {
                 // Use Phase 2
-                // NOTE(1, (pos2 >> 27)) -> Octave 1, Note = top 5 bits of phase
                 result.octave = 1;
                 result.note = (_wobblePhase2 >> 27) & 0x1F; // 0-31
                 
@@ -763,8 +824,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                 }
                 _wobbleLastWasHigh = 0;
             }
-            
-            // ScaleToNote will quantize 0-31 note to Scale
             
             result.velocity = (_extraRng.nextRange(256) / 4);
             if (_rng.nextRange(256) >= 50) result.accent = true;
@@ -836,6 +895,9 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         // 1. GENERATE (The Brain)
         TuesdayTickResult result = generateStep(tick);
         
+        // Apply Algorithm's Timing Offset
+        _gateOffset = result.gateOffset;
+        
         // 2. FX LAYER (Post-Processing)
         
         // A. Trill/Ratchet
@@ -891,13 +953,17 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         // If we trigger, we reset cooldown.
         
         bool densityGate = false;
-        if (_coolDown == 0) {
-            densityGate = true; // Always trigger if timer expired
-        } else {
-            // Probabilistic override: High velocity can force a trigger?
-            // Or strict timer?
-            // Tuesday original uses velocity as the threshold.
-            // Let's map Velocity (0-255) to Density (0-16)
+        
+        // 0. Explicit Mute from Algorithm (e.g. Polyrhythm Masking)
+        if (result.velocity == 0) {
+            densityGate = false;
+        }
+        // 1. Timer Expired (Power)
+        else if (_coolDown == 0) {
+            densityGate = true; 
+        } 
+        // 2. High Velocity Override
+        else {
             int velDensity = result.velocity / 16; 
             if (velDensity >= _coolDown) {
                 densityGate = true;
@@ -909,18 +975,15 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
              _coolDown = _coolDownMax;
              
              // D. Gate Length (Scaler)
-             // User Param: gateLength() (0-100, mapped to 0-200%?)
-             // Default gate is 50% in Sequence model (which maps to 100% scale?)
-             // Let's check Sequence model default: 50.
-             // If userGate = 50, we want scale = 1.0.
-             // If userGate = 0, scale = 0.0.
-             // If userGate = 100, scale = 2.0.
-             // scale = userGate / 50.0
              int userGate = sequence.gateLength();
              uint32_t baseLen = (divisor * result.gateRatio) / 100;
              
              _gateTicks = (baseLen * userGate) / 50; // Center at 50
              if (_gateTicks < 1) _gateTicks = 1;
+             
+             // Apply Pending Gate Offset
+             _pendingGateOffsetTicks = (divisor * _gateOffset) / 100;
+             _pendingGateActivation = true;
              
              // Handle Ties
              // If gateTicks > divisor, it's a tie candidate.

@@ -121,23 +121,28 @@ void TuesdaySequence::clear() {
     setFlow(0);
     setOrnament(0);
     setPower(0);
-    _loopLength = 0;  // Default: infinite (evolving patterns)
-    setGlide(0);
-    setTrill(0);
+    _loopLength = 0;
+    _glide.clear();
+    _glide.setBase(50); // Default 50%
+    _trill.clear();
+    _trill.setBase(50); // Default 50%
     _useScale = false;
     _skew = 0;
     _cvUpdateMode = Free;
-    setOctave(0);
-    setTranspose(0);
-    setDivisor(12);
-    _resetMeasure = 8;
+
+    _octave.clear();
+    _transpose.clear();
+    _divisor.clear();
+    _divisor.setBase(12); // 1/16
+    _resetMeasure = 0;
     _scale = -1;
     _rootNote = -1;
     _scan.clear();
     _rotate.clear();
     _gateLength.clear();
-    _gateLength.setBase(50); // Center value (100% scale)
+    _gateLength.setBase(50);
     _gateOffset.clear();
+    _gateOffset.setBase(50); // Default 50%
 }
 
 void TuesdaySequence::write(VersionedSerializedWriter &writer) const {

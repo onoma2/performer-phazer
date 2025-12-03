@@ -53,6 +53,7 @@ private:
         bool accent = false;
         bool slide = false;
         uint16_t gateRatio = 75; // 0-200% (Relative Duration)
+        uint8_t gateOffset = 0;  // 0-100% (Timing Offset)
         uint8_t chaos = 0;       // 0-100 (Likelihood of glitch/trill)
     };
 
@@ -107,6 +108,10 @@ private:
     bool _isTrillNote = false;
     float _trillCvTarget = 0.f;
     bool _retriggerArmed = false;
+    
+    // Polyrhythmic State
+    int _polySubStep = 0;
+    bool _polyAlgoActive = false;
     
     // Micro-Sequencing / Ratcheting
     int8_t _ratchetInterval = 0; // Semitones/Degrees shift per ratchet
