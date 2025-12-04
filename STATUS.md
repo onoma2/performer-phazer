@@ -157,3 +157,167 @@ else if (ornament >= 13) subdivisions = 7;                  // Septuplets (7:4)
     *   Updated `TuesdayEditPage` (Quick Edit) to display **GATE** (Gate Length) instead of **GOFS** (Gate Offset).
     *   Updated `TuesdaySequenceListModel` (Edit List) to remove "Gate Offset" (GOFS) from the display, making "Gate Length" the visible control.
     *   Set default Glide, Trill, and GateLength/Offset to 50% in `TuesdaySequence::clear()`.
+
+---
+
+## Reference: Polyrhythm vs Trill Mode
+
+### Technical Differences
+
+#### POLYRHYTHM Mode (`isSpatial = true`)
+
+**Timing:**
+```cpp
+uint32_t windowTicks = 4 * divisor;  // Spread across 1 BEAT (4 × 1/16 = 192 ticks)
+uint32_t spacing = windowTicks / tupleN;
+```
+
+**Pitch Quantization:**
+```cpp
+// Scale-degree based (quantized to scale)
+int noteWithOffset = result.note + result.noteOffsets[i];
+volts = scaleToVolts(noteWithOffset, result.octave);
+```
+
+**Example (Quintuplet, divisor=48, 1/16 notes):**
+- Window: 192 ticks (1 beat)
+- Spacing: 192 / 5 = 38.4 ticks between gates
+- Gates at: tick 0, 38, 76, 115, 153
+- **5 gates spread evenly across the entire beat**
+
+#### TRILL Mode (`isSpatial = false`)
+
+**Timing:**
+```cpp
+uint32_t windowTicks = divisor;  // Compressed within 1 STEP (48 ticks)
+uint32_t spacing = windowTicks / tupleN;
+```
+
+**Pitch Quantization:**
+```cpp
+// CHROMATIC (bypasses scale quantization)
+float baseVolts = scaleToVolts(result.note, result.octave);
+volts = baseVolts + (result.noteOffsets[i] / 12.f);  // Direct voltage offset
+```
+
+**Example (Quintuplet, divisor=48):**
+- Window: 48 ticks (1 step = 1/16 note)
+- Spacing: 48 / 5 = 9.6 ticks between gates
+- Gates at: tick 0, 9, 19, 29, 38
+- **5 gates fired rapidly within the first 1/16 note**
+
+### Musical Consequences
+
+#### POLYRHYTHM Mode (Spatial)
+
+**Use Cases:**
+- **African/Latin rhythms** - Quintuplets over 4/4 create "5 against 4" polyrhythms
+- **Progressive rock/math rock** - Complex subdivision grooves
+- **Melodic sequences** - Each gate plays a different scale degree
+- **Generative music** - Creates evolving melodic patterns
+
+**Sound Character:**
+- ✅ **Rhythmic complexity** - Creates metric tension (5-feel over 4/4 grid)
+- ✅ **Melodic content** - Each gate is a distinct melodic note
+- ✅ **Scale-aware** - Respects current scale (e.g., minor pentatonic)
+- ✅ **Groove-oriented** - Gates lock to subdivisions of the beat
+- ✅ **Danceable** - Still feels grounded in the underlying meter
+
+**Examples:**
+- **Triplets**: Ta-ta-ta (swing feel, jazz)
+- **Quintuplets**: 1-2-3-4-5 (odd subdivision, prog/IDM)
+- **Septuplets**: 1-2-3-4-5-6-7 (very complex, experimental)
+
+**SCALEWALKER with quintuplet:**
+```
+Beat 1: C-D-E-F-G (5 notes spread across 4/4 time)
+        |....|....|....|....| (rhythmic positions)
+```
+
+#### TRILL Mode (Temporal)
+
+**Use Cases:**
+- **Baroque trills/ornaments** - Fast chromatic decorations
+- **Drum rolls** - Rapid repeated hits
+- **Glitch/IDM effects** - Stutter/ratchet effects
+- **Chromatic runs** - Fast scalar passages
+
+**Sound Character:**
+- ✅ **Speed/urgency** - Extremely fast, compressed in time
+- ✅ **Chromatic** - Semitone steps, not constrained by scale
+- ✅ **Ornamental** - Decorates the main note
+- ✅ **Percussive impact** - All gates fire within one step duration
+- ✅ **Dramatic** - Creates tension/release through rapid movement
+
+**Examples:**
+- **Triplet trill**: tr-tr-tr (machine gun effect)
+- **Quintuplet trill**: trrrr (drum roll)
+- **Septuplet trill**: trrrrrr (snare drum flutter)
+
+**STEPWAVE with quintuplet trill:**
+```
+Step 1: C-C#-D-D#-E (5 chromatic notes RAPIDLY)
+        |....| (all within first 1/16 note)
+Step 2: [next note]
+        |....|
+```
+
+### Side-by-Side Comparison
+
+**Quintuplet Example (ornament=9):**
+
+| Aspect | POLYRHYTHM (Spatial) | TRILL (Temporal) |
+|--------|---------------------|------------------|
+| **Window** | 192 ticks (1 beat) | 48 ticks (1 step) |
+| **Spacing** | 38 ticks apart | 9.6 ticks apart |
+| **Speed** | Moderate (spread out) | **4× faster** (compressed) |
+| **Pitch System** | Scale degrees (C→D→E→F→G) | Semitones (C→C#→D→D#→E) |
+| **Rhythm Feel** | "5 against 4" polyrhythm | Rapid ornament/stutter |
+| **Musical Function** | Melodic sequence | Decorative flourish |
+| **Perception** | 5 distinct rhythmic events | One "rolled" event |
+
+### Algorithm Usage
+
+| Algorithm | Mode | Use Case |
+|-----------|------|----------|
+| **SCALEWALKER** | Polyrhythm | Melodic walking patterns with metric complexity |
+| **APHEX** | Polyrhythm | Polyrhythmic melodic sequences |
+| **AUTECHRE** | Polyrhythm | Transforming melodic polyrhythms |
+| **STEPWAVE** | **Trill** | Chromatic climbing trills (ornamental) |
+
+### Practical Example
+
+**Setup: C Major Scale, Flow=9 (up), Ornament=9 (quintuplet)**
+
+**SCALEWALKER (Polyrhythm):**
+```
+Beat pattern: C...D....E....F.....G
+              |----|----|----|----| (1 beat = 4 sixteenths)
+Result: Laid-back, groovy, "5 against 4" feel
+Use for: Rhythmic bass lines, melodic sequences
+```
+
+**STEPWAVE (Trill):**
+```
+Step pattern: CDbDEbE rest rest rest
+              |----| (compressed into first 1/16)
+Result: Fast chromatic flutter, then silence
+Use for: Snare rolls, glitch effects, ornaments
+```
+
+### When to Use Each Mode
+
+**Use POLYRHYTHM when:**
+- Building grooves with metric complexity
+- Creating evolving melodic patterns
+- Adding rhythmic interest while staying "in time"
+- Developing harmonic/melodic content
+
+**Use TRILL when:**
+- Adding ornamental decoration to main notes
+- Creating dramatic flourishes/accents
+- Producing glitch/stutter effects
+- Generating rapid scalar passages
+- Emulating drum rolls
+
+**Key Difference:** Polyrhythm is about **RHYTHM + MELODY**, while Trill is about **SPEED + DECORATION**.
