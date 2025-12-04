@@ -119,6 +119,7 @@ void TuesdaySequence::clear() {
     setFlow(0);
     setOrnament(0);
     setPower(0);
+    _start = 0;
     _loopLength = 0;
     _glide.clear();
     _glide.setBase(50); // Default 50%
@@ -146,6 +147,7 @@ void TuesdaySequence::write(VersionedSerializedWriter &writer) const {
     writer.write(_flow.base);
     writer.write(_ornament.base);
     writer.write(_power.base);
+    writer.write(_start);
     writer.write(_loopLength);
     writer.write(_glide.base);
     writer.write(_trill.base);
@@ -169,6 +171,7 @@ void TuesdaySequence::read(VersionedSerializedReader &reader) {
     reader.read(_flow.base, ProjectVersion::Version35);
     reader.read(_ornament.base, ProjectVersion::Version35);
     reader.read(_power.base, ProjectVersion::Version35);
+    reader.read(_start, ProjectVersion::Version35);
     reader.read(_loopLength, ProjectVersion::Version35);
     reader.read(_glide.base, ProjectVersion::Version35);
     reader.read(_trill.base, ProjectVersion::Version41);

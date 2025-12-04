@@ -65,6 +65,8 @@ public:
             return Routing::Target::Scale;
         case RootNote:
             return Routing::Target::RootNote;
+        case Start:
+            return Routing::Target::None;
         default:
             return Routing::Target::None;
         }
@@ -83,6 +85,7 @@ private:
         GateLength, // Added
         CvUpdateMode,
         Trill,
+        Start,
         Octave,
         Transpose,
         Divisor,
@@ -105,6 +108,7 @@ private:
         case GateLength:    return "Gate Length";
         case CvUpdateMode:  return "CV Mode";
         case Trill:         return "Trill";
+        case Start:         return "Start";
         case Octave:        return "Octave";
         case Transpose:     return "Transpose";
         case Divisor:       return "Divisor";
@@ -154,6 +158,9 @@ private:
             break;
         case Trill:
             _sequence->printTrill(str);
+            break;
+        case Start:
+            _sequence->printStart(str);
             break;
         case Octave:
             _sequence->printOctave(str);
@@ -212,6 +219,9 @@ private:
             break;
         case Trill:
             _sequence->editTrill(value, shift);
+            break;
+        case Start:
+            _sequence->editStart(value, shift);
             break;
         case Octave:
             _sequence->editOctave(value, shift);

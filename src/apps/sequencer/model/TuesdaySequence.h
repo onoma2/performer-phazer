@@ -119,6 +119,19 @@ public:
         str("%d", power());
     }
 
+    // start (0-16)
+
+    int start() const { return _start; }
+    void setStart(int start) { _start = clamp(start, 0, 16); }
+
+    void editStart(int value, bool shift) {
+        setStart(this->start() + value);
+    }
+
+    void printStart(StringBuilder &str) const {
+        str("%d", start());
+    }
+
     // loopLength
 
     int loopLength() const { return _loopLength; }
@@ -414,6 +427,7 @@ private:
     Routable<uint8_t> _flow;
     Routable<uint8_t> _ornament;
     Routable<uint8_t> _power;
+    uint8_t _start = 0;  // Default: 0 (start from beginning)
     uint8_t _loopLength = 0;  // Default: infinite (evolving patterns)
     Routable<uint8_t> _glide;  // Default 0% (no slides)
     Routable<uint8_t> _trill;  // Default 0% (no trills/re-triggers)

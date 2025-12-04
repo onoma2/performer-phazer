@@ -38,6 +38,7 @@ private:
         GateLength,
         CvUpdateMode,
         Trill,
+        Start,
         // Total
         ParamCount
     };

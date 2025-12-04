@@ -943,6 +943,16 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
     // Time Calculation
     uint32_t divisor = sequence.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
+
+    // Apply Start Delay (Time Shift)
+    uint32_t startTicks = sequence.start() * divisor;
+    if (tick < startTicks) {
+        _gateOutput = false;
+        _activity = false;
+        return TickResult::NoUpdate;
+    }
+    tick -= startTicks;
+
     int loopLength = sequence.actualLoopLength();
     uint32_t resetDivisor = (loopLength > 0) ? (loopLength * divisor) : 0;
     
@@ -997,7 +1007,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     if (stepTrigger) {
         // Advance Step
         uint32_t calculatedStep = relativeTick / divisor;
-        _stepIndex = calculatedStep; // Loop wrapping handled by relativeTick/resetDivisor
+        _stepIndex = calculatedStep;
         _displayStep = _stepIndex;
 
         // 1. GENERATE (The Brain)

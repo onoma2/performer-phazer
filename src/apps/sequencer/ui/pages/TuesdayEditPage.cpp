@@ -141,7 +141,7 @@ int TuesdayEditPage::paramForPage(int page, int slot) const {
     static const int pageParams[PageCount][ParamsPerPage] = {
         { Algorithm, Flow, Ornament, Power },           // Page 1
         { LoopLength, Rotate, Glide, Skew },            // Page 2
-        { GateLength, CvUpdateMode, Trill, -1 },        // Page 3
+        { GateLength, CvUpdateMode, Trill, Start },     // Page 3
     };
 
     if (page < 0 || page >= PageCount || slot < 0 || slot >= ParamsPerPage) {
@@ -163,6 +163,7 @@ const char *TuesdayEditPage::paramName(int param) const {
     case GateLength:    return "Gate Length";
     case CvUpdateMode:  return "CV Mode";
     case Trill:         return "Trill";
+    case Start:         return "Start";
     default:            return "-";
     }
 }
@@ -180,6 +181,7 @@ const char *TuesdayEditPage::paramShortName(int param) const {
     case GateLength:    return "GATE";
     case CvUpdateMode:  return "CVUPD";
     case Trill:         return "TRILL";
+    case Start:         return "START";
     default:            return "-";
     }
 }
@@ -232,6 +234,9 @@ void TuesdayEditPage::formatParamValue(int param, StringBuilder &str) const {
     case Trill:
         str("%d%%", sequence.trill());
         break;
+    case Start:
+        str("%d", sequence.start());
+        break;
     default:
         str("-");
         break;
@@ -253,6 +258,7 @@ int TuesdayEditPage::paramValue(int param) const {
     case GateLength:    return sequence.gateLength();
     case CvUpdateMode:  return sequence.cvUpdateMode();
     case Trill:         return sequence.trill();
+    case Start:         return sequence.start();
     default:            return 0;
     }
 }
@@ -270,6 +276,7 @@ int TuesdayEditPage::paramMax(int param) const {
     case GateLength:    return 100;  // Percentage: 0-100%
     case CvUpdateMode:  return 1;
     case Trill:         return 100;
+    case Start:         return 16;
     default:            return 0;
     }
 }
@@ -316,6 +323,9 @@ void TuesdayEditPage::editParam(int param, int value, bool shift) {
         break;
     case Trill:
         sequence.editTrill(value, shift);
+        break;
+    case Start:
+        sequence.editStart(value, shift);
         break;
     default:
         break;
