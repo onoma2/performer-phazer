@@ -359,6 +359,16 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
     int rotate = (loopLength > 0) ? sequence.rotate() : 0;
     int rotatedStep = (loopLength > 0) ? ((_stepIndex + rotate + loopLength) % loopLength) : _stepIndex;
 
+    // Ornament parameter (used by multiple algorithms)
+    int ornament = sequence.ornament();
+
+    // Standard subdivision count (from ornament parameter)
+    // Used by polyrhythmic algorithms for tuplet generation
+    int subdivisions = 4;  // Default: straight 16ths
+    if (ornament >= 5 && ornament <= 8) subdivisions = 3;      // Triplets (3:4)
+    else if (ornament >= 9 && ornament <= 12) subdivisions = 5; // Quintuplets (5:4)
+    else if (ornament >= 13) subdivisions = 7;                  // Septuplets (7:4)
+
     TuesdayTickResult result;
     result.velocity = 255; // Default high velocity
 
@@ -542,13 +552,11 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
     case 3: // APHEX
         {
             // Polyrhythmic Time Warping
-            // Ornament controls the time base for the Modifier Track (Track 2)
-            // 0-4: Straight, 5-8: Triplet (3:4), 9-12: Quintuplet (5:4), 13-16: Septuplet (7:4)
-            int ornament = sequence.ornament();
+            // Subdivisions control the time base for the Modifier Track (Track 2)
             uint32_t modifierStep = _stepIndex;
-            if (ornament >= 5 && ornament <= 8) modifierStep = (_stepIndex * 3) / 4;
-            else if (ornament >= 9 && ornament <= 12) modifierStep = (_stepIndex * 5) / 4;
-            else if (ornament >= 13) modifierStep = (_stepIndex * 7) / 4;
+            if (subdivisions != 4) {
+                modifierStep = (_stepIndex * subdivisions) / 4;
+            }
 
             // Track 1: Main Melody (Straight)
             // Use the standard position counters but update them based on warped steps?
@@ -604,29 +612,18 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
         {
             // Polyrhythmic Time Warping (Fast Tuplets)
             int flow = sequence.flow();
-            int ornament = sequence.ornament();
-            int tupleN = 4;
-
-            if (ornament >= 5 && ornament <= 8) tupleN = 3;
-            else if (ornament >= 9 && ornament <= 12) tupleN = 5;
-            else if (ornament >= 13) tupleN = 7;
-
-            // Determine if this is a Beat Start using actual divisor (respects time signature)
-            // Use divisor-based calculation instead of hardcoded 4
-            int stepsPerBeat = divisor / (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
-            bool isBeatStart = (stepsPerBeat > 0) && ((_stepIndex % stepsPerBeat) == 0);
 
             // Signal polyrhythm on beat starts ONLY (don't mask intermediate steps)
-            if (isBeatStart && tupleN != 4) {
+            if (isBeatStart && subdivisions != 4) {
                 // Vary chaos based on flow (probabilistic polyrhythm)
                 // flow 0-16 → chaos 20-100 (low flow = sparse, high flow = dense)
                 result.chaos = 20 + (flow * 5);
-                result.polyCount = tupleN;  // NEW: Pass tuplet count to FX layer
-                result.isSpatial = true;     // Polyrhythm mode (spread in time)
+                result.polyCount = subdivisions;  // Pass tuplet count to FX layer
+                result.isSpatial = true;          // Polyrhythm mode (spread in time)
 
                 // Generate note offsets from pattern (micro-melody)
                 // Use pattern values as intervals, cycling through pattern if needed
-                for (int i = 0; i < tupleN && i < 8; i++) {
+                for (int i = 0; i < subdivisions && i < 8; i++) {
                     int patternIdx = (rotatedStep + i) % 8;
                     int patternNote = _autechre_pattern[patternIdx] % 12;
                     // Convert to interval relative to base note (first pattern value)
@@ -668,23 +665,12 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
     case 5: // STEPWAVE
         {
              int flow = sequence.flow();
-             int ornament = sequence.ornament();
-
-             // Determine tuplet count based on ornament
-             int tupleN = 4;
-             if (ornament >= 5 && ornament <= 8) tupleN = 3;
-             else if (ornament >= 9 && ornament <= 12) tupleN = 5;
-             else if (ornament >= 13) tupleN = 7;
-
-             // Fix hardcoded beat grid - use divisor-based calculation
-             int stepsPerBeat = divisor / (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
-             bool isBeatStart = (stepsPerBeat > 0) && ((_stepIndex % stepsPerBeat) == 0);
 
              // Signal micro-sequencing on beat starts (TRILL mode - rapid chromatic stepping)
-             if (isBeatStart && tupleN != 4) {
+             if (isBeatStart && subdivisions != 4) {
                  // Vary chaos based on flow (probabilistic micro-sequencing)
                  result.chaos = 20 + (flow * 5);
-                 result.polyCount = tupleN;
+                 result.polyCount = subdivisions;
                  result.isSpatial = false;  // TRILL mode (rapid succession, not spread)
 
                  // Update direction based on flow
@@ -692,11 +678,11 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                  else if (flow >= 9) _stepwave_direction = 1;  // Ascending
                  else _stepwave_direction = 0;                 // Random/static
 
-                 _stepwave_step_count = tupleN;
+                 _stepwave_step_count = subdivisions;
 
                  // Generate chromatic note offsets (semitone steps)
                  // Each gate in the micro-sequence steps up/down chromatically
-                 for (int i = 0; i < tupleN && i < 8; i++) {
+                 for (int i = 0; i < subdivisions && i < 8; i++) {
                      result.noteOffsets[i] = i * _stepwave_direction;  // Chromatic intervals
                  }
              }
@@ -878,24 +864,17 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
     case 10: // SCALEWALKER - Rhythmic subdivisions with scale walking
         {
             int flow = sequence.flow();
-            int ornament = sequence.ornament();
 
-            // 1. Determine subdivision count
-            int subdivisions = 4;  // Default straight 16ths
-            if (ornament >= 5 && ornament <= 8) subdivisions = 3;
-            else if (ornament >= 9 && ornament <= 12) subdivisions = 5;
-            else if (ornament >= 13) subdivisions = 7;
-
-            // 2. Direction
+            // 1. Direction
             int direction = (flow <= 7) ? -1 : ((flow == 8) ? 0 : 1);
 
-            // 3. Base note is current walker position
+            // 2. Base note is current walker position
             result.note = _scalewalker_pos;
             result.octave = 0;
             result.velocity = 100 + (sequence.power() * 10);  // 100-260 range
             result.gateRatio = 75;
 
-            // 4. Trigger micro-sequencing on beat starts (isBeatStart calculated at top of generateStep)
+            // 3. Trigger micro-sequencing on beat starts (isBeatStart calculated at top of generateStep)
             if (isBeatStart && subdivisions != 4) {
                 result.chaos = 100;  // Always fire
                 result.polyCount = subdivisions;
