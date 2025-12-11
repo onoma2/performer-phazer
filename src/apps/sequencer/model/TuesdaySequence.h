@@ -185,6 +185,23 @@ public:
         str("%d%%", trill());
     }
 
+    // stepTrill (intra-step subdivision count 0-100%)
+    int stepTrill() const { return _stepTrill.get(isRouted(Routing::Target::StepTrill)); }
+    void setStepTrill(int stepTrill, bool routed = false) {
+        _stepTrill.set(clamp(stepTrill, 0, 100), routed);
+    }
+
+    void editStepTrill(int value, bool shift) {
+        if (!isRouted(Routing::Target::StepTrill)) {
+            setStepTrill(this->stepTrill() + value * (shift ? 10 : 1));
+        }
+    }
+
+    void printStepTrill(StringBuilder &str) const {
+        printRouted(str, Routing::Target::StepTrill);
+        str("%d%%", stepTrill());
+    }
+
     // skew (density curve across loop, -8 to +8)
 
     int skew() const { return _skew; }
@@ -431,6 +448,7 @@ private:
     uint8_t _loopLength = 0;  // Default: infinite (evolving patterns)
     Routable<uint8_t> _glide;  // Default 0% (no slides)
     Routable<uint8_t> _trill;  // Default 0% (no trills/re-triggers)
+    Routable<uint8_t> _stepTrill;  // Default 0% (no intra-step subdivision)
     int8_t _skew = 0;  // Default: 0 (even distribution)
     uint8_t _cvUpdateMode = Free;  // Default: Free (CV updates every step)
 

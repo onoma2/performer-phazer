@@ -91,6 +91,9 @@ void TuesdaySequence::writeRouted(Routing::Target target, int intValue, float fl
     case Routing::Target::Trill:
         setTrill(intValue, true);
         break;
+    case Routing::Target::StepTrill:
+        setStepTrill(intValue, true);
+        break;
     case Routing::Target::Octave:
         setOctave(intValue, true);
         break;
@@ -151,6 +154,7 @@ void TuesdaySequence::write(VersionedSerializedWriter &writer) const {
     writer.write(_loopLength);
     writer.write(_glide.base);
     writer.write(_trill.base);
+    writer.write(_stepTrill.base);
     writer.write(_skew);
     writer.write(_cvUpdateMode);
     writer.write(_octave.base);
@@ -175,6 +179,7 @@ void TuesdaySequence::read(VersionedSerializedReader &reader) {
     reader.read(_loopLength, ProjectVersion::Version35);
     reader.read(_glide.base, ProjectVersion::Version35);
     reader.read(_trill.base, ProjectVersion::Version41);
+    reader.read(_stepTrill.base, ProjectVersion::Version51);
     reader.read(_skew, ProjectVersion::Version35);
     reader.read(_cvUpdateMode, ProjectVersion::Version35);
     reader.read(_octave.base, ProjectVersion::Version35);

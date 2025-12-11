@@ -84,6 +84,7 @@ public:
         Power,
         Glide,
         Trill,
+        StepTrill,
         GateOffset,
         GateLength, // Added
         TuesdayLast = GateLength,
@@ -151,6 +152,7 @@ public:
         case Target::Power:                     return "Power";
         case Target::Glide:                     return "Glide";
         case Target::Trill:                     return "Trill";
+        case Target::StepTrill:                 return "StepTrill";
         case Target::GateOffset:                return "Gate Offset";
 
         case Target::ChaosAmount:               return "Chaos Amount";

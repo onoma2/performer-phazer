@@ -232,7 +232,7 @@ void TuesdayEditPage::formatParamValue(int param, StringBuilder &str) const {
         str("%d%%", sequence.gateOffset());
         break;
     case Trill:
-        str("%d%%", sequence.trill());
+        str("%d%%", sequence.stepTrill());
         break;
     case Start:
         str("%d", sequence.start());
@@ -257,7 +257,7 @@ int TuesdayEditPage::paramValue(int param) const {
     case Skew:          return sequence.skew();
     case GateLength:    return sequence.gateLength();
     case GateOffset:    return sequence.gateOffset();
-    case Trill:         return sequence.trill();
+    case Trill:         return sequence.stepTrill();
     case Start:         return sequence.start();
     default:            return 0;
     }
@@ -322,7 +322,7 @@ void TuesdayEditPage::editParam(int param, int value, bool shift) {
         sequence.editGateOffset(value, shift);
         break;
     case Trill:
-        sequence.editTrill(value, shift);
+        sequence.editStepTrill(value, shift);
         break;
     case Start:
         sequence.editStart(value, shift);

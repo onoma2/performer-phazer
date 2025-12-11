@@ -135,6 +135,9 @@ enum ProjectVersion {
     // added TuesdayTrack patterns
     Version50 = 50,
 
+    // added TuesdaySequence stepTrill parameter
+    Version51 = 51,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

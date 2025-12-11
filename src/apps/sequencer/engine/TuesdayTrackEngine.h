@@ -62,7 +62,7 @@ private:
         uint16_t gateRatio = 75; // 0-200% (Relative Duration)
         uint8_t gateOffset = 0;  // 0-100% (Timing Offset)
 
-        uint8_t chaos = 0;       // 0-100 (Likelihood of glitch/trill)
+        uint8_t beatSpread = 0;  // 0-100% → 1x-5x timing window multiplier
         uint8_t polyCount = 0;   // Number of subdivisions (0=none, 3/5/7=tuplet)
 
         // Micro-sequencing: Note offsets for each micro-gate (in semitones/scale degrees)

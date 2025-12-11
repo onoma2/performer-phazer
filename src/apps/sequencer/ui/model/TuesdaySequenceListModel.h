@@ -107,7 +107,7 @@ private:
         case Skew:          return "Skew";
         case GateLength:    return "Gate Length";
         case CvUpdateMode:  return "CV Mode";
-        case Trill:         return "Trill";
+        case Trill:         return "Old Trill";
         case Start:         return "Start";
         case Octave:        return "Octave";
         case Transpose:     return "Transpose";

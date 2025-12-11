@@ -562,8 +562,8 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
                 if (_rng.nextRange(256) >= (50 + accentoffs)) {
                      result.accent = true;
                 }
-                
-                result.chaos = 18; // Base chaos
+
+                result.beatSpread = 18; // Base spread
             }
         }
         break;
@@ -602,8 +602,8 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
             uint8_t modifier = _aphex_track2_pattern[pos2];
             if (modifier == 1) {
                 result.gateRatio = 25;
-                result.velocity = 80; 
-                result.chaos = 60; 
+                result.velocity = 80;
+                result.beatSpread = 60;
             } else if (modifier == 2) {
                 result.gateRatio = 100;
                 result.slide = true;
@@ -621,7 +621,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
             // Collision logic needs warped pos2
             int polyCollision = ((pos1 * 7) ^ (pos2 * 5) ^ (pos3 * 3)) % 12;
             if (polyCollision > 9) {
-                result.chaos = 100;
+                result.beatSpread = 100;
                 result.velocity = 255;
             }
             
@@ -638,9 +638,9 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
 
             // Signal polyrhythm on beat starts ONLY (don't mask intermediate steps)
             if (isBeatStart && subdivisions != 4) {
-                // Vary chaos based on flow (probabilistic polyrhythm)
-                // flow 0-16 → chaos 20-100 (low flow = sparse, high flow = dense)
-                result.chaos = 20 + (flow * 5);
+                // Vary beatSpread based on flow (timing window control)
+                // flow 0-16 → beatSpread 20-100 (low flow = narrow window, high flow = wide spread)
+                result.beatSpread = 20 + (flow * 5);
                 result.polyCount = subdivisions;  // Pass tuplet count to FX layer
                 result.isSpatial = true;          // Polyrhythm mode (spread in time)
 
@@ -696,8 +696,8 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
 
              // Signal micro-sequencing on beat starts (scale-based stepping with glide)
              if (isBeatStart && subdivisions != 4) {
-                 // Vary chaos based on flow (probabilistic micro-sequencing)
-                 result.chaos = 20 + (flow * 5);
+                 // Vary beatSpread based on flow (timing window control)
+                 result.beatSpread = 20 + (flow * 5);
                  result.polyCount = subdivisions;
 
                  // ORNAMENT controls timing mode:
@@ -923,7 +923,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
             int flow = sequence.flow();
 
             // 1. Direction
-            int direction = (flow <= 7) ? -1 : ((flow == 8) ? 0 : 1);
+            int direction = (flow <= 7) ? -1 : 1;  // Always walk scale (remove direction=0)
 
             // 2. Base note is current walker position
             result.note = _scalewalker_pos;
@@ -931,19 +931,74 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStep(uint32_t 
             result.velocity = 100 + (sequence.power() * 10);  // 100-260 range
             result.gateRatio = 75;
 
-            // 3. Trigger micro-sequencing on beat starts (isBeatStart calculated at top of generateStep)
-            if (isBeatStart && subdivisions != 4) {
-                result.chaos = 100;  // Always fire
-                result.polyCount = subdivisions;
-                result.isSpatial = true;  // Spread across beat
+            // 3. Polyrhythm: N gates spread across 1 beat
+            // Calculate which of N gates should fire THIS step
+            bool shouldFirePolyGate = false;
+            if (subdivisions != 4) {
+                // Determine if THIS step is one of the N poly gates
+                // Using beat position: which of N subdivisions are we at?
+                int beatPosition = _stepIndex % stepsPerBeat;
+                int gateIndex = (beatPosition * subdivisions) / stepsPerBeat;
+                int nextGateIndex = ((beatPosition + 1) * subdivisions) / stepsPerBeat;
 
-                // Generate sequential scale degree offsets
-                for (int i = 0; i < subdivisions && i < 8; i++) {
-                    result.noteOffsets[i] = i * direction;
+                if (gateIndex != nextGateIndex) {
+                    // This step crosses a poly gate boundary - fire it
+                    shouldFirePolyGate = true;
+                    result.polyCount = 1;  // Just this one poly gate
+                    result.beatSpread = 100;
+                    result.isSpatial = true;
+                    result.slide = true;
+
+                    // Note offset for this specific gate
+                    result.noteOffsets[0] = gateIndex * direction;
                 }
             }
-            else if (subdivisions != 4) {
-                // Polyrhythm mode on non-beat steps: mute to prevent gate leakage
+
+            // 4. stepTrill: INDEPENDENT subdivision (works on ANY step)
+            int stepTrillCount = 1;
+            if (sequence.stepTrill() > 0) {
+                stepTrillCount = 1 + (sequence.stepTrill() * 3) / 100;
+                stepTrillCount = clamp(stepTrillCount, 1, 4);
+            }
+
+            // Decide what to do based on poly gate and stepTrill
+            if (shouldFirePolyGate) {
+                // Poly gate step: subdivide if stepTrill active
+                if (stepTrillCount > 1) {
+                    int baseOffset = result.noteOffsets[0];
+                    result.polyCount = stepTrillCount;
+                    result.beatSpread = 0;
+                    result.isSpatial = false;  // Rapid fire
+
+                    // All gates walk based on direction
+                    for (int i = 0; i < stepTrillCount && i < 8; i++) {
+                        result.noteOffsets[i] = baseOffset + (i * direction);
+                    }
+
+                    result.slide = sequence.glide() > 50;
+                }
+                // else: keep polyCount=1 from poly gate setup above
+            } else if (stepTrillCount > 1) {
+                // Non-poly step with stepTrill: fire rapid burst
+                result.polyCount = stepTrillCount;
+                result.beatSpread = 0;
+                result.isSpatial = false;
+
+                // All gates walk based on direction (from current walker position)
+                for (int i = 0; i < stepTrillCount && i < 8; i++) {
+                    result.noteOffsets[i] = i * direction;
+                }
+
+                result.slide = sequence.glide() > 50;
+            } else if (subdivisions == 4) {
+                // No poly, no stepTrill: regular single gate via normal path
+                result.polyCount = 0;  // Use normal gate system (not micro-queue)
+                result.beatSpread = 0;
+                result.isSpatial = false;
+                result.noteOffsets[0] = 0;
+            } else {
+                // Poly mode but not a poly step and no stepTrill: MUTE
+                result.polyCount = 0;
                 result.velocity = 0;
             }
 
@@ -1053,16 +1108,35 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         _gateOffset = clamp((int)((result.gateOffset * userScaler * 2) / 100), 0, 100);
         
         // 2. FX LAYER (Post-Processing)
-        
+
+        // Calculate power/cooldown ONCE per step (used by both micro-gate and normal gate paths)
+        int power = sequence.power();
+        int loopLength = sequence.actualLoopLength();
+        int skew = sequence.skew();
+
+        if (loopLength > 0 && skew != 0) {
+            int currentPos = _stepIndex % loopLength;
+            int offset = -skew + ((2 * skew * currentPos) / std::max(1, loopLength - 1));
+            power = std::max(0, std::min(16, power + offset));
+        }
+
+        int baseCooldown = 17 - power;
+        if (baseCooldown < 1) baseCooldown = 1;
+        _coolDownMax = baseCooldown;
+
+        // Reset cooldown at start of each step (micro-gate loop manages per-event)
+        _coolDown = 0;
+
         // A. Polyrhythm / Trill Detection
         _retriggerArmed = false;
 
-        if (result.polyCount > 0 && result.chaos > 50) {
+        if (result.polyCount > 0) {
             // MICRO-SEQUENCING MODE: Distribute N gates with independent pitches
             int tupleN = result.polyCount;
 
-            // Determine timing distribution (spatial = spread, temporal = rapid)
-            uint32_t windowTicks = result.isSpatial ? (4 * divisor) : divisor;
+            // Simplified: All gates fire within their own step
+            // Poly spread is handled by which steps fire (algorithm layer)
+            uint32_t windowTicks = divisor;
             uint32_t spacing = windowTicks / tupleN;  // Even distribution
 
             // Gate length: Use algorithm's gateRatio
@@ -1078,24 +1152,46 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
             // Apply gate offset to the base tick, then space gates evenly from there
             uint32_t baseTick = tick + gateOffsetTicks;
 
+            // Per-event power gating (uses power/cooldown calculated above)
             for (int i = 0; i < tupleN; i++) {
                 uint32_t offset = (i * spacing);
 
                 // Calculate voltage for THIS gate using note offset
-                // Note: noteOffsets are ALWAYS scale-degree intervals (respects quantization)
-                // isSpatial only controls TIMING (spread vs rapid), not quantization
                 int noteWithOffset = result.note + result.noteOffsets[i];
                 float volts = scaleToVolts(noteWithOffset, result.octave);
 
-                _microGateQueue.push({ baseTick + offset, true, volts });
-                _microGateQueue.push({ baseTick + offset + gateLen, false, volts });
+                // PER-EVENT POWER CHECK
+                bool eventAllowed = false;
+
+                if (result.velocity == 0 || power == 0) {
+                    eventAllowed = false;
+                } else if (result.accent) {
+                    eventAllowed = true;
+                } else if (_coolDown == 0) {
+                    eventAllowed = true;
+                    _coolDown = _coolDownMax;
+                } else {
+                    int velDensity = result.velocity / 16;
+                    if (velDensity >= _coolDown) {
+                        eventAllowed = true;
+                        _coolDown = _coolDownMax;
+                    }
+                }
+
+                // Decrement cooldown for next event
+                if (_coolDown > 0) _coolDown--;
+
+                if (eventAllowed) {
+                    _microGateQueue.push({ baseTick + offset, true, volts });
+                    _microGateQueue.push({ baseTick + offset + gateLen, false, volts });
+                }
             }
 
             _retriggerArmed = true;  // Skip normal gate logic
         }
-        else if (result.chaos > 0) {
+        else if (result.beatSpread > 0) {
             // TRILL MODE: Original probabilistic ratchet (unchanged)
-            int chance = (result.chaos * sequence.trill()) / 100;
+            int chance = (result.beatSpread * sequence.trill()) / 100;
             if (_uiRng.nextRange(100) < chance) {
                 _retriggerArmed = true;
                 _retriggerCount = 2;
@@ -1112,30 +1208,16 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         }
 
         // C. Density (Power Gating)
-        int power = sequence.power();
-        int loopLength = sequence.actualLoopLength();
-        int skew = sequence.skew();
+        // Power/cooldown already calculated above (lines 1112-1125)
 
-        if (loopLength > 0 && skew != 0) {
-             // Skew Logic: -8 to +8 over the loop
-             int currentPos = _stepIndex % loopLength;
-             // Linear interpolation: -skew at start, +skew at end
-             // Formula: offset = -skew + (2 * skew * pos) / (len - 1)
-             int offset = -skew + ((2 * skew * currentPos) / std::max(1, loopLength - 1));
-             power = std::max(0, std::min(16, power + offset));
-        }
+        // Only update cooldown if not using micro-sequencing (which handles power per-event)
+        if (!_retriggerArmed) {
 
-        // Calculate Base Cooldown from Power (Linear 1-16)
-        // High Power (16) -> Cooldown 1 (Every step allowed)
-        // Low Power (1) -> Cooldown 16 (Sparse)
-        int baseCooldown = 17 - power;
-        if (baseCooldown < 1) baseCooldown = 1;
-        _coolDownMax = baseCooldown;
-        
-        // Decrement cooldown state
-        if (_coolDown > 0) {
-            _coolDown--;
-            if (_coolDown > _coolDownMax) _coolDown = _coolDownMax;
+            // Decrement cooldown state
+            if (_coolDown > 0) {
+                _coolDown--;
+                if (_coolDown > _coolDownMax) _coolDown = _coolDownMax;
+            }
         }
         
         // Gate Decision:
