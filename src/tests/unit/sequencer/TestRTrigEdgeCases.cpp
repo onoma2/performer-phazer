@@ -211,7 +211,7 @@ CASE("gate construction - minimal valid gate") {
     // Test minimal gate construction (backward compatibility)
     NoteTrackEngine::Gate gate = { 0, false };
 
-    expectEqual(gate.tick, 0u, "tick should be 0");
+    expectEqual(gate.tick, uint32_t(0), "tick should be 0");
     expectEqual(gate.gate, false, "gate should be false");
 
 #if CONFIG_EXPERIMENTAL_SPREAD_RTRIG_TICKS

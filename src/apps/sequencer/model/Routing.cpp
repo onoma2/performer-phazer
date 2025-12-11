@@ -226,6 +226,13 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
                         track.midiCvTrack().writeRouted(target, intValue, floatValue);
                     }
                     break;
+                case Track::TrackMode::Tuesday:
+                    if (isSequenceTarget(target) || isTuesdayTarget(target)) {
+                        for (int patternIndex = 0; patternIndex < CONFIG_PATTERN_COUNT; ++patternIndex) {
+                            track.tuesdayTrack().sequence(patternIndex).writeRouted(target, intValue, floatValue);
+                        }
+                    }
+                    break;
                 case Track::TrackMode::Last:
                     break;
                 }
@@ -327,6 +334,7 @@ static const TargetInfo targetInfos[int(Routing::Target::Last)] = {
     [int(Routing::Target::Power)]                           = { 0,      16,     0,      16,     1       },
     [int(Routing::Target::Glide)]                           = { 0,      100,    0,      100,    10      },
     [int(Routing::Target::Trill)]                           = { 0,      100,    0,      100,    10      },
+    [int(Routing::Target::StepTrill)]                       = { 0,      100,    0,      100,    10      },
     [int(Routing::Target::GateOffset)]                      = { 0,      100,    0,      100,    10      },
     [int(Routing::Target::GateLength)]                      = { 0,      100,    0,      100,    10      },
     // Chaos targets

@@ -154,6 +154,7 @@ public:
         case Target::Trill:                     return "Trill";
         case Target::StepTrill:                 return "StepTrill";
         case Target::GateOffset:                return "Gate Offset";
+        case Target::GateLength:                return "Gate Length";
 
         case Target::ChaosAmount:               return "Chaos Amount";
         case Target::ChaosRate:                 return "Chaos Rate";
@@ -179,7 +180,7 @@ public:
         case Target::Swing:                     return 4;
         case Target::SlideTime:                 return 5;
         case Target::Octave:                    return 6;
-        case Target::Transpose:                 return 7;
+        case Target::Transpose:                    return 7;
         case Target::Rotate:                    return 8;
         case Target::GateProbabilityBias:       return 9;
         case Target::RetriggerProbabilityBias:  return 10;
@@ -208,6 +209,29 @@ public:
         case Target::RecordToggle:              return 27;
         case Target::CvOutputRotate:            return 28;
         case Target::GateOutputRotate:          return 29;
+
+        // Tuesday Targets (30-38)
+        case Target::Algorithm:                 return 30;
+        case Target::Flow:                      return 31;
+        case Target::Ornament:                  return 32;
+        case Target::Power:                     return 33;
+        case Target::Glide:                     return 34;
+        case Target::Trill:                     return 35;
+        case Target::StepTrill:                 return 36;
+        case Target::GateOffset:                return 37;
+        case Target::GateLength:                return 38;
+
+        // Chaos Targets (39-42)
+        case Target::ChaosAmount:               return 39;
+        case Target::ChaosRate:                 return 40;
+        case Target::ChaosParam1:               return 41;
+        case Target::ChaosParam2:               return 42;
+
+        // Wavefolder Targets (43-46)
+        case Target::WavefolderFold:            return 43;
+        case Target::WavefolderGain:            return 44;
+        case Target::DjFilter:                  return 45;
+        case Target::XFade:                     return 46;
 
         case Target::Last:                      break;
         }

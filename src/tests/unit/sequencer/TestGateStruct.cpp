@@ -10,7 +10,7 @@ CASE("basic gate fields") {
     gate.tick = 100;
     gate.gate = true;
 
-    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.tick, uint32_t(100), "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
 }
 
@@ -19,7 +19,7 @@ CASE("different tick values") {
     gate.tick = 48;
     gate.gate = false;
 
-    expectEqual(gate.tick, 48u, "tick should be 48");
+    expectEqual(gate.tick, uint32_t(48), "tick should be 48");
     expectEqual(gate.gate, false, "gate should be false");
 }
 
@@ -37,7 +37,7 @@ CASE("gate struct size constraint") {
 CASE("basic 2-arg construction") {
     NoteTrackEngine::Gate gate = { 100, true };
 
-    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.tick, uint32_t(100), "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
 }
 
@@ -50,7 +50,7 @@ CASE("experimental shouldTickAccumulator field") {
     gate.shouldTickAccumulator = true;
     gate.sequenceId = 0;
 
-    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.tick, uint32_t(100), "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
     expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
     expectEqual((unsigned int)gate.sequenceId, 0u, "sequenceId should be 0");
@@ -85,7 +85,7 @@ CASE("experimental sequenceId field") {
 CASE("experimental 4-arg constructor") {
     NoteTrackEngine::Gate gate = { 100, true, true, 1 };
 
-    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.tick, uint32_t(100), "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
     expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
     expectEqual((unsigned int)gate.sequenceId, 1u, "sequenceId should be 1");

@@ -192,7 +192,7 @@ CASE("gate construction with 4 args (spread mode)") {
     // When flag=1, gates can be constructed with 4 arguments
     NoteTrackEngine::Gate gate = { 100, true, true, 0 };
 
-    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.tick, uint32_t(100), "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
     expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
     expectEqual((unsigned int)gate.sequenceId, 0u, "sequenceId should be 0");
@@ -202,7 +202,7 @@ CASE("gate construction with 2 args defaults experimental fields") {
     // Even with flag=1, 2-arg construction should work (backward compat)
     NoteTrackEngine::Gate gate = { 100, true };
 
-    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.tick, uint32_t(100), "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
     expectEqual(gate.shouldTickAccumulator, false, "shouldTickAccumulator should default to false");
     expectEqual((unsigned int)gate.sequenceId, 0u, "sequenceId should default to 0");

@@ -6,7 +6,7 @@ CXX_DEFINES = -DSOURCE_PATH_SIZE=52 -D__MACOSX_AU__ -D__MACOSX_CORE__ -Dtestsim_
 
 CXX_INCLUDES = -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/. -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/libs -I/opt/homebrew/include/SDL2 -I/opt/homebrew/include/SDL2/.. -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/platform/sim -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/platform/sim/libs/args -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/platform/sim/libs/nanovg/src -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/platform/sim/libs/rtmidi -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/platform/sim/libs/soloud/include -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/platform/sim/libs/tinyformat -I/Users/foronoma/Work/Code/Eurorack/performer-phazer/src/apps/sequencer/. -isystem /Users/foronoma/Work/Code/Eurorack/performer-phazer/src/platform/sim/libs/pybind11/include -isystem /Users/foronoma/.pyenv/versions/3.13.7/include/python3.13
 
-CXX_FLAGSarm64 =  -g -Wall -Wno-unused-function -fdata-sections -ffunction-sections -fPIC -Wno-unknown-pragmas -Wno-unknown-attributes  -g -std=c++11 -arch arm64 -fPIC -fvisibility=hidden   -D PLATFORM_SIM -D WITH_SDL2_STATIC
+CXX_FLAGSarm64 =  -g -Wall -Wno-unused-function -fdata-sections -ffunction-sections -fPIC -Wno-unknown-pragmas -Wno-unknown-attributes  -O2 -std=c++11 -arch arm64 -fPIC -fvisibility=hidden   -D PLATFORM_SIM -D WITH_SDL2_STATIC
 
-CXX_FLAGS =  -g -Wall -Wno-unused-function -fdata-sections -ffunction-sections -fPIC -Wno-unknown-pragmas -Wno-unknown-attributes  -g -std=c++11 -arch arm64 -fPIC -fvisibility=hidden   -D PLATFORM_SIM -D WITH_SDL2_STATIC
+CXX_FLAGS =  -g -Wall -Wno-unused-function -fdata-sections -ffunction-sections -fPIC -Wno-unknown-pragmas -Wno-unknown-attributes  -O2 -std=c++11 -arch arm64 -fPIC -fvisibility=hidden   -D PLATFORM_SIM -D WITH_SDL2_STATIC
 

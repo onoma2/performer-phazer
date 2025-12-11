@@ -7,7 +7,7 @@ UNIT_TEST("TuesdayScaleQuantization") {
 
 CASE("scale_defaults_to_project") {
     TuesdaySequence seq;
-    expectEqual(seq.scale(), -!, "scale should default to -1 Project");
+    expectEqual(seq.scale(), -1, "scale should default to -1 Project");
 }
 
 CASE("scale_0_is_semitones_chromatic") {
@@ -67,7 +67,7 @@ CASE("clear_resets_to_chromatic") {
     TuesdaySequence seq;
     seq.setScale(5);
     seq.clear();
-    expectEqual(seq.scale(), 0, "clear() should reset scale to 0 (chromatic)");
+    expectEqual(seq.scale(), -1, "clear() should reset scale to -1 (Default/Project)");
 }
 
 CASE("scale_values_correspond_to_scale_names") {

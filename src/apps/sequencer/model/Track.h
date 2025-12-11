@@ -196,7 +196,7 @@ public:
   // Methods
   //----------------------------------------
 
-  Track() : _trackMode(TrackMode::Default), _trackIndex(-1) { initContainer(); }
+  Track() : _trackIndex(-1), _trackMode(TrackMode::Default) { initContainer(); }
 
   void clear();
   void clearPattern(int patternIndex);

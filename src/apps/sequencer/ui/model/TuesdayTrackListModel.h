@@ -48,15 +48,15 @@ public:
         case Power:
             return Routing::Target::Power;
         case LoopLength:
-            return Routing::Target::LoopLength;
+            return Routing::Target::None;
         case Rotate:
             return Routing::Target::Rotate;
         case Glide:
             return Routing::Target::Glide;
         case Skew:
-            return Routing::Target::Skew;
+            return Routing::Target::None;
         case CvUpdateMode:
-            return Routing::Target::CvUpdateMode;
+            return Routing::Target::None;
         default:
             return Routing::Target::None;
         }

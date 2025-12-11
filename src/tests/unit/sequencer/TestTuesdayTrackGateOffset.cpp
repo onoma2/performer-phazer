@@ -1,16 +1,17 @@
 #include "UnitTest.h"
 
-#include "apps/sequencer/model/TuesdayTrack.h"
+#include "apps/sequencer/model/TuesdaySequence.h"
+#include <cstring>
 
 UNIT_TEST("TuesdayTrackGateOffset") {
 
 CASE("gate_offset_default_value") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     expectEqual(track.gateOffset(), 0, "GateOffset should default to 0");
 }
 
 CASE("gate_offset_setter_getter") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     
     track.setGateOffset(50);
     expectEqual(track.gateOffset(), 50, "GateOffset should be 50 after setting");
@@ -20,7 +21,7 @@ CASE("gate_offset_setter_getter") {
 }
 
 CASE("gate_offset_clamping") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     
     // Test clamping at upper bound
     track.setGateOffset(150);
@@ -36,7 +37,7 @@ CASE("gate_offset_clamping") {
 }
 
 CASE("gate_offset_edit_function") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     
     // Test normal edit
     track.setGateOffset(30);
@@ -53,7 +54,7 @@ CASE("gate_offset_edit_function") {
 }
 
 CASE("gate_offset_print_function") {
-    TuesdayTrack track;
+    TuesdaySequence track;
 
     track.setGateOffset(42);
     char buf[64];

@@ -76,7 +76,7 @@ CASE("verify 4-arg Gate constructor works") {
     // With flag=1, should be able to construct Gate with 4 arguments
     NoteTrackEngine::Gate gate = { 100, true, true, 1 };
 
-    expectEqual(gate.tick, 100u, "tick should be 100");
+    expectEqual(gate.tick, uint32_t(100), "tick should be 100");
     expectEqual(gate.gate, true, "gate should be true");
     expectEqual(gate.shouldTickAccumulator, true, "shouldTickAccumulator should be true");
     expectEqual((unsigned int)gate.sequenceId, 1u, "sequenceId should be 1");

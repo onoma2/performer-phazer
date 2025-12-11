@@ -1192,7 +1192,7 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         else if (result.beatSpread > 0) {
             // TRILL MODE: Original probabilistic ratchet (unchanged)
             int chance = (result.beatSpread * sequence.trill()) / 100;
-            if (_uiRng.nextRange(100) < chance) {
+            if (_uiRng.nextRange(100) < static_cast<uint32_t>(chance)) {
                 _retriggerArmed = true;
                 _retriggerCount = 2;
                 _retriggerPeriod = divisor / 3;

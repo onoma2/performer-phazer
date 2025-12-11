@@ -6,7 +6,7 @@ CXX_DEFINES = -D__MACOSX_AU__ -D__MACOSX_CORE__
 
 CXX_INCLUDES = -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks
 
-CXX_FLAGSarm64 = -g -arch arm64
+CXX_FLAGSarm64 = -O3 -DNDEBUG -arch arm64
 
-CXX_FLAGS = -g -arch arm64
+CXX_FLAGS = -O3 -DNDEBUG -arch arm64
 

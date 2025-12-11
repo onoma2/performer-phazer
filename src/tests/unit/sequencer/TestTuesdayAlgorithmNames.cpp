@@ -10,55 +10,55 @@ UNIT_TEST("TuesdayAlgorithmNames") {
 //----------------------------------------
 
 CASE("algorithm_max_updated_to_19") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(19);
     expectEqual(track.algorithm(), 19, "max algorithm should be 19");
 }
 
 CASE("algorithm_clamped_above_19") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(25);
     expectEqual(track.algorithm(), 19, "algorithm should clamp to 19");
 }
 
 CASE("ambient_algorithm_index_13") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(13);
     expectEqual(track.algorithm(), 13, "AMBIENT should be algorithm 13");
 }
 
 CASE("acid_algorithm_index_14") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(14);
     expectEqual(track.algorithm(), 14, "ACID should be algorithm 14");
 }
 
 CASE("drill_algorithm_index_15") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(15);
     expectEqual(track.algorithm(), 15, "DRILL should be algorithm 15");
 }
 
 CASE("minimal_algorithm_index_16") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(16);
     expectEqual(track.algorithm(), 16, "MINIMAL should be algorithm 16");
 }
 
 CASE("kraft_algorithm_index_17") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(17);
     expectEqual(track.algorithm(), 17, "KRAFT should be algorithm 17");
 }
 
 CASE("aphex_algorithm_index_18") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(18);
     expectEqual(track.algorithm(), 18, "APHEX should be algorithm 18");
 }
 
 CASE("autech_algorithm_index_19") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(19);
     expectEqual(track.algorithm(), 19, "AUTECH should be algorithm 19");
 }
@@ -68,7 +68,7 @@ CASE("autech_algorithm_index_19") {
 //----------------------------------------
 
 CASE("ambient_algorithm_name") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(13);
     FixedStringBuilder<32> str;
     track.printAlgorithm(str);
@@ -76,7 +76,7 @@ CASE("ambient_algorithm_name") {
 }
 
 CASE("acid_algorithm_name") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(14);
     FixedStringBuilder<32> str;
     track.printAlgorithm(str);
@@ -84,7 +84,7 @@ CASE("acid_algorithm_name") {
 }
 
 CASE("drill_algorithm_name") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(15);
     FixedStringBuilder<32> str;
     track.printAlgorithm(str);
@@ -92,7 +92,7 @@ CASE("drill_algorithm_name") {
 }
 
 CASE("minimal_algorithm_name") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(16);
     FixedStringBuilder<32> str;
     track.printAlgorithm(str);
@@ -100,7 +100,7 @@ CASE("minimal_algorithm_name") {
 }
 
 CASE("kraft_algorithm_name") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(17);
     FixedStringBuilder<32> str;
     track.printAlgorithm(str);
@@ -108,7 +108,7 @@ CASE("kraft_algorithm_name") {
 }
 
 CASE("aphex_algorithm_name") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(18);
     FixedStringBuilder<32> str;
     track.printAlgorithm(str);
@@ -116,7 +116,7 @@ CASE("aphex_algorithm_name") {
 }
 
 CASE("autech_algorithm_name") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     track.setAlgorithm(19);
     FixedStringBuilder<32> str;
     track.printAlgorithm(str);
@@ -128,7 +128,7 @@ CASE("autech_algorithm_name") {
 //----------------------------------------
 
 CASE("existing_algorithms_unchanged") {
-    TuesdayTrack track;
+    TuesdaySequence track;
     FixedStringBuilder<32> str;
 
     track.setAlgorithm(0);
