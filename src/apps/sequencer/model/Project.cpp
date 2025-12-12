@@ -85,6 +85,8 @@ void Project::clear() {
     noteSequence(7, 0).setGates({ 1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1 });
     noteSequence(7, 0).setNotes({ 0,0,0,0,12,0,12,1,24,21,22,0,3,6,12,1 });
     track(7).setTrackMode(Track::TrackMode::Tuesday);
+    setTempo(80.f);
+    setScale(2); // 2 corresponds to Minor scale
 #endif
 
     _observable.notify(ProjectCleared);

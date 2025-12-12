@@ -22,8 +22,6 @@ TuesdayEditPage::TuesdayEditPage(PageManager &manager, PageContext &context) :
 {}
 
 void TuesdayEditPage::enter() {
-    _currentPage = 0;
-    _selectedSlot = 0;
 }
 
 void TuesdayEditPage::exit() {

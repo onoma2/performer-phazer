@@ -476,6 +476,24 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateTritrance(cons
         if (_rng.nextBinary()) _algoState.tritrance.b1 = ((_rng.next() >> 5) & 0x7);
         // Phase 2: Max Drag (40-50%)
         result.gateOffset = clamp(int(40 + _rng.nextRange(10)), 0, 100);
+
+        // POLYRHYTHM: Triplet/tuplet swing on accent phase (when ornament >= 5)
+        if (ctx.subdivisions != 4) {
+            int flow = sequence.flow();
+            result.beatSpread = 20 + (flow * 5);
+            result.polyCount = ctx.subdivisions;
+            result.isSpatial = true;  // Spatial mode (spread across time for swing)
+
+            // Grace notes leading to main accent
+            // Pattern: [grace, grace, MAIN] for triplets, or spread pattern for higher tuplets
+            for (int i = 0; i < ctx.subdivisions && i < 8; i++) {
+                if (i == ctx.subdivisions - 1) {
+                    result.noteOffsets[i] = 0;  // Main accent note
+                } else {
+                    result.noteOffsets[i] = -1 - (i % 2);  // Grace notes below (‐1, -2, -1...)
+                }
+            }
+        }
         break;
     }
 
@@ -517,6 +535,16 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateMarkov(const G
         result.gateOffset = clamp(int(10 - _rng.nextRange(10)), 0, 100);
     } else {
         result.gateOffset = clamp(int(15 + _rng.nextRange(10)), 0, 100);
+    }
+
+    // POLYRHYTHM: Occasional flams for humanization (when ornament >= 5)
+    if (ctx.subdivisions != 4 && _rng.nextRange(256) < 20) {  // ~8% chance
+        result.polyCount = 2;
+        result.isSpatial = false;  // Tight flam (rapid fire)
+        result.beatSpread = 5;  // Very tight timing
+        result.noteOffsets[0] = 0;  // First hit
+        result.noteOffsets[1] = 0;  // Same note (flam effect)
+        result.gateRatio = 50;  // Shorter gates for flam
     }
 
     return result;
@@ -680,12 +708,27 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStomper(const 
 }
 
 TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp1(const GenerationContext &ctx) {
+    const auto &sequence = tuesdayTrack().sequence(pattern());
     TuesdayTickResult result;
     result.velocity = 255;
     result.gateRatio = 75;
 
     // Use TPB for beat-sync reset (replaces hardcoded % 4)
     int chordpos = _stepIndex % ctx.tpb;
+
+    // POLYRHYTHM: Chord stab ratcheting on beat starts (when ornament >= 5)
+    if (chordpos == 0 && ctx.subdivisions != 4) {
+        int flow = sequence.flow();
+        result.beatSpread = 20 + (flow * 5);  // Flow controls timing window
+        result.polyCount = ctx.subdivisions;
+        result.isSpatial = false;  // Ratchet mode (rapid fire trill)
+
+        // Chord intervals: triad + extensions
+        // Base intervals in scale degrees: [0, 2, 4, 6] = [root, third, fifth, seventh]
+        for (int i = 0; i < ctx.subdivisions && i < 8; i++) {
+            result.noteOffsets[i] = (i % 4) * 2;  // Cycle through chord tones
+        }
+    }
 
     if (chordpos == 0) {
         result.accent = true;
@@ -725,6 +768,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp1(const
 }
 
 TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp2(const GenerationContext &ctx) {
+    const auto &sequence = tuesdayTrack().sequence(pattern());
     TuesdayTickResult result;
     result.velocity = 255;
     result.gateRatio = 75;
@@ -739,6 +783,19 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp2(const
             _algoState.chiparp2.idx = 0;
             _algoState.chiparp2.len--;
             result.accent = true;
+
+            // POLYRHYTHM: Arpeggio ratcheting on accent hits (when ornament >= 5)
+            if (ctx.subdivisions != 4) {
+                int flow = sequence.flow();
+                result.beatSpread = 20 + (flow * 5);
+                result.polyCount = ctx.subdivisions;
+                result.isSpatial = false;  // Ratchet mode (rapid fire)
+
+                // Arpeggio pattern: ascending scale degrees
+                for (int i = 0; i < ctx.subdivisions && i < 8; i++) {
+                    result.noteOffsets[i] = i * _algoState.chiparp2.chordScaler;
+                }
+            }
             if (_rng.nextRange(256) >= 200) deadTimeAdd = 1 + (_rng.next() % 3);
 
             if (_algoState.chiparp2.len == 0) {
