@@ -87,8 +87,32 @@ private:
         }
     };
 
+    // Generation context (shared across algorithms)
+    struct GenerationContext {
+        uint32_t divisor;
+        int tpb, loopLength, effectiveLoopLength, rotatedStep;
+        int ornament, subdivisions, stepsPerBeat;
+        bool isBeatStart;
+    };
+
     // Unified Generation Engine
     TuesdayTickResult generateStep(uint32_t tick);
+
+    // Context calculation
+    GenerationContext calculateContext(uint32_t tick) const;
+
+    // Algorithm generators
+    TuesdayTickResult generateTest(const GenerationContext &ctx);
+    TuesdayTickResult generateTritrance(const GenerationContext &ctx);
+    TuesdayTickResult generateStomper(const GenerationContext &ctx);
+    TuesdayTickResult generateAphex(const GenerationContext &ctx);
+    TuesdayTickResult generateAutechre(const GenerationContext &ctx);
+    TuesdayTickResult generateStepwave(const GenerationContext &ctx);
+    TuesdayTickResult generateMarkov(const GenerationContext &ctx);
+    TuesdayTickResult generateChipArp1(const GenerationContext &ctx);
+    TuesdayTickResult generateChipArp2(const GenerationContext &ctx);
+    TuesdayTickResult generateWobble(const GenerationContext &ctx);
+    TuesdayTickResult generateScalewalker(const GenerationContext &ctx);
 
     // The "Pipeline": Converts abstract algorithm steps into quantized voltage
     float scaleToVolts(int noteIndex, int octave) const;
@@ -152,76 +176,78 @@ private:
     float _cvDelta = 0.f;     // CV change per tick
     int _slideCountDown = 0;  // Ticks remaining in slide
 
-    // TEST algorithm state
-    uint8_t _testMode = 0;      // 0=OCTSWEEPS, 1=SCALEWALKER
-    uint8_t _testSweepSpeed = 0;
-    uint8_t _testAccent = 0;
-    uint8_t _testVelocity = 0;
-    int16_t _testNote = 0;
+    // Algorithm-specific state structures (POD)
+    struct TestState {
+        uint8_t mode, sweepSpeed, accent, velocity;
+        int16_t note;
+    };  // 6 bytes
 
-    // TRITRANCE algorithm state
-    int16_t _triB1 = 0;  // High note
-    int16_t _triB2 = 0;  // Phase offset
-    int16_t _triB3 = 0;  // Note offset
+    struct TritranceState {
+        int16_t b1, b2, b3;
+    };  // 6 bytes
 
-    // STOMPER algorithm state
-    uint8_t _stomperMode = 0;
-    uint8_t _stomperCountDown = 0;
-    uint8_t _stomperLowNote = 0;
-    uint8_t _stomperHighNote[2] = {0, 0};
-    int16_t _stomperLastNote = 0;
-    uint8_t _stomperLastOctave = 0;
+    struct StomperState {
+        uint8_t mode, countDown, lowNote, highNote[2], lastOctave;
+        int16_t lastNote;
+    };  // 10 bytes
 
-    // MARKOV algorithm state
-    int16_t _markovHistory1 = 0;
-    int16_t _markovHistory3 = 0;
-    uint8_t _markovMatrix[8][8][2];
+    struct AphexState {
+        uint8_t track1_pattern[4], track2_pattern[3], track3_pattern[5];
+        uint8_t pos1, pos2, pos3;
+    };  // 15 bytes
 
-    // CHIPARP algorithm state
-    uint32_t _chipChordSeed = 0;
-    Random _chipRng;
-    uint8_t _chipBase = 0;
-    uint8_t _chipDir = 0;
-    
-    // CHIPARP2 algorithm state
-    uint8_t _chip2ChordScaler = 0;
-    uint8_t _chip2Offset = 0;
-    uint8_t _chip2Len = 0;
-    uint8_t _chip2TimeMult = 0;
-    uint8_t _chip2DeadTime = 0;
-    uint8_t _chip2Idx = 0;
-    uint8_t _chip2Dir = 0;
-    uint8_t _chip2ChordLen = 0;
-    Random _chip2Rng;
+    struct AutechreState {
+        int8_t pattern[8];
+        uint8_t rule_index, rule_sequence[8];
+        int rule_timer;
+    };  // 21 bytes
 
-    // WOBBLE algorithm state
-    uint32_t _wobblePhase = 0;
-    uint32_t _wobblePhaseSpeed = 0;
-    uint32_t _wobblePhase2 = 0;
-    uint32_t _wobblePhaseSpeed2 = 0;
-    uint8_t _wobbleLastWasHigh = 0;
+    struct StepwaveState {
+        int8_t direction, current_step, chromatic_offset;
+        uint8_t step_count;
+        bool is_stepped;
+    };  // 5 bytes
 
-    // For APHEX - Polyrhythmic Event Sequencer
-    uint8_t _aphex_track1_pattern[4]; // 4-step melodic pattern
-    uint8_t _aphex_track2_pattern[3]; // 3-step modifier pattern (0=off, 1=stutter, 2=slide)
-    uint8_t _aphex_track3_pattern[5]; // 5-step bass/override pattern
-    uint8_t _aphex_pos1, _aphex_pos2, _aphex_pos3;
+    struct MarkovState {
+        int16_t history1, history3;
+        uint8_t matrix[8][8][2];
+    };  // 132 bytes
 
-    // For AUTECHRE - Algorithmic Transformation Engine
-    int8_t _autechre_pattern[8];    // The 8-step pattern being transformed
-    uint8_t _autechre_rule_index;   // Which transformation rule to apply next
-    int _autechre_rule_timer;       // How long to wait before applying the next rule
-    uint8_t _autechre_rule_sequence[8]; // The sequence of rules to apply
+    struct ChipArp1State {
+        uint32_t chordSeed, rngSeed;  // Store seed, reconstruct Random
+        uint8_t base, dir;
+    };  // 10 bytes
 
-    // STEPWAVE algorithm state (20) - Chromatic stepping trill
-    int8_t _stepwave_direction;     // -1=down, 0=random, +1=up
-    uint8_t _stepwave_step_count;   // Number of trill substeps (3-7)
-    int8_t _stepwave_current_step;  // Current position in trill (0 to step_count-1)
-    int8_t _stepwave_chromatic_offset; // Running chromatic offset from base note
-    bool _stepwave_is_stepped;      // true=stepped, false=slide
+    struct ChipArp2State {
+        uint32_t rngSeed;
+        uint8_t chordScaler, offset, len, timeMult, deadTime, idx, dir, chordLen;
+    };  // 13 bytes
 
-    // SCALEWALKER algorithm state (10) - Scale degree walker with subdivisions
-    int8_t _scalewalker_pos;        // Current position in scale (0-6)
+    struct WobbleState {
+        uint32_t phase, phaseSpeed, phase2, phaseSpeed2;
+        uint8_t lastWasHigh;
+    };  // 17 bytes
+
+    struct ScalewalkerState {
+        int8_t pos;
+    };  // 1 byte
+
+    // Union for algorithm state (only one active)
+    union AlgorithmState {
+        TestState test;
+        TritranceState tritrance;
+        StomperState stomper;
+        AphexState aphex;
+        AutechreState autechre;
+        StepwaveState stepwave;
+        MarkovState markov;
+        ChipArp1State chiparp1;
+        ChipArp2State chiparp2;
+        WobbleState wobble;
+        ScalewalkerState scalewalker;
+    };
+
+    AlgorithmState _algoState;
 
     // Output state
     bool _activity = false;
