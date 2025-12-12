@@ -268,8 +268,16 @@ void TuesdayTrackEngine::reseed() {
     
     const auto &sequence = tuesdayTrack().sequence(pattern());
     int algorithm = sequence.algorithm();
+    int flow = sequence.flow();
+    int ornament = sequence.ornament();
 
+    // Reinitialize algorithm state with new random seeds
+    // Pattern matches initAlgorithm() but uses already-reseeded RNGs
     switch (algorithm) {
+    case 0: // TEST
+        _algoState.test.note = 0;
+        break;
+
     case 1: // TRITRANCE
         _algoState.tritrance.b1 = (_rng.next() & 0x7);
         _algoState.tritrance.b2 = (_rng.next() & 0x7);
@@ -277,14 +285,94 @@ void TuesdayTrackEngine::reseed() {
         if (_algoState.tritrance.b3 >= 7) _algoState.tritrance.b3 -= 7; else _algoState.tritrance.b3 = 0;
         _algoState.tritrance.b3 -= 4;
         break;
+
     case 2: // STOMPER
         _algoState.stomper.mode = (_extraRng.next() % 7) * 2;
         _algoState.stomper.countDown = 0;
         _algoState.stomper.lowNote = _rng.next() % 3;
+        _algoState.stomper.lastNote = _algoState.stomper.lowNote;
+        _algoState.stomper.lastOctave = 0;
         _algoState.stomper.highNote[0] = _rng.next() % 7;
         _algoState.stomper.highNote[1] = _rng.next() % 5;
         break;
-        // Add others if needed
+
+    case 3: // APHEX (Mapped from 18)
+    case 18:
+        for (int i = 0; i < 4; ++i) _algoState.aphex.track1_pattern[i] = _rng.next() % 12;
+        for (int i = 0; i < 3; ++i) _algoState.aphex.track2_pattern[i] = _rng.next() % 3;
+        for (int i = 0; i < 5; ++i) _algoState.aphex.track3_pattern[i] = (_rng.next() % 8 == 0) ? (_rng.next() % 5) : 0;
+        _algoState.aphex.pos1 = (ornament * 1) % 4;
+        _algoState.aphex.pos2 = (ornament * 2) % 3;
+        _algoState.aphex.pos3 = (ornament * 3) % 5;
+        break;
+
+    case 4: // AUTECHRE (Mapped from 19)
+    case 19: {
+        for (int i = 0; i < 8; ++i) {
+            int r = _rng.next() % 4;
+            if (r == 0) _algoState.autechre.pattern[i] = 12; // +1 oct
+            else if (r == 1) _algoState.autechre.pattern[i] = 24; // +2 oct
+            else _algoState.autechre.pattern[i] = 0; // root
+            if (_rng.nextBinary()) _algoState.autechre.pattern[i] += (_rng.next() % 5) * 2;
+        }
+        _algoState.autechre.rule_timer = 8 + (flow * 4);
+        // Reseed _rng temporarily for rule_sequence (matches initAlgorithm pattern)
+        uint32_t tempSeed = _extraRng.next();
+        Random tempRng(tempSeed);
+        for (int i = 0; i < 8; ++i) _algoState.autechre.rule_sequence[i] = tempRng.next() % 5;
+        _algoState.autechre.rule_index = 0;
+    } break;
+
+    case 5: // STEPWAVE (Mapped from 20)
+    case 20:
+        _algoState.stepwave.direction = 0;
+        _algoState.stepwave.step_count = 3 + (_rng.next() % 5);
+        _algoState.stepwave.current_step = 0;
+        _algoState.stepwave.chromatic_offset = 0;
+        _algoState.stepwave.is_stepped = true;
+        break;
+
+    case 6: // MARKOV
+        _algoState.markov.history1 = (_rng.next() & 0x7);
+        _algoState.markov.history3 = (_rng.next() & 0x7);
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                _algoState.markov.matrix[i][j][0] = (_rng.next() % 8);
+                _algoState.markov.matrix[i][j][1] = (_rng.next() % 8);
+            }
+        }
+        break;
+
+    case 7: // CHIPARP1
+        _algoState.chiparp1.chordSeed = _rng.next();
+        _algoState.chiparp1.rngSeed = _algoState.chiparp1.chordSeed;
+        _algoState.chiparp1.base = _rng.next() % 3;
+        _algoState.chiparp1.dir = (_rng.next() >> 7) % 2;
+        break;
+
+    case 8: // CHIPARP2
+        _algoState.chiparp2.rngSeed = _rng.next();
+        _algoState.chiparp2.chordScaler = (_rng.next() % 3) + 2;
+        _algoState.chiparp2.offset = (_rng.next() % 5);
+        _algoState.chiparp2.len = ((_rng.next() & 0x3) + 1) * 2;
+        _algoState.chiparp2.timeMult = _rng.nextBinary() ? (_rng.nextBinary() ? 1 : 0) : 0;
+        _algoState.chiparp2.deadTime = 0;
+        _algoState.chiparp2.idx = 0;
+        _algoState.chiparp2.dir = _rng.nextBinary() ? (_rng.nextBinary() ? 1 : 0) : 0;
+        _algoState.chiparp2.chordLen = 3 + (flow >> 2);
+        break;
+
+    case 9: // WOBBLE
+        _algoState.wobble.phase = 0;
+        _algoState.wobble.phaseSpeed = 0x08000000;
+        _algoState.wobble.phase2 = 0;
+        _algoState.wobble.lastWasHigh = 0;
+        _algoState.wobble.phaseSpeed2 = 0x02000000;
+        break;
+
+    case 10: // SCALEWALKER
+        _algoState.scalewalker.pos = 0;
+        break;
     }
 }
 
