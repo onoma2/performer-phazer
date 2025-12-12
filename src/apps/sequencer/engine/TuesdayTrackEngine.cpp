@@ -477,23 +477,13 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateTritrance(cons
         // Phase 2: Max Drag (40-50%)
         result.gateOffset = clamp(int(40 + _rng.nextRange(10)), 0, 100);
 
-        // POLYRHYTHM: Triplet/tuplet swing on accent phase (when ornament >= 5)
-        if (ctx.subdivisions != 4) {
-            int flow = sequence.flow();
-            result.beatSpread = 20 + (flow * 5);
-            result.polyCount = ctx.subdivisions;
-            result.isSpatial = true;  // Spatial mode (spread across time for swing)
-
-            // Grace notes leading to main accent
-            // Pattern: [grace, grace, MAIN] for triplets, or spread pattern for higher tuplets
-            for (int i = 0; i < ctx.subdivisions && i < 8; i++) {
-                if (i == ctx.subdivisions - 1) {
-                    result.noteOffsets[i] = 0;  // Main accent note
-                } else {
-                    result.noteOffsets[i] = -1 - (i % 2);  // Grace notes below (‐1, -2, -1...)
-                }
-            }
-        }
+        // TRILL PATTERN: Grace notes leading to accent
+        // stepTrill UI parameter will control probability
+        result.trillCount = 3;  // Request triplet feel
+        // Grace notes pattern: [grace, grace, MAIN]
+        result.noteOffsets[0] = -2;  // Grace 2 semitones below
+        result.noteOffsets[1] = -1;  // Grace 1 semitone below
+        result.noteOffsets[2] = 0;   // Main accent note
         break;
     }
 
@@ -537,11 +527,10 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateMarkov(const G
         result.gateOffset = clamp(int(15 + _rng.nextRange(10)), 0, 100);
     }
 
-    // POLYRHYTHM: Occasional flams for humanization (when ornament >= 5)
-    if (ctx.subdivisions != 4 && _rng.nextRange(256) < 20) {  // ~8% chance
-        result.polyCount = 2;
-        result.isSpatial = false;  // Tight flam (rapid fire)
-        result.beatSpread = 5;  // Very tight timing
+    // TRILL PATTERN: Occasional flams for humanization/texture
+    // stepTrill UI parameter will control probability (~8% base chance scaled by stepTrill)
+    if (_rng.nextRange(256) < 20) {  // ~8% chance to enable flam opportunity
+        result.trillCount = 2;  // Request double-hit flam
         result.noteOffsets[0] = 0;  // First hit
         result.noteOffsets[1] = 0;  // Same note (flam effect)
         result.gateRatio = 50;  // Shorter gates for flam
@@ -708,7 +697,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStomper(const 
 }
 
 TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp1(const GenerationContext &ctx) {
-    const auto &sequence = tuesdayTrack().sequence(pattern());
     TuesdayTickResult result;
     result.velocity = 255;
     result.gateRatio = 75;
@@ -716,18 +704,14 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp1(const
     // Use TPB for beat-sync reset (replaces hardcoded % 4)
     int chordpos = _stepIndex % ctx.tpb;
 
-    // POLYRHYTHM: Chord stab ratcheting on beat starts (when ornament >= 5)
-    if (chordpos == 0 && ctx.subdivisions != 4) {
-        int flow = sequence.flow();
-        result.beatSpread = 20 + (flow * 5);  // Flow controls timing window
-        result.polyCount = ctx.subdivisions;
-        result.isSpatial = false;  // Ratchet mode (rapid fire trill)
-
-        // Chord intervals: triad + extensions
-        // Base intervals in scale degrees: [0, 2, 4, 6] = [root, third, fifth, seventh]
-        for (int i = 0; i < ctx.subdivisions && i < 8; i++) {
-            result.noteOffsets[i] = (i % 4) * 2;  // Cycle through chord tones
-        }
+    // TRILL PATTERN: Chord stabs on beat starts
+    // stepTrill UI parameter will control probability (like Glide)
+    if (chordpos == 0) {
+        result.trillCount = 3;  // Request 3-gate chord stab
+        // Chord intervals: root, third, fifth
+        result.noteOffsets[0] = 0;  // root
+        result.noteOffsets[1] = 2;  // third
+        result.noteOffsets[2] = 4;  // fifth
     }
 
     if (chordpos == 0) {
@@ -768,7 +752,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp1(const
 }
 
 TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp2(const GenerationContext &ctx) {
-    const auto &sequence = tuesdayTrack().sequence(pattern());
     TuesdayTickResult result;
     result.velocity = 255;
     result.gateRatio = 75;
@@ -784,18 +767,14 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateChipArp2(const
             _algoState.chiparp2.len--;
             result.accent = true;
 
-            // POLYRHYTHM: Arpeggio ratcheting on accent hits (when ornament >= 5)
-            if (ctx.subdivisions != 4) {
-                int flow = sequence.flow();
-                result.beatSpread = 20 + (flow * 5);
-                result.polyCount = ctx.subdivisions;
-                result.isSpatial = false;  // Ratchet mode (rapid fire)
-
-                // Arpeggio pattern: ascending scale degrees
-                for (int i = 0; i < ctx.subdivisions && i < 8; i++) {
-                    result.noteOffsets[i] = i * _algoState.chiparp2.chordScaler;
-                }
+            // TRILL PATTERN: Arpeggio runs on accent hits
+            // stepTrill UI parameter will control probability
+            result.trillCount = 4;  // Request 4-gate arpeggio
+            // Ascending arpeggio pattern
+            for (int i = 0; i < 4; i++) {
+                result.noteOffsets[i] = i * _algoState.chiparp2.chordScaler;
             }
+
             if (_rng.nextRange(256) >= 200) deadTimeAdd = 1 + (_rng.next() % 3);
 
             if (_algoState.chiparp2.len == 0) {
@@ -1288,13 +1267,28 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         TuesdayTickResult result = generateStep(tick);
         
         // Apply Algorithm's Timing Offset with User Scaler
-        // Scaler Model: 
+        // Scaler Model:
         // - User Knob 0%   -> Force 0 (Strict/Quantized)
         // - User Knob 50%  -> 1x (Original Algo Timing)
         // - User Knob 100% -> 2x (Exaggerated Swing)
         int userScaler = sequence.gateOffset();
         _gateOffset = clamp((int)((result.gateOffset * userScaler * 2) / 100), 0, 100);
-        
+
+        // TRILL PROCESSING (follows Glide pattern)
+        // Algorithm sets trillCount (1-4) to request micro-gate subdivision
+        // UI stepTrill parameter (0-100) controls probability of firing
+        if (result.trillCount > 1 && sequence.stepTrill() > 0) {
+            int chance = sequence.stepTrill();  // 0-100
+            if (_uiRng.nextRange(100) < static_cast<uint32_t>(chance)) {
+                // Fire the trill: activate micro-gate system
+                result.polyCount = result.trillCount;
+                result.isSpatial = false;  // Rapid fire trill mode
+                result.beatSpread = 0;
+                // noteOffsets[] already set by algorithm
+            }
+            // else: don't fire trill, keep polyCount = 0 (single gate)
+        }
+
         // 2. FX LAYER (Post-Processing)
 
         // Calculate power/cooldown ONCE per step (used by both micro-gate and normal gate paths)

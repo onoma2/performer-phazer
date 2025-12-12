@@ -62,6 +62,11 @@ private:
         uint16_t gateRatio = 75; // 0-200% (Relative Duration)
         uint8_t gateOffset = 0;  // 0-100% (Timing Offset)
 
+        // Trill Control (follows Glide pattern)
+        // Algorithm sets trillCount (1-4) to request micro-gate subdivision
+        // UI stepTrill parameter (0-100) controls probability of firing
+        uint8_t trillCount = 1;  // 1-4 gates (algorithm's desired subdivision)
+
         uint8_t beatSpread = 0;  // 0-100% → 1x-5x timing window multiplier
         uint8_t polyCount = 0;   // Number of subdivisions (0=none, 3/5/7=tuplet)
 
