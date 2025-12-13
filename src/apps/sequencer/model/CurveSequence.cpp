@@ -156,16 +156,16 @@ void CurveSequence::writeRouted(Routing::Target target, int intValue, float floa
         setLastStep(intValue, true);
         break;
     case Routing::Target::WavefolderFold:
-        setWavefolderFold(floatValue, true);
+        setWavefolderFold(floatValue / 100.0f, true);  // Convert 0-100 to 0.0-1.0
         break;
     case Routing::Target::WavefolderGain:
-        setWavefolderGain(floatValue, true);
+        setWavefolderGain(floatValue / 100.0f, true);  // Convert 0-200 to 0.0-2.0
         break;
     case Routing::Target::DjFilter:
-        setDjFilter(floatValue, true);
+        setDjFilter(floatValue / 100.0f, true);  // Convert -100 to 100 to -1.0 to 1.0
         break;
     case Routing::Target::XFade:
-        setXFade(floatValue, true);
+        setXFade(floatValue / 100.0f, true);  // Convert 0-100 to 0.0-1.0
         break;
     case Routing::Target::ChaosAmount:
         setChaosAmount(intValue, true);
