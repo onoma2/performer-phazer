@@ -147,6 +147,9 @@ void TuesdaySequence::clear() {
     _gateLength.setBase(50);
     _gateOffset.clear();
     _gateOffset.setBase(0); // Default 0% (Quantized)
+    _primeMaskPattern = 1; // Default: allow all
+    _primeMaskParameter = 0; // Default: base parameter
+    _timeMode = 0; // Default: FREE mode
 }
 
 void TuesdaySequence::write(VersionedSerializedWriter &writer) const {
@@ -170,6 +173,9 @@ void TuesdaySequence::write(VersionedSerializedWriter &writer) const {
     _rotate.write(writer);
     _gateLength.write(writer);
     _gateOffset.write(writer);
+    writer.write(_primeMaskPattern);
+    writer.write(_primeMaskParameter);
+    writer.write(_timeMode);
 }
 
 void TuesdaySequence::read(VersionedSerializedReader &reader) {
@@ -199,4 +205,9 @@ void TuesdaySequence::read(VersionedSerializedReader &reader) {
     _rotate.read(reader);
     _gateLength.read(reader);
     _gateOffset.read(reader);
+    // Read prime mask parameters
+    reader.read(_primeMaskPattern, ProjectVersion::Version53);
+    reader.read(_primeMaskParameter, ProjectVersion::Version53);
+    // Read time mode parameter with version guard
+    reader.read(_timeMode, ProjectVersion::Version54);
 }

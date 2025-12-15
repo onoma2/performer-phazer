@@ -67,6 +67,12 @@ public:
             return Routing::Target::RootNote;
         case Start:
             return Routing::Target::None;
+        case PrimeMaskPattern:
+            return Routing::Target::None; // Not routable
+        case PrimeMaskParameter:
+            return Routing::Target::None; // Not routable
+        case TimeMode:
+            return Routing::Target::None; // Not routable
         default:
             return Routing::Target::None;
         }
@@ -92,6 +98,9 @@ private:
         ResetMeasure,
         Scale,
         RootNote,
+        PrimeMaskPattern,
+        PrimeMaskParameter,
+        TimeMode,
         Last
     };
 
@@ -115,6 +124,9 @@ private:
         case ResetMeasure:  return "Reset Measure";
         case Scale:         return "Scale";
         case RootNote:      return "Root Note";
+        case PrimeMaskPattern: return "Prime Mask";
+        case PrimeMaskParameter: return "Mask Param";
+        case TimeMode: return "Time Mode";
         case Last:          break;
         }
         return nullptr;
@@ -180,6 +192,15 @@ private:
         case RootNote:
             _sequence->printRootNote(str);
             break;
+        case PrimeMaskPattern:
+            _sequence->printPrimeMaskPattern(str);
+            break;
+        case PrimeMaskParameter:
+            _sequence->printPrimeMaskParameter(str);
+            break;
+        case TimeMode:
+            _sequence->printTimeMode(str);
+            break;
         case Last:
             break;
         }
@@ -240,6 +261,15 @@ private:
             break;
         case RootNote:
             _sequence->editRootNote(value, shift);
+            break;
+        case PrimeMaskPattern:
+            _sequence->editPrimeMaskPattern(value, shift);
+            break;
+        case PrimeMaskParameter:
+            _sequence->editPrimeMaskParameter(value, shift);
+            break;
+        case TimeMode:
+            _sequence->editTimeMode(value, shift);
             break;
         case Last:
             break;

@@ -389,6 +389,93 @@ public:
         str("%d%%", gateOffset());
     }
 
+
+    // primeMaskPattern (0=MASK ALL, 1=ALLOW ALL, 2=PRIME-BASED, 3=CUSTOM-BASED)
+    int primeMaskPattern() const { return _primeMaskPattern; }
+    void setPrimeMaskPattern(int pattern) {
+        _primeMaskPattern = clamp(pattern, 0, 3);
+    }
+
+    void editPrimeMaskPattern(int value, bool shift) {
+        if (value != 0) {
+            int current = _primeMaskPattern;
+            current = (current + 1) % 4;  // Cycle through 0, 1, 2, 3
+            _primeMaskPattern = current;
+        }
+    }
+
+    void printPrimeMaskPattern(StringBuilder &str) const {
+        switch (_primeMaskPattern) {
+            case 0: str("MASK ALL"); break;
+            case 1: str("ALLOW ALL"); break;
+            case 2: str("PRIME"); break;
+            case 3: str("FIB"); break;
+            default: str("MASK-%d", _primeMaskPattern); break;
+        }
+    }
+
+    // primeMaskParameter (0-16, used to select different prime/fibonacci pattern)
+    int primeMaskParameter() const { return _primeMaskParameter; }
+    void setPrimeMaskParameter(int param) {
+        _primeMaskParameter = clamp(param, 0, 16);
+    }
+
+    void editPrimeMaskParameter(int value, bool shift) {
+        setPrimeMaskParameter(_primeMaskParameter + value);
+    }
+
+    void printPrimeMaskParameter(StringBuilder &str) const {
+        // Get the current pattern to determine how to display the parameter
+        int currentPattern = primeMaskPattern();
+        int currentParam = primeMaskParameter();
+
+        if (currentParam == 0) {
+            // Parameter 0 means allow all for both patterns
+            str("ALL");
+        } else if (currentPattern == 2) { // Prime pattern
+            // Map to prime numbers
+            static const int PRIMES[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53};
+            const int PRIME_COUNT = sizeof(PRIMES) / sizeof(PRIMES[0]);
+            int selectedPrime = PRIMES[currentParam % PRIME_COUNT];
+            str("P%d", selectedPrime);
+        } else if (currentPattern == 3) { // Fibonacci pattern
+            // Map to Fibonacci numbers - but since the engine uses step-based indexing,
+            // we'll just map the parameter to the Fibonacci sequence directly
+            static const int FIBONACCI[] = {1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144};
+            const int FIB_COUNT = sizeof(FIBONACCI) / sizeof(FIBONACCI[0]);
+            int selectedFib = FIBONACCI[currentParam % FIB_COUNT];
+            str("F%d", selectedFib);
+        } else {
+            // Default: show the parameter value
+            str("%d", currentParam);
+        }
+    }
+
+    // timeMode (0=FREE, 1=QRT, 2=1.5Q, 3=3QRT)
+    int timeMode() const { return _timeMode; }
+    void setTimeMode(int mode) {
+        _timeMode = clamp(mode, 0, 3);
+    }
+
+    void editTimeMode(int value, bool shift) {
+        if (value != 0) {
+            int current = _timeMode;
+            current = (current + 1) % 4;  // Cycle through 0, 1, 2, 3
+            _timeMode = current;
+        }
+    }
+
+    void printTimeMode(StringBuilder &str) const {
+        switch (_timeMode) {
+            case 0: str("FREE"); break;
+            case 1: str("QRT"); break;
+            case 2: str("1.5Q"); break;
+            case 3: str("3QRT"); break;
+            default: str("TM-%d", _timeMode); break;
+        }
+    }
+
+
     // rotate (bipolar shift for finite loops, limited by loop length)
 
     int rotate() const { return _rotate.get(isRouted(Routing::Target::Rotate)); }
@@ -427,7 +514,9 @@ public:
     // Methods
     //----------------------------------------
 
-    TuesdaySequence() { clear(); }
+    TuesdaySequence() {
+        clear();
+    }
 
     void clear();
 
@@ -462,6 +551,9 @@ private:
     Routable<int8_t> _rotate;  // Default: 0 (no rotation)
     Routable<uint8_t> _gateLength; // Default: 50% (Standard)
     Routable<uint8_t> _gateOffset;  // Default: 0% (no gate timing offset)
+    uint8_t _primeMaskPattern = 1;  // Default: 1 (ALLOW ALL for backward compatibility)
+    uint8_t _primeMaskParameter = 0;  // Default: 0 (base parameter)
+    uint8_t _timeMode = 0;  // Default: 0 (FREE mode)
 
     friend class TuesdayTrack;
 };

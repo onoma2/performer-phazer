@@ -38,6 +38,10 @@ void TuesdayTrackEngine::initAlgorithm() {
     _cachedAlgorithm = algorithm;
     _cachedLoopLength = sequence.loopLength();
 
+    // Initialize prime mask cache to force reset on first use
+    _cachedPrimePattern = -1;
+    _cachedPrimeParam = -1;
+
     switch (algorithm) {
     case 0: // TEST
         _algoState.test.mode = (flow - 1) >> 3;
@@ -313,6 +317,14 @@ void TuesdayTrackEngine::reset() {
     _gateOutput = false;
     _cvOutput = 0.f;
     _lastGatedCv = 0.f;
+
+    // Initialize prime mask state
+    _primeMaskCounter = 0;
+    _primeMaskState = 1;
+    _cachedPrimePattern = -1;
+    _cachedPrimeParam = -1;
+    _cachedTimeMode = -1;
+    _timeModeStartTick = 0;
 
     // Zero-initialize union
     memset(&_algoState, 0, sizeof(_algoState));
@@ -1733,9 +1745,113 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     }
     tick -= startTicks;
 
+    // Apply Prime-Based Tick Masking - Hide tick from algorithm based on pattern
+    bool tickAllowed = true;
+
+    int primePattern = sequence.primeMaskPattern();
+    int primeParam = sequence.primeMaskParameter();
+    int timeMode = sequence.timeMode();
+
+    // Reset state when any parameter changes
+    if (_cachedPrimePattern != primePattern || _cachedPrimeParam != primeParam || _cachedTimeMode != timeMode) {
+        _primeMaskCounter = 0;
+        _primeMaskState = 1; // Start in allow state (for time modes: mask first)
+        _cachedPrimePattern = primePattern;
+        _cachedPrimeParam = primeParam;
+        _cachedTimeMode = timeMode;
+        _timeModeStartTick = tick; // Reset the time mode interval
+    }
+
+    // Get the effective prime/fibonacci number based on pattern and param
+    int effectiveParam = primeParam;  // Default to raw param
+    if (primeParam > 0) {  // Only calculate if param > 0
+        if (primePattern == 2) { // Prime pattern
+            static const int PRIMES[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53};
+            const int PRIME_COUNT = sizeof(PRIMES) / sizeof(PRIMES[0]);
+            effectiveParam = PRIMES[primeParam % PRIME_COUNT];
+        } else if (primePattern == 3) { // Fibonacci pattern
+            static const int FIBONACCI[] = {1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144};
+            const int FIB_COUNT = sizeof(FIBONACCI) / sizeof(FIBONACCI[0]);
+            effectiveParam = FIBONACCI[primeParam % FIB_COUNT];
+        }
+    }
+
+    switch (primePattern) {
+        case 0: // MASK ALL
+            tickAllowed = false;
+            break;
+        case 1: // ALLOW ALL
+            tickAllowed = true;
+            break;
+        case 2: // PRIME-BASED: Use prime number for timeMode calculations or toggle
+        case 3: { // FIBONACCI-BASED: Use fibonacci number for timeMode calculations or toggle
+            if (primeParam == 0) {
+                tickAllowed = true; // If param is 0, allow all
+            } else if (timeMode == 0) {  // FREE mode - current behavior
+                // Use the parameter to select a duration (prime or fib number)
+                _primeMaskCounter++;
+
+                // If we've reached the selected duration, toggle the state
+                if (_primeMaskCounter >= effectiveParam) {
+                    _primeMaskState = 1 - _primeMaskState; // Toggle between 0 and 1
+                    _primeMaskCounter = 0; // Reset counter
+                }
+
+                tickAllowed = (_primeMaskState == 1); // Allow if in allow state
+            } else {  // GRID-SYNCED modes
+                // Calculate timing based on divisor and timeMode
+                uint32_t divisor = sequence.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
+                uint32_t quarterNoteTicks = 192;  // 1 quarter note = 192 ticks
+                uint32_t targetDuration;
+
+                switch (timeMode) {
+                    case 1: // QRT: quarter note - param
+                        targetDuration = quarterNoteTicks - effectiveParam;
+                        break;
+                    case 2: // 1.5Q: 1.5 quarter notes - param
+                        targetDuration = (quarterNoteTicks * 3) / 2 - effectiveParam;  // 288 - param
+                        break;
+                    case 3: // 3QRT: 3 quarter notes - param
+                        targetDuration = quarterNoteTicks * 3 - effectiveParam;  // 576 - param
+                        break;
+                    default:
+                        targetDuration = effectiveParam;  // Fallback
+                        break;
+                }
+
+                // For grid-synced modes: mask for effectiveParam ticks, then allow for (targetDuration) ticks
+                _primeMaskCounter++;
+
+                if (_primeMaskCounter <= effectiveParam) {
+                    // During mask period
+                    tickAllowed = false;
+                } else if (_primeMaskCounter <= effectiveParam + targetDuration) {
+                    // During allow period
+                    tickAllowed = true;
+                } else {
+                    // Cycle complete - reset
+                    _primeMaskCounter = 0;
+                    tickAllowed = false; // Start next cycle with mask
+                }
+            }
+            break;
+        }
+        default:
+            tickAllowed = true; // Default to allow
+            break;
+    }
+
+    if (!tickAllowed) {
+        // Maintain current outputs without advancing algorithm state
+        _gateOutput = false;
+        _cvOutput = _cvCurrent;
+        _activity = false;
+        return TickResult::NoUpdate;
+    }
+
     int loopLength = sequence.actualLoopLength();
     uint32_t resetDivisor = (loopLength > 0) ? (loopLength * divisor) : 0;
-    
+
     uint32_t relativeTick = (resetDivisor == 0) ? tick : tick % resetDivisor;
     
     // Finite Loop Reset

@@ -138,6 +138,15 @@ enum ProjectVersion {
     // added TuesdaySequence stepTrill parameter
     Version51 = 51,
 
+    // added TuesdaySequence tickMask parameter
+    Version52 = 52,
+
+    // added TuesdaySequence primeMaskPattern and primeMaskParameter
+    Version53 = 53,
+
+    // added TuesdaySequence timeMode
+    Version54 = 54,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,
