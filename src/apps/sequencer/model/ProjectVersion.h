@@ -147,6 +147,9 @@ enum ProjectVersion {
     // added TuesdaySequence timeMode
     Version54 = 54,
 
+    // removed TuesdaySequence primeMaskPattern, kept primeMaskParameter with new meaning
+    Version55 = 55,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

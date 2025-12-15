@@ -67,9 +67,7 @@ public:
             return Routing::Target::RootNote;
         case Start:
             return Routing::Target::None;
-        case PrimeMaskPattern:
-            return Routing::Target::None; // Not routable
-        case PrimeMaskParameter:
+        case MaskParameter:
             return Routing::Target::None; // Not routable
         case TimeMode:
             return Routing::Target::None; // Not routable
@@ -98,8 +96,7 @@ private:
         ResetMeasure,
         Scale,
         RootNote,
-        PrimeMaskPattern,
-        PrimeMaskParameter,
+        MaskParameter,
         TimeMode,
         Last
     };
@@ -124,8 +121,7 @@ private:
         case ResetMeasure:  return "Reset Measure";
         case Scale:         return "Scale";
         case RootNote:      return "Root Note";
-        case PrimeMaskPattern: return "Prime Mask";
-        case PrimeMaskParameter: return "Mask Param";
+        case MaskParameter: return "Mask Param";
         case TimeMode: return "Time Mode";
         case Last:          break;
         }
@@ -192,11 +188,8 @@ private:
         case RootNote:
             _sequence->printRootNote(str);
             break;
-        case PrimeMaskPattern:
-            _sequence->printPrimeMaskPattern(str);
-            break;
-        case PrimeMaskParameter:
-            _sequence->printPrimeMaskParameter(str);
+        case MaskParameter:
+            _sequence->printMaskParameter(str);
             break;
         case TimeMode:
             _sequence->printTimeMode(str);
@@ -262,11 +255,8 @@ private:
         case RootNote:
             _sequence->editRootNote(value, shift);
             break;
-        case PrimeMaskPattern:
-            _sequence->editPrimeMaskPattern(value, shift);
-            break;
-        case PrimeMaskParameter:
-            _sequence->editPrimeMaskParameter(value, shift);
+        case MaskParameter:
+            _sequence->editMaskParameter(value, shift);
             break;
         case TimeMode:
             _sequence->editTimeMode(value, shift);

@@ -34,6 +34,8 @@
 | **gateOffset** | 0-100% | Micro-timing shift (0%=Quantized, 50%=Algo Groove, 100%=Exaggerated) |
 | **divisor** | varies | Step clock division (1/16, etc.) |
 | **resetMeasure**| 0-128 | Force reset every N bars |
+| **maskParameter** | 0-15 | Controls tick masking behavior: 0=ALL (no masking), 1-14=mask values from array, 15=NONE (always mask) |
+| **timeMode** | 0-3 | Timing synchronization mode: 0=FREE, 1=QRT, 2=1.5Q, 3=3QRT |
 
 ### Ornament Parameter: Polyrhythm Subdivisions
 
@@ -106,6 +108,69 @@ When polyrhythm is active (ornament ≥ 5), each step can contain multiple micro
 **Why 2x Harder?** Prevents all microgates from firing every time, creating meaningful sparsity and variation within steps.
 
 ---
+
+### Mask Parameter: Algorithm Tick Filtering
+
+The **maskParameter** determines which system ticks are hidden from the algorithm:
+
+| Value | Meaning | Behavior |
+|-------|---------|----------|
+| 0 | ALL | Allow all ticks (equivalent to no masking) |
+| 1-14 | MASK VALUES | Apply selected masking pattern from array: {2, 3, 5, 11, 19, 31, 43, 61, 89, 131, 197, 277, 409, 599} |
+| 15 | NONE | Block all ticks (equivalent to muting) |
+
+**Array Mapping:**
+- Index 0 (maskParam=1) → 2
+- Index 1 (maskParam=2) → 3
+- Index 2 (maskParam=3) → 5
+- ...continuing through the prime/sparse sequence
+- Index 13 (maskParam=14) → 599
+
+The mask parameter works in conjunction with timeMode to determine when ticks are allowed or masked.
+
+**Time Mode Synchronization:**
+| Mode | Name | Behavior |
+|------|------|----------|
+| 0 | FREE | Toggle between allow/mask states based on mask value duration |
+| 1 | QRT | Mask for mask value ticks, allow for (quarter note - mask value) ticks |
+| 2 | 1.5Q | Mask for mask value ticks, allow for (1.5 quarter notes - mask value) ticks |
+| 3 | 3QRT | Mask for mask value ticks, allow for (3 quarter notes - mask value) ticks |
+
+**Implementation:**
+```cpp
+// In the tick masking logic:
+switch (timeMode) {
+    case 0: // FREE mode
+        // Toggle between allow/mask states based on mask duration
+        counter++;
+        if (counter >= selectedMaskValue) {
+            state = 1 - state; // Toggle between 0 and 1
+            counter = 0;
+        }
+        tickAllowed = (state == 1);
+        break;
+    case 1: // QRT mode
+        // Mask for selectedMaskValue ticks, then allow for (192 - selectedMaskValue) ticks
+        counter++;
+        if (counter <= selectedMaskValue) {
+            tickAllowed = false; // Mask period
+        } else if (counter <= 192) {
+            tickAllowed = true;  // Allow period (192 = quarter note in ticks)
+        } else {
+            counter = 0;         // Reset cycle
+            tickAllowed = false; // Start next cycle with mask
+        }
+        break;
+    // Similar implementations for 1.5Q (288 ticks) and 3QRT (576 ticks)
+}
+```
+
+**Musical Effect:**
+- **maskParam 0**: Algorithm runs continuously with full state evolution
+- **maskParam 1-14**: Algorithm state progression interrupted according to selected pattern and timeMode
+- **maskParam 15**: Algorithm state frozen, no evolution, continuous silence
+- **timeMode 0**: Creates rhythmic "gaps" in algorithm activity
+- **timeMode 1-3**: Creates musically-synced rhythmic patterns aligned to quarter note divisions
 
 ### 2. Algorithm State (Persistence)
 *Stored in `TuesdayTrackEngine`. Runtime RAM only. "Remembers" context between steps.*

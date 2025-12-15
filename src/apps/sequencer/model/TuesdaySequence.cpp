@@ -147,8 +147,7 @@ void TuesdaySequence::clear() {
     _gateLength.setBase(50);
     _gateOffset.clear();
     _gateOffset.setBase(0); // Default 0% (Quantized)
-    _primeMaskPattern = 1; // Default: allow all
-    _primeMaskParameter = 0; // Default: base parameter
+    _maskParameter = 0; // Default: ALL (no skipping)
     _timeMode = 0; // Default: FREE mode
 }
 
@@ -173,8 +172,7 @@ void TuesdaySequence::write(VersionedSerializedWriter &writer) const {
     _rotate.write(writer);
     _gateLength.write(writer);
     _gateOffset.write(writer);
-    writer.write(_primeMaskPattern);
-    writer.write(_primeMaskParameter);
+    writer.write(_maskParameter);
     writer.write(_timeMode);
 }
 
@@ -205,9 +203,27 @@ void TuesdaySequence::read(VersionedSerializedReader &reader) {
     _rotate.read(reader);
     _gateLength.read(reader);
     _gateOffset.read(reader);
-    // Read prime mask parameters
-    reader.read(_primeMaskPattern, ProjectVersion::Version53);
-    reader.read(_primeMaskParameter, ProjectVersion::Version53);
-    // Read time mode parameter with version guard
-    reader.read(_timeMode, ProjectVersion::Version54);
+    // Read mask parameter (backward compatibility with older projects)
+    if (reader.dataVersion() >= ProjectVersion::Version55) {
+        // For newest files, just read the mask parameter
+        reader.read(_maskParameter, ProjectVersion::Version55);
+        reader.read(_timeMode, ProjectVersion::Version54);
+    } else if (reader.dataVersion() >= ProjectVersion::Version53) {
+        // For version 53-54 files that have the old primeMaskPattern, read and convert
+        uint8_t oldPrimeMaskPattern;
+        reader.read(oldPrimeMaskPattern, ProjectVersion::Version53);
+        reader.read(_maskParameter, ProjectVersion::Version53);
+        reader.read(_timeMode, ProjectVersion::Version54);
+
+        // Convert old primeMaskPattern to new behavior if needed
+        // If old pattern was 1 (ALLOW ALL), keep _maskParameter as is (0 = ALL)
+        // If old pattern was 0 (MASK ALL), set _maskParameter to 15 (NONE)
+        if (oldPrimeMaskPattern == 0) {
+            _maskParameter = 15;  // Convert MASK ALL to NONE
+        }
+        // For old prime/fib patterns, the maskParam values remain the same but will now map to new mask values
+    } else {
+        // For even older files, just maintain _maskParameter default of 0 (ALL)
+        reader.read(_timeMode, ProjectVersion::Version54);
+    }
 }

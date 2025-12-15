@@ -38,8 +38,7 @@ void TuesdayTrackEngine::initAlgorithm() {
     _cachedAlgorithm = algorithm;
     _cachedLoopLength = sequence.loopLength();
 
-    // Initialize prime mask cache to force reset on first use
-    _cachedPrimePattern = -1;
+    // Initialize mask cache to force reset on first use
     _cachedPrimeParam = -1;
 
     switch (algorithm) {
@@ -318,10 +317,9 @@ void TuesdayTrackEngine::reset() {
     _cvOutput = 0.f;
     _lastGatedCv = 0.f;
 
-    // Initialize prime mask state
+    // Initialize mask state
     _primeMaskCounter = 0;
     _primeMaskState = 1;
-    _cachedPrimePattern = -1;
     _cachedPrimeParam = -1;
     _cachedTimeMode = -1;
     _timeModeStartTick = 0;
@@ -1736,109 +1734,105 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
     // Time Calculation
     uint32_t divisor = sequence.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
 
-    // Apply Start Delay (Time Shift)
-    uint32_t startTicks = sequence.start() * divisor;
-    if (tick < startTicks) {
+    // Apply Start Delay with Mask Extension (Time Shift)
+    uint32_t baseStartTicks = sequence.start() * divisor;
+
+    // Get mask parameter to possibly extend start delay
+    int maskParameter = sequence.maskParameter();
+    uint32_t extendedStartTicks = baseStartTicks;
+
+    // Only extend start delay if not in special states (ALL or NONE)
+    if (maskParameter > 0 && maskParameter < 15) {
+        // Map maskParameter 1-14 to array values to extend start delay
+        static const int MASK_VALUES[] = {2, 3, 5, 11, 19, 31, 43, 61, 89, 131, 197, 277, 409, 599};
+        const int MASK_COUNT = sizeof(MASK_VALUES) / sizeof(MASK_VALUES[0]);
+        int index = (maskParameter - 1) % MASK_COUNT;  // Adjust to 0-indexed array (for params 1-14)
+        int maskValue = MASK_VALUES[index];
+        extendedStartTicks += maskValue;
+    }
+
+    if (tick < extendedStartTicks) {
         _gateOutput = false;
         _activity = false;
         return TickResult::NoUpdate;
     }
-    tick -= startTicks;
+    tick -= extendedStartTicks;
 
-    // Apply Prime-Based Tick Masking - Hide tick from algorithm based on pattern
+    // Apply Mask-Based Tick Masking - Hide tick from algorithm based on pattern
     bool tickAllowed = true;
 
-    int primePattern = sequence.primeMaskPattern();
-    int primeParam = sequence.primeMaskParameter();
+    int maskParam = sequence.maskParameter();
     int timeMode = sequence.timeMode();
 
     // Reset state when any parameter changes
-    if (_cachedPrimePattern != primePattern || _cachedPrimeParam != primeParam || _cachedTimeMode != timeMode) {
+    if (_cachedPrimeParam != maskParam || _cachedTimeMode != timeMode) {
         _primeMaskCounter = 0;
         _primeMaskState = 1; // Start in allow state (for time modes: mask first)
-        _cachedPrimePattern = primePattern;
-        _cachedPrimeParam = primeParam;
+        _cachedPrimeParam = maskParam;
         _cachedTimeMode = timeMode;
         _timeModeStartTick = tick; // Reset the time mode interval
     }
 
-    // Get the effective prime/fibonacci number based on pattern and param
-    int effectiveParam = primeParam;  // Default to raw param
-    if (primeParam > 0) {  // Only calculate if param > 0
-        if (primePattern == 2) { // Prime pattern
-            static const int PRIMES[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53};
-            const int PRIME_COUNT = sizeof(PRIMES) / sizeof(PRIMES[0]);
-            effectiveParam = PRIMES[primeParam % PRIME_COUNT];
-        } else if (primePattern == 3) { // Fibonacci pattern
-            static const int FIBONACCI[] = {1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144};
-            const int FIB_COUNT = sizeof(FIBONACCI) / sizeof(FIBONACCI[0]);
-            effectiveParam = FIBONACCI[primeParam % FIB_COUNT];
-        }
-    }
+    // Get the effective mask value based on the parameter (0-15)
+    int effectiveParam = 0;  // Default to 0
+    if (maskParam == 0) {
+        // Special case: parameter 0 means allow all (no skipping)
+        tickAllowed = true;
+    } else if (maskParam == 15) {
+        // Special case: parameter 15 means mask all (complete skipping)
+        tickAllowed = false;
+    } else {
+        // Parameters 1-14 map to specific mask values
+        static const int MASK_VALUES[] = {2, 3, 5, 11, 19, 31, 43, 61, 89, 131, 197, 277, 409, 599};
+        const int MASK_COUNT = sizeof(MASK_VALUES) / sizeof(MASK_VALUES[0]);
+        int maskIndex = maskParam - 1; // Adjust to 0-indexed
+        effectiveParam = MASK_VALUES[maskIndex % MASK_COUNT];
 
-    switch (primePattern) {
-        case 0: // MASK ALL
-            tickAllowed = false;
-            break;
-        case 1: // ALLOW ALL
-            tickAllowed = true;
-            break;
-        case 2: // PRIME-BASED: Use prime number for timeMode calculations or toggle
-        case 3: { // FIBONACCI-BASED: Use fibonacci number for timeMode calculations or toggle
-            if (primeParam == 0) {
-                tickAllowed = true; // If param is 0, allow all
-            } else if (timeMode == 0) {  // FREE mode - current behavior
-                // Use the parameter to select a duration (prime or fib number)
-                _primeMaskCounter++;
+        // Apply timing mode logic using the selected mask value
+        if (timeMode == 0) {  // FREE mode - toggle based on mask value duration
+            _primeMaskCounter++;
 
-                // If we've reached the selected duration, toggle the state
-                if (_primeMaskCounter >= effectiveParam) {
-                    _primeMaskState = 1 - _primeMaskState; // Toggle between 0 and 1
-                    _primeMaskCounter = 0; // Reset counter
-                }
-
-                tickAllowed = (_primeMaskState == 1); // Allow if in allow state
-            } else {  // GRID-SYNCED modes
-                // Calculate timing based on divisor and timeMode
-                uint32_t divisor = sequence.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
-                uint32_t quarterNoteTicks = 192;  // 1 quarter note = 192 ticks
-                uint32_t targetDuration;
-
-                switch (timeMode) {
-                    case 1: // QRT: quarter note - param
-                        targetDuration = quarterNoteTicks - effectiveParam;
-                        break;
-                    case 2: // 1.5Q: 1.5 quarter notes - param
-                        targetDuration = (quarterNoteTicks * 3) / 2 - effectiveParam;  // 288 - param
-                        break;
-                    case 3: // 3QRT: 3 quarter notes - param
-                        targetDuration = quarterNoteTicks * 3 - effectiveParam;  // 576 - param
-                        break;
-                    default:
-                        targetDuration = effectiveParam;  // Fallback
-                        break;
-                }
-
-                // For grid-synced modes: mask for effectiveParam ticks, then allow for (targetDuration) ticks
-                _primeMaskCounter++;
-
-                if (_primeMaskCounter <= effectiveParam) {
-                    // During mask period
-                    tickAllowed = false;
-                } else if (_primeMaskCounter <= effectiveParam + targetDuration) {
-                    // During allow period
-                    tickAllowed = true;
-                } else {
-                    // Cycle complete - reset
-                    _primeMaskCounter = 0;
-                    tickAllowed = false; // Start next cycle with mask
-                }
+            // If we've reached the selected mask value duration, toggle the state
+            if (_primeMaskCounter >= effectiveParam) {
+                _primeMaskState = 1 - _primeMaskState; // Toggle between 0 and 1
+                _primeMaskCounter = 0; // Reset counter
             }
-            break;
+
+            tickAllowed = (_primeMaskState == 1); // Allow if in allow state
+        } else {  // GRID-SYNCED modes
+            uint32_t quarterNoteTicks = 192;  // 1 quarter note = 192 ticks
+            uint32_t targetDuration;
+
+            switch (timeMode) {
+                case 1: // QRT: mask for mask value, allow for (quarter note - mask value)
+                    targetDuration = quarterNoteTicks - effectiveParam;
+                    break;
+                case 2: // 1.5Q: mask for mask value, allow for (1.5 quarter notes - mask value)
+                    targetDuration = (quarterNoteTicks * 3) / 2 - effectiveParam;  // 288 - param
+                    break;
+                case 3: // 3QRT: mask for mask value, allow for (3 quarter notes - mask value)
+                    targetDuration = quarterNoteTicks * 3 - effectiveParam;  // 576 - param
+                    break;
+                default:
+                    targetDuration = effectiveParam;  // Fallback
+                    break;
+            }
+
+            // For grid-synced modes: mask for effectiveParam ticks, then allow for (targetDuration) ticks
+            _primeMaskCounter++;
+
+            if (_primeMaskCounter <= effectiveParam) {
+                // During mask period
+                tickAllowed = false;
+            } else if (_primeMaskCounter <= effectiveParam + targetDuration) {
+                // During allow period
+                tickAllowed = true;
+            } else {
+                // Cycle complete - reset
+                _primeMaskCounter = 0;
+                tickAllowed = false; // Start next cycle with mask
+            }
         }
-        default:
-            tickAllowed = true; // Default to allow
-            break;
     }
 
     if (!tickAllowed) {
