@@ -3,6 +3,7 @@
 #include "ui/painters/WindowPainter.h"
 
 #include "core/utils/StringBuilder.h"
+#include "core/math/Math.h"
 
 enum class Function {
     Prev    = 0,
@@ -35,6 +36,11 @@ void RoutingPage::exit() {
 }
 
 void RoutingPage::draw(Canvas &canvas) {
+    if (overlayActive()) {
+        drawBiasOverlay(canvas);
+        return;
+    }
+
     bool showCommit = *_route != _editRoute;
     bool showLearn = _editRoute.target() != Routing::Target::None;
     bool highlightLearn = showLearn && _engine.midiLearn().isActive();
@@ -50,6 +56,17 @@ void RoutingPage::draw(Canvas &canvas) {
 
 void RoutingPage::keyPress(KeyPressEvent &event) {
     const auto &key = event.key();
+
+    if (overlayActive()) {
+        handleBiasOverlayKey(event);
+        return;
+    }
+
+    if (key.pageModifier() && key.isStep() && key.step() == 4) { // Page + S5
+        enterBiasOverlay();
+        event.consume();
+        return;
+    }
 
     if (edit() && selectedRow() == int(RouteListModel::Item::Tracks) && key.isTrack()) {
         _editRoute.toggleTrack(key.track());
@@ -101,6 +118,13 @@ void RoutingPage::keyPress(KeyPressEvent &event) {
 }
 
 void RoutingPage::encoder(EncoderEvent &event) {
+    if (overlayActive()) {
+        bool shift = pageKeyState()[Key::Shift];
+        editBiasOverlay(event.value(), shift);
+        event.consume();
+        return;
+    }
+
     if (!edit() && pageKeyState()[Key::Shift]) {
         selectRoute(_routeIndex + event.value());
         event.consume();
@@ -114,6 +138,7 @@ void RoutingPage::showRoute(int routeIndex, const Routing::Route *initialValue) 
     _route = &_project.routing().route(routeIndex);
     _routeIndex = routeIndex;
     _editRoute = *(initialValue ? initialValue : _route);
+    _biasOverlayActive = false;
 
     setSelectedRow(0);
     setEdit(false);
@@ -130,9 +155,15 @@ void RoutingPage::drawCell(Canvas &canvas, int row, int column, int x, int y, in
 
         uint8_t tracks = _editRoute.tracks();
         for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
-            canvas.drawRect(x + i * 10, y + 1, 8, 8);
+            int px = x + i * 10;
+            canvas.drawRect(px, y + 1, 8, 8);
             if (tracks & (1 << i)) {
-                canvas.fillRect(x + 2 + i * 10, y + 3, 4, 4);
+                canvas.fillRect(px + 2, y + 3, 4, 4);
+                if (_editRoute.hasNonDefaultShaping(i)) {
+                    canvas.setColor(Color::Low);
+                    canvas.fillRect(px + 1, y + 2, 3, 3);
+                    canvas.setColor(edit() && row == selectedRow() ? Color::Bright : Color::Medium);
+                }
             }
         }
     } else {
@@ -179,4 +210,117 @@ void RoutingPage::assignMidiLearn(const MidiLearn::Result &result) {
     setSelectedRow(int(RouteListModel::MidiSource));
     setTopRow(int(RouteListModel::MidiSource));
     setEdit(false);
+}
+
+void RoutingPage::enterBiasOverlay() {
+    if (!Routing::isPerTrackTarget(_editRoute.target())) {
+        showMessage("TARGET NOT PER TRACK");
+        return;
+    }
+    _biasOverlayActive = true;
+    for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+        _biasStaging[i] = _editRoute.biasPct(i);
+        _depthStaging[i] = _editRoute.depthPct(i);
+    }
+    _slotState.fill(0);
+    _activeSlot = 0;
+}
+
+void RoutingPage::exitBiasOverlay(bool commit) {
+    if (commit) {
+        for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+            _editRoute.setBiasPct(i, _biasStaging[i]);
+            _editRoute.setDepthPct(i, _depthStaging[i]);
+        }
+        showMessage("BIAS/DEPTH UPDATED");
+    }
+    _biasOverlayActive = false;
+}
+
+int RoutingPage::focusTrackIndex() const {
+    int base = _activeSlot * 2;
+    uint8_t state = _slotState[_activeSlot] % 4;
+    return base + (state >= 2 ? 1 : 0);
+}
+
+void RoutingPage::handleBiasOverlayKey(KeyPressEvent &event) {
+    const auto &key = event.key();
+    if (key.pageModifier() && key.isStep() && key.step() == 4) { // Page + S5 exits
+        exitBiasOverlay(false);
+        event.consume();
+        return;
+    }
+    if (key.isFunction()) {
+        int fn = key.function();
+        if (fn >= 0 && fn <= 3) {
+            if (_activeSlot != fn) {
+                _activeSlot = fn;
+            } else {
+                _slotState[fn] = (_slotState[fn] + 1) % 4;
+            }
+            event.consume();
+            return;
+        }
+        if (fn == 4) {
+            exitBiasOverlay(true);
+            event.consume();
+            return;
+        }
+    }
+}
+
+void RoutingPage::editBiasOverlay(int delta, bool shift) {
+    if (delta == 0) return;
+    int step = shift ? 10 : 1;
+    int track = focusTrackIndex();
+    bool editBias = (_slotState[_activeSlot] % 2) == 0;
+    auto &values = editBias ? _biasStaging : _depthStaging;
+    int value = values[track] + delta * step;
+    values[track] = clamp(value, -100, 100);
+}
+
+void RoutingPage::drawBiasOverlay(Canvas &canvas) {
+    WindowPainter::clear(canvas);
+    WindowPainter::drawHeader(canvas, _model, _engine, "ROUTE SHAPE");
+    const char *functionNames[] = { "T1/2", "T3/4", "T5/6", "T7/8", "COMMIT" };
+    WindowPainter::drawFooter(canvas, functionNames, pageKeyState(), _activeSlot);
+
+    canvas.setFont(Font::Tiny);
+    canvas.setBlendMode(BlendMode::Set);
+
+    const int colWidth = CONFIG_LCD_WIDTH / CONFIG_FUNCTION_KEY_COUNT; // ~51px, matches F-key spacing
+    const int lineSpacing = 10;
+    const int line1XOffset = 0; // centered labels
+    const int line2XOffset = 0; // centered depth line
+    const int topY = 16; // push 4px below header
+
+    auto drawTrackBlock = [&] (int baseX, int baseY, int trackNumber, int bias, int depth, bool focusBias, bool focusDepth) {
+        // Line 1: "Tn B %+d"
+        FixedStringBuilder<12> line1("T%d B %+d", trackNumber, bias);
+        int line1X = baseX + line1XOffset + (colWidth - canvas.textWidth(line1)) / 2;
+        canvas.setColor(focusBias ? Color::Bright : Color::Medium);
+        canvas.drawText(line1X, baseY, line1);
+
+        // Line 2: "D %+d"
+        FixedStringBuilder<8> depthStr("D %+d", depth);
+        int depthX = baseX + line2XOffset + (colWidth - canvas.textWidth(depthStr)) / 2;
+        canvas.setColor(focusDepth ? Color::Bright : Color::Medium);
+        canvas.drawText(depthX, baseY + lineSpacing, depthStr);
+    };
+
+    for (int slot = 0; slot < 4; ++slot) {
+        int x = slot * colWidth;
+        int trackA = slot * 2;
+        int trackB = trackA + 1;
+        uint8_t state = _slotState[slot] % 4;
+        bool focusBiasA = slot == _activeSlot && state == 0;
+        bool focusDepthA = slot == _activeSlot && state == 1;
+        bool focusBiasB = slot == _activeSlot && state == 2;
+        bool focusDepthB = slot == _activeSlot && state == 3;
+
+        drawTrackBlock(x, topY, trackA + 1, _biasStaging[trackA], _depthStaging[trackA], focusBiasA, focusDepthA);
+        // Place bottom block closer to footer: reduce gap to keep last line 2px above footer
+        int bottomY = topY + 2 * lineSpacing + 4;
+        drawTrackBlock(x, bottomY, trackB + 1, _biasStaging[trackB], _depthStaging[trackB], focusBiasB, focusDepthB);
+    }
 }

@@ -67,11 +67,16 @@ Routing::Route::Route() {
     clear();
 }
 
+constexpr int8_t Routing::Route::DefaultBiasPct;
+constexpr int8_t Routing::Route::DefaultDepthPct;
+
 void Routing::Route::clear() {
     _target = Target::None;
     _tracks = 0;
     _min = 0.f;
     _max = 1.f;
+    _biasPct.fill(DefaultBiasPct);
+    _depthPct.fill(DefaultDepthPct);
     _source = Source::None;
     _cvSource.clear();
     _midiSource.clear();
@@ -82,6 +87,10 @@ void Routing::Route::write(VersionedSerializedWriter &writer) const {
     writer.write(_tracks);
     writer.write(_min);
     writer.write(_max);
+    for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+        writer.write(_biasPct[i]);
+        writer.write(_depthPct[i]);
+    }
     writer.write(_source);
     if (isCvSource(_source)) {
         _cvSource.write(writer);
@@ -96,6 +105,15 @@ void Routing::Route::read(VersionedSerializedReader &reader) {
     reader.read(_tracks);
     reader.read(_min);
     reader.read(_max);
+    if (reader.dataVersion() >= ProjectVersion::Version57) {
+        for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+            reader.read(_biasPct[i]);
+            reader.read(_depthPct[i]);
+        }
+    } else {
+        _biasPct.fill(DefaultBiasPct);
+        _depthPct.fill(DefaultDepthPct);
+    }
     reader.read(_source);
     if (isCvSource(_source)) {
         _cvSource.read(reader);
@@ -113,7 +131,9 @@ bool Routing::Route::operator==(const Route &other) const {
         _max == other._max &&
         _source == other._source &&
         (!isCvSource(_source) || _cvSource == other._cvSource) &&
-        (!isMidiSource(_source) || _midiSource == other._midiSource)
+        (!isMidiSource(_source) || _midiSource == other._midiSource) &&
+        _biasPct == other._biasPct &&
+        _depthPct == other._depthPct
     );
 }
 

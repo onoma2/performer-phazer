@@ -467,6 +467,9 @@ public:
 
     class Route {
     public:
+        static constexpr int8_t DefaultBiasPct = 0;
+        static constexpr int8_t DefaultDepthPct = 100;
+
         // target
 
         Target target() const { return _target; }
@@ -550,6 +553,24 @@ public:
             Routing::printTargetValue(_target, _max, str);
         }
 
+        // per-track bias
+
+        int biasPct(int trackIndex) const { return _biasPct[trackIndex]; }
+        void setBiasPct(int trackIndex, int bias) {
+            _biasPct[trackIndex] = clamp(bias, -100, 100);
+        }
+
+        // per-track depth
+
+        int depthPct(int trackIndex) const { return _depthPct[trackIndex]; }
+        void setDepthPct(int trackIndex, int depth) {
+            _depthPct[trackIndex] = clamp(depth, -100, 100);
+        }
+
+        bool hasNonDefaultShaping(int trackIndex) const {
+            return _biasPct[trackIndex] != DefaultBiasPct || _depthPct[trackIndex] != DefaultDepthPct;
+        }
+
         // source
 
         Source source() const { return _source; }
@@ -594,6 +615,8 @@ public:
         int8_t _tracks;
         float _min; // TODO make these int16_t
         float _max;
+        std::array<int8_t, CONFIG_TRACK_COUNT> _biasPct;
+        std::array<int8_t, CONFIG_TRACK_COUNT> _depthPct;
         Source _source;
         CvSource _cvSource;
         MidiSource _midiSource;

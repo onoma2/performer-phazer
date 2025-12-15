@@ -2,6 +2,19 @@
 
 #include "Engine.h"
 #include "MidiUtils.h"
+#include "core/math/Math.h"
+
+static inline float applyBiasDepth(float srcNormalized, const Routing::Route &route, int trackIndex) {
+    float min = route.min();
+    float max = route.max();
+    float span = max - min;
+    float mid = min + span * 0.5f;
+    float base = min + srcNormalized * span;
+    float depth = route.depthPct(trackIndex) * 0.01f;
+    float bias = route.biasPct(trackIndex) * 0.01f;
+    float shaped = mid + (base - mid) * depth + span * bias;
+    return clamp(shaped, min, max);
+}
 
 // for allowing direct mapping
 static_assert(int(MidiPort::Midi) == int(Types::MidiPort::Midi), "invalid mapping");
@@ -147,11 +160,19 @@ void RoutingEngine::updateSinks() {
 
         if (route.active()) {
             auto target = route.target();
-            float value = route.min() + _sourceValues[routeIndex] * (route.max() - route.min());
-            if (Routing::isEngineTarget(target)) {
-                writeEngineTarget(target, value);
+            float baseValue = route.min() + _sourceValues[routeIndex] * (route.max() - route.min());
+            if (Routing::isPerTrackTarget(target)) {
+                uint8_t tracks = route.tracks();
+                for (int trackIndex = 0; trackIndex < CONFIG_TRACK_COUNT; ++trackIndex) {
+                    if (tracks & (1 << trackIndex)) {
+                        float shaped = applyBiasDepth(_sourceValues[routeIndex], route, trackIndex);
+                        _routing.writeTarget(target, (1 << trackIndex), shaped);
+                    }
+                }
+            } else if (Routing::isEngineTarget(target)) {
+                writeEngineTarget(target, baseValue);
             } else {
-                _routing.writeTarget(target, route.tracks(), value);
+                _routing.writeTarget(target, route.tracks(), baseValue);
             }
         }
 

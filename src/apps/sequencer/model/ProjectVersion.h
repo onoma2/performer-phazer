@@ -153,6 +153,9 @@ enum ProjectVersion {
     // added TuesdaySequence maskProgression
     Version56 = 56,
 
+    // added Routing per-track bias/depth percentages
+    Version57 = 57,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,
