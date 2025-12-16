@@ -75,6 +75,7 @@ TrackEngine::TickResult DiscreteMapTrackEngine::tick(uint32_t tick) {
     // 4. Update CV output
     if (_activeStage >= 0) {
         _targetCv = noteIndexToVoltage(_sequence->stage(_activeStage).noteIndex());
+        _targetCv += _discreteMapTrack.offset() * 0.01f;
 
         if (_sequence->slewEnabled()) {
             // Simple slew rate (can be made configurable later)

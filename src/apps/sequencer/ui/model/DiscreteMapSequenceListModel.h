@@ -64,6 +64,7 @@ private:
         Slew,
         Octave,
         Transpose,
+        Offset,
         Last
     };
 
@@ -79,6 +80,7 @@ private:
         case Slew:          return "Slew";
         case Octave:        return "Octave";
         case Transpose:     return "Transpose";
+        case Offset:        return "Offset";
         case Last:          break;
         }
         return nullptr;
@@ -120,6 +122,9 @@ private:
         case Transpose:
             if (_track) str("%+d", _track->transpose());
             break;
+        case Offset:
+            if (_track) str("%+.2fV", _track->offset() * 0.01f);
+            break;
         case Last:
             break;
         }
@@ -156,6 +161,9 @@ private:
             break;
         case Transpose:
             if (_track) _track->setTranspose(ModelUtils::adjusted(_track->transpose(), value, -60, 60));
+            break;
+        case Offset:
+            if (_track) _track->setOffset(ModelUtils::adjusted(_track->offset(), value * (shift ? 1 : 10), -500, 500));
             break;
         case Last:
             break;

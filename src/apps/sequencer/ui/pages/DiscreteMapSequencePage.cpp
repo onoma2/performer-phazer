@@ -129,12 +129,24 @@ void DiscreteMapSequencePage::drawStageInfo(Canvas &canvas) {
         FixedStringBuilder<4> thresh("%+d", stage.threshold());
         canvas.drawText(x, y, thresh);
 
-        // Row 2: Note
+        // Row 2: Note (MIDI octave format: C4 style)
         if (stage.direction() != DiscreteMapSequence::Stage::TriggerDir::Off || selected) {
             FixedStringBuilder<8> name;
             const Scale &scale = _sequence->selectedScale(_project.selectedScale());
-            scale.noteName(name, stage.noteIndex(), _sequence->rootNote(), Scale::Format::Long);
-            
+
+            // Convert noteIndex to voltage, then to MIDI note
+            float volts = scale.noteToVolts(stage.noteIndex());
+            if (scale.isChromatic()) {
+                volts += _sequence->rootNote() * (1.f / 12.f);
+            }
+
+            // Convert voltage to MIDI note number (C4 = 60, at 4V for 1V/oct)
+            // C0 is at 0V, which is MIDI note 12
+            int midiNote = int(volts * 12.f) + 12;
+
+            // Format as "C4" style
+            Types::printMidiNote(name, midiNote);
+
             canvas.setColor(active ? Color::Bright : (selected ? Color::Medium : Color::Low));
             canvas.drawText(x, y + 10, name);
         } else {

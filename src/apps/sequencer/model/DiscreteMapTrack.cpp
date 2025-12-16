@@ -14,6 +14,7 @@ void DiscreteMapTrack::clear() {
     _routedThresholdBias = 0.f;
     _octave = 0;
     _transpose = 0;
+    _offset = 0;
     for (auto &sequence : _sequences) {
         sequence.clear();
     }
@@ -46,6 +47,9 @@ void DiscreteMapTrack::writeRouted(Routing::Target target, int intValue, float f
         break;
     case Routing::Target::Transpose:
         _transpose = intValue;
+        break;
+    case Routing::Target::Offset:
+        _offset = intValue;
         break;
     default:
         break;

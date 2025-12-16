@@ -51,6 +51,9 @@ public:
     int transpose() const { return _transpose; }
     void setTranspose(int transpose) { _transpose = clamp(transpose, -60, 60); }
 
+    int offset() const { return _offset; }
+    void setOffset(int offset) { _offset = clamp(offset, -500, 500); }
+
 private:
     void setTrackIndex(int trackIndex) {
         _trackIndex = trackIndex;
@@ -67,6 +70,7 @@ private:
     float _routedThresholdBias = 0.f;
     int8_t _octave = 0;
     int8_t _transpose = 0;
+    int16_t _offset = 0;
 
     friend class Track;
 };
