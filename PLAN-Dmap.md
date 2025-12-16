@@ -8,13 +8,14 @@
   ☒ Create DiscreteMapTrackEngine (header)
   ☒ Create DiscreteMapTrackEngine (implementation)
   ☐ Register engine in TrackEngine factory
-  ☐ Create DiscreteMapSequencePage (header)
-  ☐ Create DiscreteMapSequencePage (implementation)
-  ☐ Register page in PageManager
-  ☐ Add DiscreteMap to track mode selection
-  ☐ Write unit tests for DiscreteMapSequence
-  ☐ Write unit tests for DiscreteMapTrackEngine
+  ☒ Create DiscreteMapSequencePage (header)
+  ☒ Create DiscreteMapSequencePage (implementation)
+  ☒ Register page in PageManager
+  ☒ Add DiscreteMap to track mode selection
+  ☒ Write unit tests for DiscreteMapSequence
+  ☒ Write unit tests for DiscreteMapTrackEngine
   ☐ Build and run tests
+  ☐ Update codex-dmap.md
 
 ## Overview
 Implementing a threshold-based CV mapper as a new track type. It monitors CV input (internal synced ramp or external routed CV) and triggers quantized note outputs when input crosses configurable voltage thresholds.

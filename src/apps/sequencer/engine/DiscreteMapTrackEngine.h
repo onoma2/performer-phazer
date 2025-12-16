@@ -33,17 +33,18 @@ public:
     bool isActiveSequence(const DiscreteMapSequence &sequence) const { return &sequence == _sequence; }
     void invalidateThresholds() { _thresholdsDirty = true; }
 
-    // For UI
+    // For Testing/UI
     int activeStage() const { return _activeStage; }
     float currentInput() const { return _currentInput; }
     float rampPhase() const { return _rampPhase; }
+    
+    int findActiveStage(float input, float prevInput);
+    void recalculateLengthThresholds();
+    float getThresholdVoltage(int stageIndex);
 
 private:
     void updateRamp(uint32_t tick);
     float getRoutedInput();
-    float getThresholdVoltage(int stageIndex);
-    void recalculateLengthThresholds();
-    int findActiveStage(float input, float prevInput);
     float noteIndexToVoltage(int8_t noteIndex);
 
     // Voltage range helpers (always ±5V for internal ramp)

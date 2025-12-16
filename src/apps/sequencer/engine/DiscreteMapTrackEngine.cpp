@@ -182,7 +182,13 @@ int DiscreteMapTrackEngine::findActiveStage(float input, float prevInput) {
         }
     }
 
-    // No crossing detected, keep current active stage
+    // No crossing detected
+    
+    // Check if current active stage is still valid
+    if (_activeStage >= 0 && _sequence->stage(_activeStage).direction() == DiscreteMapSequence::Stage::TriggerDir::Off) {
+        return -1;
+    }
+
     return _activeStage;
 }
 

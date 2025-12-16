@@ -152,9 +152,10 @@ void DiscreteMapSequencePage::updateLeds(Leds &leds) {
         return;
     }
 
+    // Direction (Top Row: 8-15)
     for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
         const auto &stage = _sequence->stage(i);
-        auto ledIndex = MatrixMap::fromStep(i);
+        auto ledIndex = MatrixMap::fromStep(i + 8);
         switch (stage.direction()) {
         case DiscreteMapSequence::Stage::TriggerDir::Rise:
             leds.set(ledIndex, false, true);
@@ -168,10 +169,11 @@ void DiscreteMapSequencePage::updateLeds(Leds &leds) {
         }
     }
 
+    // Selection/Active (Bottom Row: 0-7)
     for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
         bool selected = (i == _selectedStage) || (i == _secondaryStage);
         bool active = _enginePtr && _enginePtr->activeStage() == i;
-        auto ledIndex = MatrixMap::fromStep(i + 8);
+        auto ledIndex = MatrixMap::fromStep(i);
         if (selected) {
             leds.set(ledIndex, true, true);
         } else if (active) {
@@ -200,9 +202,9 @@ void DiscreteMapSequencePage::keyDown(KeyEvent &event) {
     if (key.isStep()) {
         int idx = key.step();
         if (idx < 8) {
-            handleBottomRowKey(idx);
+            handleTopRowKey(idx, key.shiftModifier());
         } else {
-            handleTopRowKey(idx - 8, key.shiftModifier());
+            handleBottomRowKey(idx - 8);
         }
         event.consume();
         return;
@@ -216,8 +218,14 @@ void DiscreteMapSequencePage::keyDown(KeyEvent &event) {
 
 void DiscreteMapSequencePage::keyUp(KeyEvent &event) {
     if (event.key().isStep()) {
-        _editMode = EditMode::None;
-        _secondaryStage = -1;
+        int idx = event.key().step();
+        // If it was a Selection Button (Bottom Row: 0-7)
+        if (idx < 8) {
+            if (_secondaryStage != -1) {
+                _secondaryStage = -1;
+                _editMode = EditMode::Threshold;
+            }
+        }
     }
     _shiftHeld = event.key().shiftModifier();
 }
@@ -300,6 +308,10 @@ void DiscreteMapSequencePage::handleBottomRowKey(int idx) {
     case DiscreteMapSequence::Stage::TriggerDir::Off:
         stage.setDirection(DiscreteMapSequence::Stage::TriggerDir::Rise);
         break;
+    }
+    
+    if (_enginePtr) {
+        _enginePtr->invalidateThresholds();
     }
 }
 

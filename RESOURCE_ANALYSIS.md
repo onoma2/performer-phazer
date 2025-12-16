@@ -1,7 +1,5 @@
 # PEW|FORMER Sequencer Firmware Resource Analysis for IndexedTrackEngine Implementation - December 16, 2025
 
-# PEW|FORMER Sequencer Firmware Resource Analysis for IndexedTrackEngine Implementation
-
 ## Hardware Specifications
 - **Microcontroller**: STM32F405RGT6
 - **Flash Memory**: 1024 KB (1 MB)
@@ -110,6 +108,54 @@ The system supports mixed track types, so the maximum would be if all are Note t
 - Routing tables: ~1-2 KB
 - Settings: ~1 KB
 - **Total Project Overhead**: ~5-9 KB
+
+## Resource Usage Health Assessment
+
+### Memory Usage Analysis (New Data Based on Current Analysis)
+
+**Current Memory Distribution:**
+- **SRAM (128KB)**: Used for main data structures (Model, sequences, project data)
+- **CCMRAM (64KB)**: Used for real-time critical objects (Engine, UI, drivers)
+
+**Memory Consumption:**
+- **SRAM Utilization**: ~110KB out of 128KB (86%)
+- **CCMRAM Utilization**: ~45KB out of 64KB (70%)
+- **Free SRAM**: ~18KB remaining (concerning)
+- **Free CCMRAM**: ~19KB remaining (acceptable)
+
+### CPU Usage Analysis
+
+**Task Scheduling (FreeRTOS):**
+1. Driver Task (Priority 5, 1KB stack): Handles I/O operations
+2. Engine Task (Priority 4, 4KB stack): Core sequencer processing
+3. USBH Task (Priority 3, 2KB stack): USB MIDI devices
+4. UI Task (Priority 2, 4KB stack): Display and user interface
+5. File Task (Priority 1, 2KB stack): SD card operations
+6. Profiler Task (Priority 0, 2KB stack): Optional profiling
+
+### Flash Storage Analysis
+
+**Binary Size:**
+- Release build: ~418KB out of 1024KB (41% utilization)
+- Status: Excellent with significant headroom for expansion
+
+### Resource Health Assessment
+
+**Strengths:**
+1. Efficient memory management with proper use of CCMRAM vs SRAM for DMA requirements
+2. Well-architected task priorities for real-time operation
+3. Scalable track system supporting multiple track types
+
+**Potential Concerns:**
+1. **SRAM Pressure**: Only ~18KB free SRAM remains, which is limiting for future feature expansion
+2. The complex Tuesday track engine adds significant computational overhead
+
+**Recommendations:**
+1. Consider bit-packing for sequence data to reduce memory footprint
+2. Evaluate optimization opportunities in the Tuesday track engine
+3. Monitor memory usage closely as new features are added
+
+The firmware is otherwise healthy with appropriate use of both memory regions and proper real-time task scheduling. The flash storage shows plenty of room for growth, but SRAM usage should be monitored carefully.
 
 ### 4. IndexedTrackEngine Memory Requirements
 

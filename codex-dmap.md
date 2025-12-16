@@ -17,8 +17,11 @@
 
 ## Engine / model
 - **Threshold safety**: Stage thresholds now clamp to `[-127, 127]` and accept `int` to avoid int8 overflow (`src/apps/sequencer/model/DiscreteMapSequence.h`); deserialization clamps through the setter (`src/apps/sequencer/model/DiscreteMapSequence.cpp`).
-- **Normalization**: Position-mode threshold mapping updated to match new range in engine and UI (`src/apps/sequencer/engine/DiscreteMapTrackEngine.cpp`, `src/apps/sequencer/ui/pages/DiscreteMapSequencePage.cpp`).
-- **Tests**: Clamp expectation adjusted in `src/tests/unit/sequencer/TestDiscreteMapSequence.cpp`. (Simulator/hardware tests not run in this session.)
+- **Engine (`src/apps/sequencer/engine/DiscreteMapTrackEngine.cpp`)**: Normalizes thresholds against the new range in position mode. `findActiveStage` now validates `_activeStage` to ensure disabled stages don't remain active. Exposed helper methods for testing.
+- **UI (`src/apps/sequencer/ui/pages/DiscreteMapSequencePage.cpp`)**:
+    - **Visualization**: Reduced bar height, added numerical thresholds, highlighted active/selected stages.
+    - **Controls**: Swapped rows (Bottom=Select, Top=Direction). Added `invalidateThresholds` on direction change. Made stage selection latching (fixing "momentary" bug). Corrected LED mapping to match swapped rows.
+- **Tests**: `src/tests/unit/sequencer/TestDiscreteMapTrackEngine.cpp` populated with logic tests.
 
 ## Behavior recap
 - Page+S2: edit per-stage Direction/Threshold/Note in a simple list.
