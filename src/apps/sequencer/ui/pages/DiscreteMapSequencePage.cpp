@@ -55,7 +55,7 @@ void DiscreteMapSequencePage::draw(Canvas &canvas) {
     refreshPointers();
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "DMAP");
-    
+
     FixedStringBuilder<16> headerName;
     headerName(Track::trackModeName(_project.selectedTrack().trackMode()));
     headerName(_editMode == EditMode::NoteValue ? ": NOTE" : ": THR");
@@ -76,11 +76,14 @@ void DiscreteMapSequencePage::drawThresholdBar(Canvas &canvas) {
     const int barX = 8;
     const int barY = 12;
     const int barW = 240;
-    const int barH = 6;
+    const int barLineY = barY + 8; // Baseline position
 
-    canvas.setColor(Color::Medium);
-    canvas.fillRect(barX, barY, barW, barH);
+    // Draw thin 2px horizontal baseline (Color::Low)
+    canvas.setColor(Color::Low);
+    canvas.hline(barX, barLineY, barW);
+    canvas.hline(barX, barLineY + 1, barW); // 2px thick
 
+    // Draw threshold markers growing upward from baseline
     for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
         const auto &stage = _sequence->stage(i);
         if (stage.direction() == DiscreteMapSequence::Stage::TriggerDir::Off) {
@@ -93,43 +96,67 @@ void DiscreteMapSequencePage::drawThresholdBar(Canvas &canvas) {
         bool selected = (_selectionMask & (1 << i)) != 0;
         bool active = _enginePtr && _enginePtr->activeStage() == i;
 
+        // Determine marker height based on state
+        int markerHeight = active ? 8 : (selected ? 6 : 4);
+
         canvas.setColor(active ? Color::Bright : (selected ? Color::Medium : Color::Low));
-        canvas.vline(x, barY, barH);
-        canvas.vline(x + 1, barY, barH); // 2px wide
+        canvas.vline(x, barLineY - markerHeight, markerHeight); // Grow upward
+        canvas.vline(x, barLineY - markerHeight, markerHeight); // 2px wide
     }
 
+    // Draw input cursor growing upward from baseline
     if (_enginePtr) {
         float inputNorm = clamp((_enginePtr->currentInput() - rangeMin()) / (rangeMax() - rangeMin()), 0.f, 1.f);
         int cursorX = barX + int(inputNorm * barW);
+        const int cursorHeight = 8;
+
         canvas.setColor(Color::Bright);
-        canvas.vline(cursorX, barY - 1, barH + 2);
+        canvas.vline(cursorX, barLineY - cursorHeight, cursorHeight); // Grow upward
     }
 }
 
 void DiscreteMapSequencePage::drawStageInfo(Canvas &canvas) {
-    const int y = 24;
-    const int spacing = 30;
+    const int y = 30;  // Base y position
+    const int barX = 8;
+    const int barW = 240;
 
-    // Draw row selection brackets
-    int bracketY = (_editMode == EditMode::NoteValue) ? y + 10 : y;
-    int bracketH = 8;
+    // Calculate even distribution across bar width
+    const int segmentWidth = barW / DiscreteMapSequence::StageCount;  // 30px per stage
+
+    // Draw row selection brackets - align with threshold or note row
+    // Position brackets at top of text row (text baseline - font height)
+    int bracketY = (_editMode == EditMode::NoteValue) ? y + 8 : y;
+    int bracketH = 6;
     canvas.setColor(Color::Bright);
-    canvas.vline(4, bracketY, bracketH);
-    canvas.vline(250, bracketY, bracketH);
+    canvas.vline(8, bracketY + 4, bracketH);
+    canvas.vline(246, bracketY + 4, bracketH);
 
     for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
         const auto &stage = _sequence->stage(i);
-        int x = 8 + i * spacing;
+
+        // Evenly distribute stages horizontally (centered in each segment)
+        int x = barX + i * segmentWidth + segmentWidth / 2 - 4;  // -4 to center text
 
         bool selected = (_selectionMask & (1 << i)) != 0;
         bool active = _enginePtr && _enginePtr->activeStage() == i;
 
-        // Row 1: Threshold
+        // Row 1: Direction (moved to top)
+        canvas.setColor(active ? Color::Bright : (selected ? Color::Medium : Color::Low));
+        char dirChar = '-';
+        switch (stage.direction()) {
+        case DiscreteMapSequence::Stage::TriggerDir::Rise: dirChar = '^'; break;
+        case DiscreteMapSequence::Stage::TriggerDir::Fall: dirChar = 'v'; break;
+        case DiscreteMapSequence::Stage::TriggerDir::Off:  dirChar = '-'; break;
+        }
+        char dirStr[2] = { dirChar, 0 };
+        canvas.drawText(x + 4, y, dirStr);  // +4 to center the single char
+
+        // Row 2: Threshold (reduced spacing)
         canvas.setColor(active ? Color::Bright : (selected ? Color::Medium : Color::Low));
         FixedStringBuilder<4> thresh("%+d", stage.threshold());
-        canvas.drawText(x, y, thresh);
+        canvas.drawText(x, y + 8, thresh);
 
-        // Row 2: Note (MIDI octave format: C4 style)
+        // Row 3: Note (MIDI octave format: C4 style, reduced spacing)
         if (stage.direction() != DiscreteMapSequence::Stage::TriggerDir::Off || selected) {
             FixedStringBuilder<8> name;
             const Scale &scale = _sequence->selectedScale(_project.selectedScale());
@@ -148,22 +175,11 @@ void DiscreteMapSequencePage::drawStageInfo(Canvas &canvas) {
             Types::printMidiNote(name, midiNote);
 
             canvas.setColor(active ? Color::Bright : (selected ? Color::Medium : Color::Low));
-            canvas.drawText(x, y + 10, name);
+            canvas.drawText(x, y + 16, name);
         } else {
             canvas.setColor(Color::Low);
-            canvas.drawText(x, y + 10, "--");
+            canvas.drawText(x, y + 16, "--");
         }
-
-        // Row 3: Direction
-        canvas.setColor(active ? Color::Bright : (selected ? Color::Medium : Color::Low));
-        char dirChar = '-';
-        switch (stage.direction()) {
-        case DiscreteMapSequence::Stage::TriggerDir::Rise: dirChar = '^'; break;
-        case DiscreteMapSequence::Stage::TriggerDir::Fall: dirChar = 'v'; break;
-        case DiscreteMapSequence::Stage::TriggerDir::Off:  dirChar = '-'; break;
-        }
-        char dirStr[2] = { dirChar, 0 };
-        canvas.drawText(x + 2, y + 20, dirStr);
     }
 }
 
@@ -355,7 +371,7 @@ void DiscreteMapSequencePage::handleBottomRowKey(int idx) {
         stage.setDirection(DiscreteMapSequence::Stage::TriggerDir::Rise);
         break;
     }
-    
+
     if (_enginePtr) {
         _enginePtr->invalidateThresholds();
     }
