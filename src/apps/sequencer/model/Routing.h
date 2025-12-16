@@ -105,6 +105,12 @@ public:
         XFade,
         WavefolderLast = XFade,
 
+        // DiscreteMap Targets
+        DiscreteMapFirst,
+        DiscreteMapInput = DiscreteMapFirst,
+        DiscreteMapThreshold,
+        DiscreteMapLast = DiscreteMapThreshold,
+
         Last,
     };
 
@@ -165,6 +171,9 @@ public:
         case Target::WavefolderGain:            return "Fold Gain";
         case Target::DjFilter:                  return "DJ Filter";
         case Target::XFade:                     return "XFade";
+
+        case Target::DiscreteMapInput:          return "DMap Input";
+        case Target::DiscreteMapThreshold:      return "DMap Thresh";
 
         case Target::Last:                      break;
         }
@@ -233,6 +242,10 @@ public:
         case Target::DjFilter:                  return 45;
         case Target::XFade:                     return 46;
 
+        // DiscreteMap Targets (47-48)
+        case Target::DiscreteMapInput:          return 47;
+        case Target::DiscreteMapThreshold:      return 48;
+
         case Target::Last:                      break;
         }
         return 0;
@@ -270,9 +283,14 @@ public:
         return target >= Target::WavefolderFirst && target <= Target::WavefolderLast;
     }
 
+    static bool isDiscreteMapTarget(Target target) {
+        return target >= Target::DiscreteMapFirst && target <= Target::DiscreteMapLast;
+    }
+
     static bool isPerTrackTarget(Target target) {
         return isPlayStateTarget(target) || isTrackTarget(target) || isSequenceTarget(target) ||
-               isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target);
+               isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target) ||
+               isDiscreteMapTarget(target);
     }
 
     enum class Source : uint8_t {

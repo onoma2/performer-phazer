@@ -42,6 +42,9 @@ public:
     void read(VersionedSerializedReader &reader);
     void writeRouted(Routing::Target target, int intValue, float floatValue);
 
+    float routedInput() const { return _routedInput; }
+    float routedThresholdBias() const { return _routedThresholdBias; }
+
 private:
     void setTrackIndex(int trackIndex) {
         _trackIndex = trackIndex;
@@ -52,6 +55,9 @@ private:
 
     int8_t _trackIndex = -1;
     DiscreteMapSequenceArray _sequences;
+
+    float _routedInput = 0.f;
+    float _routedThresholdBias = 0.f;
 
     friend class Track;
 };

@@ -22,6 +22,7 @@
     - **Visualization**: Reduced bar height, added numerical thresholds, highlighted active/selected stages. Added vertical brackets to indicate active edit row. Header shows mode. Note display includes octaves.
     - **Controls**: Swapped rows. Multi-Selection. Encoder Click toggle. Added **Triangle** LFO option.
     - **Global Params**: Added `GateLength` (0-100%) to Track Page. Increased `Divisor` range to 768 (4 Bars), default 192.
+    - **Routing**: Implemented `DiscreteMapInput` (CV Input) and `DiscreteMapThreshold` (Bias) targets. Engine reads routed input for External clock mode.
 - **Tests**: `src/tests/unit/sequencer/TestDiscreteMapTrackEngine.cpp` populated with logic tests.
 
 ## Behavior recap

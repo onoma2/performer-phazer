@@ -10,6 +10,8 @@ void DiscreteMapTrack::cvOutputName(int index, StringBuilder &str) const {
 }
 
 void DiscreteMapTrack::clear() {
+    _routedInput = 0.f;
+    _routedThresholdBias = 0.f;
     for (auto &sequence : _sequences) {
         sequence.clear();
     }
@@ -24,8 +26,14 @@ void DiscreteMapTrack::read(VersionedSerializedReader &reader) {
 }
 
 void DiscreteMapTrack::writeRouted(Routing::Target target, int intValue, float floatValue) {
-    // Currently no track-level routable parameters for DiscreteMap tracks.
-    (void)target;
-    (void)intValue;
-    (void)floatValue;
+    switch (target) {
+    case Routing::Target::DiscreteMapInput:
+        _routedInput = floatValue;
+        break;
+    case Routing::Target::DiscreteMapThreshold:
+        _routedThresholdBias = floatValue;
+        break;
+    default:
+        break;
+    }
 }

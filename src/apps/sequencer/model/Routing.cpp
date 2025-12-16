@@ -207,7 +207,7 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
         _project.writeRouted(target, intValue, floatValue);
     } else if (isPlayStateTarget(target)) {
         _project.playState().writeRouted(target, tracks, intValue, floatValue);
-    } else if (isTrackTarget(target) || isSequenceTarget(target) || isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target)) {
+    } else if (isTrackTarget(target) || isSequenceTarget(target) || isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target) || isDiscreteMapTarget(target)) {
         for (int trackIndex = 0; trackIndex < CONFIG_TRACK_COUNT; ++trackIndex) {
             if (tracks & (1<<trackIndex)) {
                 auto &track = _project.track(trackIndex);
@@ -254,7 +254,7 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
                     }
                     break;
                 case Track::TrackMode::DiscreteMap:
-                    if (isTrackTarget(target)) {
+                    if (isTrackTarget(target) || isDiscreteMapTarget(target)) {
                         track.discreteMapTrack().writeRouted(target, intValue, floatValue);
                     } else if (isSequenceTarget(target)) {
                         for (int patternIndex = 0; patternIndex < CONFIG_PATTERN_COUNT; ++patternIndex) {
@@ -376,6 +376,9 @@ static const TargetInfo targetInfos[int(Routing::Target::Last)] = {
     [int(Routing::Target::WavefolderGain)]                  = { 0,      200,    0,      200,    10      },
     [int(Routing::Target::DjFilter)]                        = { -100,   100,    -100,   100,    10      },
     [int(Routing::Target::XFade)]                           = { 0,      100,    0,      100,    10      },
+    // DiscreteMap targets
+    [int(Routing::Target::DiscreteMapInput)]                = { -5,     5,      -5,     5,      1       },
+    [int(Routing::Target::DiscreteMapThreshold)]            = { -5,     5,      0,      0,      1       },
 };
 
 float Routing::normalizeTargetValue(Routing::Target target, float value) {
@@ -477,6 +480,10 @@ void Routing::printTargetValue(Routing::Target target, float normalized, StringB
         break;
     case Target::DjFilter:
         str("%+.2f", value * 0.01f);
+        break;
+    case Target::DiscreteMapInput:
+    case Target::DiscreteMapThreshold:
+        str("%+.2fV", value);
         break;
     default:
         str("%d", intValue);

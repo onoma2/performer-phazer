@@ -137,9 +137,7 @@ void DiscreteMapTrackEngine::updateRamp(uint32_t tick) {
 }
 
 float DiscreteMapTrackEngine::getRoutedInput() {
-    // TODO: Implement routing system integration
-    // For now, return 0 (will be implemented when routing is set up)
-    return 0.0f;
+    return _discreteMapTrack.routedInput();
 }
 
 float DiscreteMapTrackEngine::getThresholdVoltage(int stageIndex) {
