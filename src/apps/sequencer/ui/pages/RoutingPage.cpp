@@ -269,7 +269,38 @@ void RoutingPage::handleBiasOverlayKey(KeyPressEvent &event) {
             return;
         }
         if (fn == 4) {
-            exitBiasOverlay(true);
+            // Check for changes
+            bool changed = false;
+            if (*_route != _editRoute) {
+                changed = true;
+            } else {
+                for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+                    if (_biasStaging[i] != _route->biasPct(i) || _depthStaging[i] != _route->depthPct(i)) {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (changed) {
+                // Apply staging to editRoute
+                for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+                    _editRoute.setBiasPct(i, _biasStaging[i]);
+                    _editRoute.setDepthPct(i, _depthStaging[i]);
+                }
+
+                // Check conflict
+                int conflict = _project.routing().checkRouteConflict(_editRoute, *_route);
+                if (conflict >= 0) {
+                    showMessage(FixedStringBuilder<64>("ROUTE SETTINGS CONFLICT WITH ROUTE %d", conflict + 1));
+                } else {
+                    *_route = _editRoute;
+                    showMessage("ROUTE SAVED");
+                }
+            } else {
+                exitBiasOverlay(false);
+            }
+
             event.consume();
             return;
         }
@@ -342,7 +373,21 @@ void RoutingPage::biasOverlayContextAction(int index) {
 void RoutingPage::drawBiasOverlay(Canvas &canvas) {
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "ROUTE SHAPE");
-    const char *functionNames[] = { "T1/2", "T3/4", "T5/6", "T7/8", "COMMIT" };
+
+    // Check for changes to determine if we show COMMIT or EXIT
+    bool changed = false;
+    if (*_route != _editRoute) {
+        changed = true;
+    } else {
+        for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+            if (_biasStaging[i] != _route->biasPct(i) || _depthStaging[i] != _route->depthPct(i)) {
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    const char *functionNames[] = { "T1/2", "T3/4", "T5/6", "T7/8", changed ? "COMMIT" : "EXIT" };
     WindowPainter::drawFooter(canvas, functionNames, pageKeyState(), _activeSlot);
 
     canvas.setFont(Font::Tiny);
@@ -350,34 +395,93 @@ void RoutingPage::drawBiasOverlay(Canvas &canvas) {
 
     const int colWidth = CONFIG_LCD_WIDTH / CONFIG_FUNCTION_KEY_COUNT; // ~51px, matches F-key spacing
     const int lineSpacing = 8;
-
-    // Align B/D to fixed columns: use widest cases so positions don't shift with values
-    FixedStringBuilder<8> maxLine2("D %+d", 100);
-    const int line2Width = canvas.textWidth(maxLine2);
-    const int line2XOffset = (colWidth - line2Width) / 2;
-
-    // Calculate fixed offset for "Tn" based on widest possible Bias string
-    FixedStringBuilder<8> maxBiasPart("B %+d ", -100);
-    const int maxBiasWidth = canvas.textWidth(maxBiasPart);
-
     const int topY = 18; // push 4px below header
 
-        auto drawTrackBlock = [&] (int baseX, int baseY, int trackNumber, int bias, int depth, bool focusBias, bool focusDepth) {
-            // Line 1: "B %+d ... Tn"
+    // Draw Target Name above F5
+    // F5 area is from (4 * colWidth) to Width
+    int f5X = 4 * colWidth;
+    int f5Width = CONFIG_LCD_WIDTH - f5X;
+    int f5Center = f5X + (f5Width / 2);
+
+    // Get target name and split into max 2 lines of 7 chars
+    const char *targetName = Routing::targetName(_editRoute.target());
+
+    char nameBuf[16]; // adequate for safety
+    strncpy(nameBuf, targetName, sizeof(nameBuf) - 1);
+    nameBuf[sizeof(nameBuf) - 1] = '\0';
+
+    size_t len = strlen(nameBuf);
+
+    // Draw Line 1
+    int y1 = topY;
+    int y2 = topY + lineSpacing;
+
+    canvas.setColor(Color::Bright);
+
+    if (len <= 7) {
+        int w = canvas.textWidth(nameBuf);
+        canvas.drawText(f5Center - (w / 2), y1 + 4, nameBuf); // vertically centered in the block
+    } else {
+        // Split into two lines.
+        // Heuristic: If there's a space near the middle, split there.
+        // Otherwise split at 7.
+
+        char line1[8] = {0};
+        char line2[8] = {0};
+
+        // Find split point
+        int splitIdx = 7;
+        bool foundSpace = false;
+
+        // Look for space in first 7 chars, preferring later ones
+        for (int i = 6; i >= 0; --i) {
+            if (nameBuf[i] == ' ') {
+                splitIdx = i;
+                foundSpace = true;
+                break;
+            }
+        }
+
+        if (foundSpace) {
+            strncpy(line1, nameBuf, splitIdx);
+            strncpy(line2, nameBuf + splitIdx + 1, 7); // Skip space
+        } else {
+            // Hard split
+            strncpy(line1, nameBuf, 7);
+            strncpy(line2, nameBuf + 7, 7);
+        }
+
+        int w1 = canvas.textWidth(line1);
+        int w2 = canvas.textWidth(line2);
+
+        canvas.drawText(f5Center - (w1 / 2), y1, line1);
+        canvas.drawText(f5Center - (w2 / 2), y2, line2);
+    }
+
+        // Align B/D to fixed columns: use widest cases so positions don't shift with values
+        FixedStringBuilder<8> maxLine2("D %+d", 100);
+        const int line2Width = canvas.textWidth(maxLine2);
+        const int line2XOffset = (colWidth - line2Width) / 2;
+
+        // Calculate fixed offset for "Tn" based on widest possible Bias string
+        FixedStringBuilder<8> maxBiasPart("B %+d ", -100);
+        const int maxBiasWidth = canvas.textWidth(maxBiasPart);
+
+        auto drawTrackBlock = [&] (int baseX, int baseY, int trackNumber, int bias, int depth, bool focusBias, bool focusDepth) {            // Line 1: "B %+d ... Tn"
             // Align B with D (start at line2XOffset)
             int startX = baseX + line2XOffset;
-            
+
             FixedStringBuilder<8> prefix("B %+d ", bias);
             FixedStringBuilder<4> tPart("T%d", trackNumber);
-            
+
             canvas.setColor(focusBias ? Color::Bright : Color::Medium);
             canvas.drawText(startX, baseY, prefix);
-            
+
             // Highlight T part if either Bias or Depth is focused
             canvas.setColor((focusBias || focusDepth) ? Color::Bright : Color::Medium);
             // Position T part at fixed offset relative to start, so it doesn't move with bias value length
             canvas.drawText(startX + maxBiasWidth, baseY, tPart);
-    
+
             // Line 2: "D %+d"
             FixedStringBuilder<8> depthStr("D %+d", depth);
             int depthX = baseX + line2XOffset;
