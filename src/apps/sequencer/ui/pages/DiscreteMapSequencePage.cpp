@@ -55,7 +55,11 @@ void DiscreteMapSequencePage::draw(Canvas &canvas) {
     refreshPointers();
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "DMAP");
-    WindowPainter::drawActiveFunction(canvas, Track::trackModeName(_project.selectedTrack().trackMode()));
+    
+    FixedStringBuilder<16> headerName;
+    headerName(Track::trackModeName(_project.selectedTrack().trackMode()));
+    headerName(_editMode == EditMode::NoteValue ? ": NOTE" : ": THR");
+    WindowPainter::drawActiveFunction(canvas, headerName);
 
     if (!_sequence) {
         canvas.drawText(8, 24, "Select a DiscreteMap track");
@@ -86,7 +90,7 @@ void DiscreteMapSequencePage::drawThresholdBar(Canvas &canvas) {
         float norm = clamp(getThresholdNormalized(i), 0.f, 1.f);
         int x = barX + int(norm * barW);
 
-        bool selected = (i == _selectedStage) || (i == _secondaryStage);
+        bool selected = (_selectionMask & (1 << i)) != 0;
         bool active = _enginePtr && _enginePtr->activeStage() == i;
 
         canvas.setColor(active ? Color::Bright : (selected ? Color::Medium : Color::Low));
@@ -109,11 +113,18 @@ void DiscreteMapSequencePage::drawStageInfo(Canvas &canvas) {
     const int y = 28;
     const int spacing = 30;
 
+    // Draw row selection brackets
+    int bracketY = (_editMode == EditMode::NoteValue) ? y + 10 : y;
+    int bracketH = 8;
+    canvas.setColor(Color::Bright);
+    canvas.vline(4, bracketY, bracketH);
+    canvas.vline(250, bracketY, bracketH);
+
     for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
         const auto &stage = _sequence->stage(i);
         int x = 8 + i * spacing;
 
-        bool selected = (i == _selectedStage) || (i == _secondaryStage);
+        bool selected = (_selectionMask & (1 << i)) != 0;
         bool active = _enginePtr && _enginePtr->activeStage() == i;
 
         // Draw Threshold Value (replaces stage number)
@@ -121,7 +132,7 @@ void DiscreteMapSequencePage::drawStageInfo(Canvas &canvas) {
         FixedStringBuilder<4> thresh("%+d", stage.threshold());
         canvas.drawText(x, y, thresh);
 
-        if (stage.direction() != DiscreteMapSequence::Stage::TriggerDir::Off) {
+        if (stage.direction() != DiscreteMapSequence::Stage::TriggerDir::Off || selected) {
             FixedStringBuilder<8> name;
             const Scale &scale = _sequence->selectedScale(_project.selectedScale());
             scale.noteName(name, stage.noteIndex(), _sequence->rootNote(), Scale::Format::Short1);
@@ -171,7 +182,7 @@ void DiscreteMapSequencePage::updateLeds(Leds &leds) {
 
     // Selection/Active (Bottom Row: 0-7)
     for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
-        bool selected = (i == _selectedStage) || (i == _secondaryStage);
+        bool selected = (_selectionMask & (1 << i)) != 0;
         bool active = _enginePtr && _enginePtr->activeStage() == i;
         auto ledIndex = MatrixMap::fromStep(i);
         if (selected) {
@@ -202,6 +213,7 @@ void DiscreteMapSequencePage::keyDown(KeyEvent &event) {
     if (key.isStep()) {
         int idx = key.step();
         if (idx < 8) {
+            _stepKeysHeld |= (1 << idx);
             handleTopRowKey(idx, key.shiftModifier());
         } else {
             handleBottomRowKey(idx - 8);
@@ -221,10 +233,7 @@ void DiscreteMapSequencePage::keyUp(KeyEvent &event) {
         int idx = event.key().step();
         // If it was a Selection Button (Bottom Row: 0-7)
         if (idx < 8) {
-            if (_secondaryStage != -1) {
-                _secondaryStage = -1;
-                _editMode = EditMode::Threshold;
-            }
+            _stepKeysHeld &= ~(1 << idx);
         }
     }
     _shiftHeld = event.key().shiftModifier();
@@ -237,6 +246,12 @@ void DiscreteMapSequencePage::keyPress(KeyPressEvent &event) {
         event.consume();
         return;
     }
+
+    if (key.isEncoder()) {
+        _editMode = (_editMode == EditMode::NoteValue) ? EditMode::Threshold : EditMode::NoteValue;
+        event.consume();
+        return;
+    }
 }
 
 void DiscreteMapSequencePage::encoder(EncoderEvent &event) {
@@ -246,53 +261,53 @@ void DiscreteMapSequencePage::encoder(EncoderEvent &event) {
 
     int delta = event.value();
 
-    switch (_editMode) {
-    case EditMode::Threshold: {
-        auto &s = _sequence->stage(_selectedStage);
-        int step = _shiftHeld ? 1 : 8;
-        s.setThreshold(s.threshold() + delta * step);
-        if (_enginePtr) {
-            _enginePtr->invalidateThresholds();
+    for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
+        if (!(_selectionMask & (1 << i))) {
+            continue;
         }
-        break;
-    }
-    case EditMode::NoteValue: {
-        auto &s = _sequence->stage(_selectedStage);
-        int step = _shiftHeld ? 12 : 1;
-        s.setNoteIndex(s.noteIndex() + delta * step);
-        break;
-    }
-    case EditMode::DualThreshold: {
-        if (_secondaryStage >= 0) {
-            auto &s1 = _sequence->stage(_selectedStage);
-            auto &s2 = _sequence->stage(_secondaryStage);
+
+        switch (_editMode) {
+        case EditMode::Threshold: {
+            auto &s = _sequence->stage(i);
             int step = _shiftHeld ? 1 : 8;
-            s1.setThreshold(s1.threshold() + delta * step);
-            s2.setThreshold(s2.threshold() + delta * step);
+            s.setThreshold(s.threshold() + delta * step);
             if (_enginePtr) {
                 _enginePtr->invalidateThresholds();
             }
+            break;
         }
-        break;
-    }
-    case EditMode::None:
-        break;
+        case EditMode::NoteValue: {
+            auto &s = _sequence->stage(i);
+            int step = _shiftHeld ? 12 : 1;
+            s.setNoteIndex(s.noteIndex() + delta * step);
+            break;
+        }
+        default:
+            break;
+        }
     }
 }
 
 void DiscreteMapSequencePage::handleTopRowKey(int idx, bool shift) {
     if (shift) {
         _editMode = EditMode::NoteValue;
-        _selectedStage = idx;
-        _secondaryStage = -1;
-    } else if (_selectedStage >= 0 && _selectedStage != idx) {
-        _secondaryStage = idx;
-        _editMode = EditMode::DualThreshold;
     } else {
-        _selectedStage = idx;
-        _secondaryStage = -1;
         _editMode = EditMode::Threshold;
     }
+
+    // Check if any OTHER key is held (excluding current one)
+    bool multiSelect = (_stepKeysHeld & ~(1 << idx)) != 0;
+
+    if (multiSelect) {
+        _selectionMask ^= (1 << idx); // Toggle
+        // Ensure at least one stage is selected if we just toggled off the last one?
+        // Actually, allowing toggle off is tricky if it leaves 0.
+        if (_selectionMask == 0) _selectionMask = (1 << idx);
+    } else {
+        _selectionMask = (1 << idx); // Switch
+    }
+
+    _selectedStage = idx; // Update focus
 }
 
 void DiscreteMapSequencePage::handleBottomRowKey(int idx) {

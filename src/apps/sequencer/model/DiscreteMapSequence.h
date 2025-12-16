@@ -79,10 +79,10 @@ public:
             ? ClockSource::External : ClockSource::Internal;
     }
 
-    // Divisor (1, 2, 4, 8, 16, 32, 64)
+    // Divisor (ticks)
     int divisor() const { return _divisor; }
     void setDivisor(int div) {
-        _divisor = clamp(div, 1, 64);
+        _divisor = clamp(div, 1, 768);
     }
 
     // Loop mode
@@ -201,7 +201,7 @@ public:
 
 private:
     ClockSource _clockSource = ClockSource::Internal;
-    uint8_t _divisor = 4;
+    uint16_t _divisor = 192;
     bool _loop = true;
 
     ThresholdMode _thresholdMode = ThresholdMode::Position;
