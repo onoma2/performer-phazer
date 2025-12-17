@@ -13,15 +13,6 @@
 #include "core/math/Math.h"
 #include "core/utils/StringBuilder.h"
 
-enum class ContextAction {
-    Init,
-    Copy,
-    Paste,
-    Random,
-    Route,
-    Last
-};
-
 static const ContextMenuModel::Item contextMenuItems[] = {
     { "INIT" },
     { "COPY" },
@@ -30,15 +21,27 @@ static const ContextMenuModel::Item contextMenuItems[] = {
     { "ROUTE" },
 };
 
+static const ContextMenuModel::Item randomContextMenuItems[] = {
+    { "ALL" },
+    { "THR" },
+    { "NOTE" },
+    { "TOG" },
+};
+
 DiscreteMapSequencePage::DiscreteMapSequencePage(PageManager &manager, PageContext &context) :
-    BasePage(manager, context)
+    BasePage(manager, context),
+    _randomizationMode(RandomizationMode::Inactive)
 {}
 
 void DiscreteMapSequencePage::enter() {
     refreshPointers();
+    // Reset randomization mode when entering the page to ensure clean state
+    _randomizationMode = RandomizationMode::Inactive;
 }
 
 void DiscreteMapSequencePage::exit() {
+    // Ensure randomization mode is reset when exiting the page
+    _randomizationMode = RandomizationMode::Inactive;
 }
 
 void DiscreteMapSequencePage::refreshPointers() {
@@ -202,22 +205,36 @@ void DiscreteMapSequencePage::drawStageInfo(Canvas &canvas) {
 }
 
 void DiscreteMapSequencePage::drawFooter(Canvas &canvas) {
-    const char *clockSource = "INT";
-    switch (_sequence->clockSource()) {
-    case DiscreteMapSequence::ClockSource::Internal: clockSource = "SAW"; break;
-    case DiscreteMapSequence::ClockSource::InternalTriangle: clockSource = "TRI"; break;
-    case DiscreteMapSequence::ClockSource::External: clockSource = "EXT"; break;
+    if (_randomizationMode == RandomizationMode::Active) {
+        // Show randomization options when in randomization mode
+        const char *fnLabels[5] = {
+            "ALL",      // F1: Randomize all parameters
+            "THR",      // F2: Randomize only thresholds
+            "NOTE",     // F3: Randomize only notes
+            "TOG",      // F4: Randomize only toggles/directions
+            "X"         // F5: Exit randomization mode
+        };
+
+        WindowPainter::drawFooter(canvas, fnLabels, pageKeyState(), -1);
+    } else {
+        // Original footer display when not in randomization mode
+        const char *clockSource = "INT";
+        switch (_sequence->clockSource()) {
+        case DiscreteMapSequence::ClockSource::Internal: clockSource = "SAW"; break;
+        case DiscreteMapSequence::ClockSource::InternalTriangle: clockSource = "TRI"; break;
+        case DiscreteMapSequence::ClockSource::External: clockSource = "EXT"; break;
+        }
+
+        const char *fnLabels[5] = {
+            clockSource,
+            nullptr,
+            _sequence->thresholdMode() == DiscreteMapSequence::ThresholdMode::Position ? "POS" : "LEN",
+            _sequence->loop() ? "LOOP" : "ONCE",
+            nullptr
+        };
+
+        WindowPainter::drawFooter(canvas, fnLabels, pageKeyState(), -1);
     }
-
-    const char *fnLabels[5] = {
-        clockSource,
-        nullptr,
-        _sequence->thresholdMode() == DiscreteMapSequence::ThresholdMode::Position ? "POS" : "LEN",
-        _sequence->loop() ? "LOOP" : "ONCE",
-        nullptr
-    };
-
-    WindowPainter::drawFooter(canvas, fnLabels, pageKeyState(), -1);
 }
 
 void DiscreteMapSequencePage::updateLeds(Leds &leds) {
@@ -319,6 +336,7 @@ void DiscreteMapSequencePage::keyPress(KeyPressEvent &event) {
     }
 
     if (key.isEncoder()) {
+        // In normal mode, toggle between threshold and note value edit modes
         _editMode = (_editMode == EditMode::NoteValue) ? EditMode::Threshold : EditMode::NoteValue;
         event.consume();
         return;
@@ -414,21 +432,61 @@ void DiscreteMapSequencePage::handleBottomRowKey(int idx) {
 }
 
 void DiscreteMapSequencePage::handleFunctionKey(int fnIndex) {
-    switch (fnIndex) {
-    case 0:
-        _sequence->toggleClockSource();
-        break;
-    case 2:
-        _sequence->toggleThresholdMode();
-        if (_enginePtr) {
-            _enginePtr->invalidateThresholds();
+    if (_randomizationMode == RandomizationMode::Active) {
+        // Handle randomization mode function key presses
+        switch (fnIndex) {
+        case 0: // F1: "ALL" - Randomize all parameters
+            if (_sequence) {
+                _sequence->randomize();
+                showMessage("ALL PARAMETERS RANDOMIZED");
+            }
+            _randomizationMode = RandomizationMode::Inactive;
+            break;
+        case 1: // F2: "THR" - Randomize only thresholds
+            if (_sequence) {
+                _sequence->randomizeThresholds();
+                showMessage("THRESHOLDS RANDOMIZED");
+            }
+            _randomizationMode = RandomizationMode::Inactive;
+            break;
+        case 2: // F3: "NOTE" - Randomize only notes
+            if (_sequence) {
+                _sequence->randomizeNotes();
+                showMessage("NOTES RANDOMIZED");
+            }
+            _randomizationMode = RandomizationMode::Inactive;
+            break;
+        case 3: // F4: "TOG" - Randomize only toggles/directions
+            if (_sequence) {
+                _sequence->randomizeDirections();
+                showMessage("DIRECTIONS RANDOMIZED");
+            }
+            _randomizationMode = RandomizationMode::Inactive;
+            break;
+        case 4: // F5: "X" - Exit randomization mode
+            _randomizationMode = RandomizationMode::Inactive;
+            break;
+        default:
+            break;
         }
-        break;
-    case 3:
-        _sequence->toggleLoop();
-        break;
-    default:
-        break;
+    } else {
+        // Handle normal mode function key presses
+        switch (fnIndex) {
+        case 0:
+            _sequence->toggleClockSource();
+            break;
+        case 2:
+            _sequence->toggleThresholdMode();
+            if (_enginePtr) {
+                _enginePtr->invalidateThresholds();
+            }
+            break;
+        case 3:
+            _sequence->toggleLoop();
+            break;
+        default:
+            break;
+        }
     }
 }
 
@@ -469,14 +527,8 @@ void DiscreteMapSequencePage::contextAction(int index) {
         showMessage("PASTED");
         break;
     case ContextAction::Random:
-        if (_sequence) {
-            _sequence->randomize();
-            refreshPointers();  // Refresh the engine pointer to ensure it's valid
-            if (_enginePtr) {
-                _enginePtr->invalidateThresholds();
-            }
-            showMessage("SEQUENCE RANDOMIZED");
-        }
+        // Enter persistent randomization mode
+        _randomizationMode = RandomizationMode::Active;
         break;
     case ContextAction::Route:
         _manager.pages().top.editRoute(Routing::Target::Divisor, _project.selectedTrackIndex());
@@ -484,6 +536,40 @@ void DiscreteMapSequencePage::contextAction(int index) {
     case ContextAction::Last:
         break;
     }
+}
+
+void DiscreteMapSequencePage::randomContextAction(int index) {
+    if (!_sequence) return;
+
+    switch (RandomContextAction(index)) {
+    case RandomContextAction::All:
+        _sequence->randomize();
+        showMessage("ALL PARAMETERS RANDOMIZED");
+        break;
+    case RandomContextAction::Thr:
+        _sequence->randomizeThresholds();
+        showMessage("THRESHOLDS RANDOMIZED");
+        break;
+    case RandomContextAction::Note:
+        _sequence->randomizeNotes();
+        showMessage("NOTES RANDOMIZED");
+        break;
+    case RandomContextAction::Tog:
+        _sequence->randomizeDirections();
+        showMessage("DIRECTIONS RANDOMIZED");
+        break;
+    case RandomContextAction::Last:
+        break;
+    }
+
+    refreshPointers();  // Refresh the engine pointer to ensure it's valid
+    if (_enginePtr) {
+        _enginePtr->invalidateThresholds();
+    }
+}
+
+bool DiscreteMapSequencePage::randomContextActionEnabled(int index) const {
+    return _sequence != nullptr;
 }
 
 bool DiscreteMapSequencePage::contextActionEnabled(int index) const {

@@ -59,7 +59,30 @@ void DiscreteMapSequence::clearStage(int index) {
 void DiscreteMapSequence::randomize() {
     for (auto &stage : _stages) {
         stage.setThreshold(rng.nextRange(199) - 99);
-        stage.setNoteIndex(rng.nextRange(49 - 24));
+        stage.setNoteIndex(rng.nextRange(128) - 63);
+        auto randomDir = static_cast<DiscreteMapSequence::Stage::TriggerDir>(rng.nextRange(3));
+        stage.setDirection(randomDir);
+    }
+}
+
+void DiscreteMapSequence::randomizeThresholds() {
+    for (auto &stage : _stages) {
+        stage.setThreshold(rng.nextRange(199) - 99);
+    }
+}
+
+void DiscreteMapSequence::randomizeNotes() {
+    for (auto &stage : _stages) {
+        // Note index range is -63 to +64, so we need a range of 128 values
+        stage.setNoteIndex(rng.nextRange(128) - 63);
+    }
+}
+
+void DiscreteMapSequence::randomizeDirections() {
+    for (auto &stage : _stages) {
+        // Randomly select one of the three direction options: Rise, Fall, or Off
+        auto randomDir = static_cast<DiscreteMapSequence::Stage::TriggerDir>(rng.nextRange(3));
+        stage.setDirection(randomDir);
     }
 }
 

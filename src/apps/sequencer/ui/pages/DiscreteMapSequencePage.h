@@ -28,6 +28,28 @@ private:
         DualThreshold,
     };
 
+    enum class ContextAction : uint8_t {
+        Init,
+        Copy,
+        Paste,
+        Random,
+        Route,
+        Last
+    };
+
+    enum class RandomContextAction : uint8_t {
+        All,
+        Thr,  // Thresholds
+        Note, // Notes
+        Tog,  // Toggles/Directions
+        Last
+    };
+
+    enum class RandomizationMode : uint8_t {
+        Inactive,
+        Active,
+    };
+
     void refreshPointers();
     void drawThresholdBar(Canvas &canvas);
     void drawStageInfo(Canvas &canvas);
@@ -44,6 +66,8 @@ private:
     void contextShow();
     void contextAction(int index);
     bool contextActionEnabled(int index) const;
+    void randomContextAction(int index);
+    bool randomContextActionEnabled(int index) const;
 
     DiscreteMapSequence *_sequence = nullptr;
     DiscreteMapTrackEngine *_enginePtr = nullptr;
@@ -53,4 +77,5 @@ private:
     bool _shiftHeld = false;
     uint16_t _stepKeysHeld = 0;
     int _section = 0;
+    RandomizationMode _randomizationMode = RandomizationMode::Inactive;
 };

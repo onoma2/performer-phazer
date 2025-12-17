@@ -184,6 +184,9 @@ public:
     void clear();
     void clearStage(int index);
     void randomize();
+    void randomizeThresholds();
+    void randomizeNotes();
+    void randomizeDirections();
 
     void write(VersionedSerializedWriter &writer) const;
     void read(VersionedSerializedReader &reader);
