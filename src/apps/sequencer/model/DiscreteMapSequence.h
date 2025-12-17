@@ -191,6 +191,46 @@ public:
         _slewEnabled = !_slewEnabled;
     }
 
+    // Voltage Range (ABOVE/BELOW)
+    float rangeHigh() const { return _rangeHigh; }
+    void setRangeHigh(float v) {
+        _rangeHigh = clamp(v, -5.0f, 5.0f);
+    }
+
+    float rangeLow() const { return _rangeLow; }
+    void setRangeLow(float v) {
+        _rangeLow = clamp(v, -5.0f, 5.0f);
+    }
+
+    // Range span with near-zero protection (Option C)
+    float rangeSpan() const {
+        float span = _rangeHigh - _rangeLow;
+        // Allow inversion but protect against collapsed range
+        if (std::abs(span) < 0.01f) {  // Minimum 10mV
+            return (span >= 0) ? 0.01f : -0.01f;
+        }
+        return span;
+    }
+
+    // UI editing helpers (0.1V increments, shift = 1V)
+    void editRangeHigh(int value, bool shift) {
+        float delta = shift ? float(value) : (float(value) * 0.1f);
+        setRangeHigh(_rangeHigh + delta);
+    }
+
+    void editRangeLow(int value, bool shift) {
+        float delta = shift ? float(value) : (float(value) * 0.1f);
+        setRangeLow(_rangeLow + delta);
+    }
+
+    void printRangeHigh(StringBuilder &str) const {
+        str("%+.1fV", _rangeHigh);
+    }
+
+    void printRangeLow(StringBuilder &str) const {
+        str("%+.1fV", _rangeLow);
+    }
+
     //----------------------------------------
     // Stages
     //----------------------------------------
@@ -283,6 +323,9 @@ private:
     int8_t _scale = -1;
     int8_t _rootNote = 0;       // C
     bool _slewEnabled = false;
+
+    float _rangeHigh = 5.0f;    // Default +5V (Eurorack standard)
+    float _rangeLow = -5.0f;    // Default -5V
 
     int _trackIndex = -1;
     std::array<Stage, StageCount> _stages;

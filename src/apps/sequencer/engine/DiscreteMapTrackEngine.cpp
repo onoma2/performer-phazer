@@ -5,10 +5,20 @@
 #include <cmath>
 
 void DiscreteMapTrackEngine::reset() {
+    _sequence = &_discreteMapTrack.sequence(pattern());
+
+    float rMin = rangeMin();
+    float rMax = rangeMax();
+
     _rampPhase = 0.0f;
-    _rampValue = rangeMin();
-    _prevInput = rangeMin() - 0.001f;  // Ensure first RISE can trigger
-    _currentInput = rangeMin();
+    _rampValue = rMin;
+
+    // Place prevInput just outside the START of the range
+    // Normal range (rMin < rMax): prevInput below start
+    // Inverted range (rMin > rMax): prevInput above start
+    _prevInput = (rMin < rMax) ? (rMin - 0.001f) : (rMin + 0.001f);
+    _currentInput = rMin;
+
     _prevSync = _discreteMapTrack.routedSync();
     _resetTickOffset = 0;
     _prevLoop = _sequence ? _sequence->loop() : true;
@@ -19,8 +29,6 @@ void DiscreteMapTrackEngine::reset() {
     _running = true;
     _thresholdsDirty = true;
     _activity = false;
-
-    _sequence = &_discreteMapTrack.sequence(pattern());
 }
 
 void DiscreteMapTrackEngine::restart() {
@@ -46,6 +54,12 @@ TrackEngine::TickResult DiscreteMapTrackEngine::tick(uint32_t tick) {
         _resetTickOffset = tick;
     }
     _prevLoop = _sequence->loop();
+
+    // Invalidate threshold cache if voltage window is being modulated
+    if (_sequence->isRouted(Routing::Target::DiscreteMapRangeHigh) ||
+        _sequence->isRouted(Routing::Target::DiscreteMapRangeLow)) {
+        _thresholdsDirty = true;
+    }
 
     // Sync / reset handling
     uint32_t relativeTick = tick - _resetTickOffset;

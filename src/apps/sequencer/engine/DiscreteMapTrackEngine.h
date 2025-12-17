@@ -47,9 +47,17 @@ private:
     float getRoutedInput();
     float noteIndexToVoltage(int8_t noteIndex);
 
-    // Voltage range helpers (always ±5V for internal ramp)
-    float rangeMin() const { return -5.0f; }
-    float rangeMax() const { return 5.0f; }
+    // Voltage range helpers (delegated to sequence parameters)
+    // rangeMin = START of ramp (rangeLow)
+    // rangeMax = END of ramp (rangeHigh)
+    // For inverted ranges (rangeHigh < rangeLow), ramp goes backwards
+    float rangeMin() const {
+        return _sequence->rangeLow();
+    }
+    float rangeMax() const {
+        return _sequence->rangeHigh();
+    }
+    float rangeSpan() const { return _sequence->rangeSpan(); }
 
     DiscreteMapTrack &_discreteMapTrack;
 

@@ -46,6 +46,8 @@ void DiscreteMapSequence::clear() {
     _scale = -1;
     _rootNote = 0;
     _slewEnabled = false;
+    _rangeHigh = 5.0f;
+    _rangeLow = -5.0f;
 
     for (auto &stage : _stages) {
         stage.clear();
@@ -99,6 +101,8 @@ void DiscreteMapSequence::write(VersionedSerializedWriter &writer) const {
     writer.write(_scale);
     writer.write(_rootNote);
     writer.write(_slewEnabled);
+    writer.write(_rangeHigh);
+    writer.write(_rangeLow);
 
     for (const auto &stage : _stages) {
         stage.write(writer);
@@ -141,6 +145,15 @@ void DiscreteMapSequence::read(VersionedSerializedReader &reader) {
     reader.read(_rootNote);
     reader.read(_slewEnabled);
 
+    if (reader.dataVersion() >= ProjectVersion::Version61) {
+        reader.read(_rangeHigh);
+        reader.read(_rangeLow);
+    } else {
+        // Backward compatibility: default to full ±5V range
+        _rangeHigh = 5.0f;
+        _rangeLow = -5.0f;
+    }
+
     for (auto &stage : _stages) {
         stage.read(reader);
     }
@@ -156,6 +169,12 @@ void DiscreteMapSequence::writeRouted(Routing::Target target, int intValue, floa
         break;
     case Routing::Target::RootNote:
         setRootNote(intValue);
+        break;
+    case Routing::Target::DiscreteMapRangeHigh:
+        setRangeHigh(floatValue);
+        break;
+    case Routing::Target::DiscreteMapRangeLow:
+        setRangeLow(floatValue);
         break;
     default:
         break;

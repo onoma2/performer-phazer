@@ -165,6 +165,9 @@ enum ProjectVersion {
     // added DiscreteMap reset measure + sync mode
     Version60 = 60,
 
+    // added DiscreteMapSequence::rangeHigh and rangeLow (ABOVE/BELOW parameters)
+    Version61 = 61,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

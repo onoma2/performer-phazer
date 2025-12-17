@@ -39,6 +39,10 @@ public:
         switch (Item(row)) {
         case Divisor:
             return Routing::Target::Divisor;
+        case RangeHigh:
+            return Routing::Target::DiscreteMapRangeHigh;
+        case RangeLow:
+            return Routing::Target::DiscreteMapRangeLow;
         case Scale:
             return Routing::Target::Scale;
         case RootNote:
@@ -61,6 +65,8 @@ private:
         Loop,
         ResetMeasure,
         ThresholdMode,
+        RangeHigh,
+        RangeLow,
         Scale,
         RootNote,
         Slew,
@@ -79,6 +85,8 @@ private:
         case Loop:          return "Loop";
         case ResetMeasure:  return "Reset Measure";
         case ThresholdMode: return "Threshold";
+        case RangeHigh:     return "Above";
+        case RangeLow:      return "Below";
         case Scale:         return "Scale";
         case RootNote:      return "Root";
         case Slew:          return "Slew";
@@ -116,6 +124,12 @@ private:
             break;
         case ThresholdMode:
             _sequence->printThresholdMode(str);
+            break;
+        case RangeHigh:
+            _sequence->printRangeHigh(str);
+            break;
+        case RangeLow:
+            _sequence->printRangeLow(str);
             break;
         case Scale:
             _sequence->printScale(str);
@@ -162,6 +176,12 @@ private:
             break;
         case ThresholdMode:
             _sequence->toggleThresholdMode();
+            break;
+        case RangeHigh:
+            _sequence->editRangeHigh(value, shift);
+            break;
+        case RangeLow:
+            _sequence->editRangeLow(value, shift);
             break;
         case Scale:
             _sequence->editScale(value, shift);
