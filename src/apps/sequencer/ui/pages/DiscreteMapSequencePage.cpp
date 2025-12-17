@@ -208,9 +208,9 @@ void DiscreteMapSequencePage::drawFooter(Canvas &canvas) {
     }
 
     if (_generatorStage == GeneratorStage::Execute) {
-        // Show TOG on F4 only for RAND; otherwise leave empty
+        // Show TOG on F4 only for RAND; otherwise use NOTE2
         const bool isRand = _generatorKind == GeneratorKind::Random;
-        const char *fnLabels[5] = { "ALL", "THR", "NOTE", isRand ? "TOG" : nullptr, "X" };
+        const char *fnLabels[5] = { "ALL", "THR", isRand ? "NOTE" : "NOTE5", isRand ? "TOG" : "NOTE2", "X" };
         WindowPainter::drawFooter(canvas, fnLabels, pageKeyState(), -1);
         return;
     }
@@ -442,13 +442,25 @@ void DiscreteMapSequencePage::handleFunctionKey(int fnIndex) {
     }
 
     if (_generatorStage == GeneratorStage::Execute) {
-        switch (fnIndex) {
-        case 0: applyGenerator(true, true, true); _generatorStage = GeneratorStage::Inactive; break;   // ALL
-        case 1: applyGenerator(true, false, false); _generatorStage = GeneratorStage::Inactive; break; // THR
-        case 2: applyGenerator(false, true, false); _generatorStage = GeneratorStage::Inactive; break; // NOTE
-        case 3: applyGenerator(false, false, true); _generatorStage = GeneratorStage::Inactive; break; // TOG (RAND only)
-        case 4: _generatorStage = GeneratorStage::Inactive; break;                                    // EXIT
-        default: break;
+        const bool isRand = _generatorKind == GeneratorKind::Random;
+        if (isRand) {
+            switch (fnIndex) {
+            case 0: applyGenerator(true, true, true); _generatorStage = GeneratorStage::Inactive; break;   // ALL
+            case 1: applyGenerator(true, false, false); _generatorStage = GeneratorStage::Inactive; break; // THR
+            case 2: applyGenerator(false, true, false); _generatorStage = GeneratorStage::Inactive; break; // NOTE
+            case 3: applyGenerator(false, false, true); _generatorStage = GeneratorStage::Inactive; break; // TOG
+            case 4: _generatorStage = GeneratorStage::Inactive; break;                                    // EXIT
+            default: break;
+            }
+        } else {
+            switch (fnIndex) {
+            case 0: applyGenerator(true, true, false, NoteSpread::Wide); _generatorStage = GeneratorStage::Inactive; break;   // ALL (Note5)
+            case 1: applyGenerator(true, false, false, NoteSpread::Wide); _generatorStage = GeneratorStage::Inactive; break; // THR
+            case 2: applyGenerator(false, true, false, NoteSpread::Wide); _generatorStage = GeneratorStage::Inactive; break; // NOTE5
+            case 3: applyGenerator(false, true, false, NoteSpread::Narrow); _generatorStage = GeneratorStage::Inactive; break; // NOTE2
+            case 4: _generatorStage = GeneratorStage::Inactive; break;                                                        // EXIT
+            default: break;
+            }
         }
         return;
     }
@@ -534,7 +546,7 @@ bool DiscreteMapSequencePage::contextActionEnabled(int index) const {
     }
 }
 
-void DiscreteMapSequencePage::applyGenerator(bool applyThresholds, bool applyNotes, bool applyToggles) {
+void DiscreteMapSequencePage::applyGenerator(bool applyThresholds, bool applyNotes, bool applyToggles, NoteSpread noteSpread) {
     if (!_sequence) {
         return;
     }
@@ -575,12 +587,15 @@ void DiscreteMapSequencePage::applyGenerator(bool applyThresholds, bool applyNot
             }
         }
     } else {
-        // LIN/LOG/EXP: ignore toggle requests
+        // LIN/LOG/EXP: ignore toggle requests, force directions to Rise
         if (applyThresholds) {
             generateThresholds(_generatorKind);
         }
         if (applyNotes) {
-            generateNotes(_generatorKind);
+            generateNotes(_generatorKind, noteSpread);
+        }
+        for (int i = 0; i < DiscreteMapSequence::StageCount; ++i) {
+            _sequence->stage(i).setDirection(DiscreteMapSequence::Stage::TriggerDir::Rise);
         }
 
         FixedStringBuilder<16> msg;
@@ -589,7 +604,7 @@ void DiscreteMapSequencePage::applyGenerator(bool applyThresholds, bool applyNot
         } else if (applyThresholds) {
             msg("%s THR", generatorName(_generatorKind));
         } else if (applyNotes) {
-            msg("%s NOTE", generatorName(_generatorKind));
+            msg("%s %s", generatorName(_generatorKind), noteSpread == NoteSpread::Wide ? "NOTE5" : "NOTE2");
         }
         const char *text = msg;
         if (text[0] != 0) {
@@ -615,10 +630,15 @@ void DiscreteMapSequencePage::generateThresholds(GeneratorKind kind) {
     }
 }
 
-void DiscreteMapSequencePage::generateNotes(GeneratorKind kind) {
+void DiscreteMapSequencePage::generateNotes(GeneratorKind kind, NoteSpread spread) {
     const int count = DiscreteMapSequence::StageCount;
-    const float minVal = -63.f;
-    const float maxVal = 64.f;
+    float minVal = -63.f;
+    float maxVal = 64.f;
+
+    if (spread == NoteSpread::Narrow) {
+        minVal = -16.f;
+        maxVal = 16.f;
+    }
 
     for (int i = 0; i < count; ++i) {
         float t = (count > 1) ? float(i) / float(count - 1) : 0.f;
@@ -638,7 +658,7 @@ float DiscreteMapSequencePage::shapeValue(float t, GeneratorKind kind) const {
     case GeneratorKind::Logarithmic:
         return std::sqrt(t);       // Faster rise near start
     case GeneratorKind::Exponential:
-        return t * t;              // Slower start, steeper end
+        return pow(t, 1.3);              // Slower start, steeper end
     }
     return t;
 }
