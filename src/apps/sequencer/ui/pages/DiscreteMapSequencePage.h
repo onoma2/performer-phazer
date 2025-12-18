@@ -50,6 +50,18 @@ private:
         Exponential,
     };
 
+    enum class RangeMacro : uint8_t {
+        Full,           // -5..+5
+        Unipolar5,      // 0..+5
+        Bipolar2_5,     // -2.5..+2.5
+        Unipolar2_5,    // 0..+2.5
+        Bipolar1,       // -1..+1
+        Unipolar1,      // 0..+1
+        Negative5,      // -5..0
+        Negative2_5,    // -2.5..0
+        Last
+    };
+
     void refreshPointers();
     void drawThresholdBar(Canvas &canvas);
     void drawStageInfo(Canvas &canvas);
@@ -58,6 +70,9 @@ private:
     void handleTopRowKey(int idx);
     void handleBottomRowKey(int idx);
     void handleFunctionKey(int fnIndex);
+    void applyRangeMacro(RangeMacro macro);
+    void getRangeMacroValues(RangeMacro macro, float &low, float &high) const;
+    const char *getRangeMacroName(RangeMacro macro) const;
 
     float getThresholdNormalized(int stageIndex) const;
     float rangeMin() const { return -5.f; }
@@ -86,4 +101,5 @@ private:
     int _section = 0;
     GeneratorStage _generatorStage = GeneratorStage::Inactive;
     GeneratorKind _generatorKind = GeneratorKind::Random;
+    RangeMacro _currentRangeMacro = RangeMacro::Full;
 };

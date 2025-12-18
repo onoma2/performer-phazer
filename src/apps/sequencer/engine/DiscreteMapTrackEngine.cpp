@@ -7,17 +7,13 @@
 void DiscreteMapTrackEngine::reset() {
     _sequence = &_discreteMapTrack.sequence(pattern());
 
-    float rMin = rangeMin();
-    float rMax = rangeMax();
-
+    // Internal ramp always starts at -5V (full range)
     _rampPhase = 0.0f;
-    _rampValue = rMin;
+    _rampValue = -5.0f;
 
-    // Place prevInput just outside the START of the range
-    // Normal range (rMin < rMax): prevInput below start
-    // Inverted range (rMin > rMax): prevInput above start
-    _prevInput = (rMin < rMax) ? (rMin - 0.001f) : (rMin + 0.001f);
-    _currentInput = rMin;
+    // Initialize prevInput below the full range to allow first crossing
+    _prevInput = -5.001f;
+    _currentInput = -5.0f;
 
     _prevSync = _discreteMapTrack.routedSync();
     _resetTickOffset = 0;
@@ -184,19 +180,21 @@ void DiscreteMapTrackEngine::updateRamp(uint32_t tick) {
     uint32_t posInPeriod = _running ? (tick % periodTicks) : periodTicks;
     _rampPhase = float(posInPeriod) / float(periodTicks);
 
-    float min = rangeMin();
-    float max = rangeMax();
+    // Internal ramp/triangle always uses full ±5V range (perfect synced modulation source)
+    // ABOVE/BELOW parameters only affect threshold positions, not the ramp itself
+    const float INTERNAL_RAMP_MIN = -5.0f;
+    const float INTERNAL_RAMP_MAX = 5.0f;
 
     if (sequence.clockSource() == DiscreteMapSequence::ClockSource::InternalTriangle) {
         float triPhase = (_rampPhase < 0.5f) ? (_rampPhase * 2.0f) : (1.0f - (_rampPhase - 0.5f) * 2.0f);
-        _rampValue = min + triPhase * (max - min);
+        _rampValue = INTERNAL_RAMP_MIN + triPhase * (INTERNAL_RAMP_MAX - INTERNAL_RAMP_MIN);
     } else {
-        _rampValue = min + _rampPhase * (max - min);
+        _rampValue = INTERNAL_RAMP_MIN + _rampPhase * (INTERNAL_RAMP_MAX - INTERNAL_RAMP_MIN);
     }
 
     if (!_sequence->loop() && _running && posInPeriod + 1 >= periodTicks) {
         _running = false;
-        _rampValue = max;
+        _rampValue = INTERNAL_RAMP_MAX;
         _rampPhase = 1.0f;
     }
 }

@@ -46,6 +46,13 @@ void DiscreteMapTrack::writeRouted(Routing::Target target, int intValue, float f
     case Routing::Target::DiscreteMapSync:
         _routedSync = floatValue;
         break;
+    case Routing::Target::DiscreteMapRangeHigh:
+    case Routing::Target::DiscreteMapRangeLow:
+        // Sequence-level params: apply to all patterns
+        for (auto &sequence : _sequences) {
+            sequence.writeRouted(target, intValue, floatValue);
+        }
+        break;
     case Routing::Target::Octave:
         _octave = intValue;
         break;

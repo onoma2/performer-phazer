@@ -32,6 +32,19 @@ void DiscreteMapSequencePage::enter() {
     // Reset generator mode when entering the page to ensure clean state
     _generatorStage = GeneratorStage::Inactive;
     _generatorKind = GeneratorKind::Random;
+
+    if (_sequence) {
+        // Sync the macro indicator to current Above/Below values if they match a preset
+        for (int i = 0; i < static_cast<int>(RangeMacro::Last); ++i) {
+            float low, high;
+            getRangeMacroValues(static_cast<RangeMacro>(i), low, high);
+            if (std::abs(low - _sequence->rangeLow()) < 0.001f &&
+                std::abs(high - _sequence->rangeHigh()) < 0.001f) {
+                _currentRangeMacro = static_cast<RangeMacro>(i);
+                break;
+            }
+        }
+    }
 }
 
 void DiscreteMapSequencePage::exit() {
@@ -225,9 +238,20 @@ void DiscreteMapSequencePage::drawFooter(Canvas &canvas) {
     FixedStringBuilder<8> syncLabel;
     _sequence->printSyncModeShort(syncLabel);
 
+    // Keep macro indicator aligned with current Above/Below values (handles routing edits)
+    for (int i = 0; i < static_cast<int>(RangeMacro::Last); ++i) {
+        float low, high;
+        getRangeMacroValues(static_cast<RangeMacro>(i), low, high);
+        if (std::abs(low - _sequence->rangeLow()) < 0.001f &&
+            std::abs(high - _sequence->rangeHigh()) < 0.001f) {
+            _currentRangeMacro = static_cast<RangeMacro>(i);
+            break;
+        }
+    }
+
     const char *fnLabels[5] = {
         clockSource,
-        nullptr,
+        getRangeMacroName(_currentRangeMacro),
         _sequence->thresholdMode() == DiscreteMapSequence::ThresholdMode::Position ? "POS" : "LEN",
         _sequence->loop() ? "LOOP" : "ONCE",
         syncLabel
@@ -472,6 +496,12 @@ void DiscreteMapSequencePage::handleFunctionKey(int fnIndex) {
     case 0:
         _sequence->toggleClockSource();
         break;
+    case 1: {
+        int next = static_cast<int>(_currentRangeMacro) + 1;
+        if (next >= static_cast<int>(RangeMacro::Last)) next = 0;
+        applyRangeMacro(static_cast<RangeMacro>(next));
+        break;
+    }
     case 2:
         _sequence->toggleThresholdMode();
         if (_enginePtr) {
@@ -492,6 +522,55 @@ void DiscreteMapSequencePage::handleFunctionKey(int fnIndex) {
 float DiscreteMapSequencePage::getThresholdNormalized(int stageIndex) const {
     const auto &stage = _sequence->stage(stageIndex);
     return (stage.threshold() + 100) / 200.f;
+}
+
+void DiscreteMapSequencePage::applyRangeMacro(RangeMacro macro) {
+    if (!_sequence) {
+        return;
+    }
+
+    float low = -5.f;
+    float high = 5.f;
+    getRangeMacroValues(macro, low, high);
+
+    _sequence->setRangeLow(low);
+    _sequence->setRangeHigh(high);
+    _currentRangeMacro = macro;
+
+    if (_enginePtr) {
+        _enginePtr->invalidateThresholds();
+    }
+
+    // No message spam; footer already shows current macro
+}
+
+void DiscreteMapSequencePage::getRangeMacroValues(RangeMacro macro, float &low, float &high) const {
+    switch (macro) {
+    case RangeMacro::Full:         low = -5.f;  high = 5.f;    break;
+    case RangeMacro::Unipolar5:    low = 0.f;   high = 5.f;    break;
+    case RangeMacro::Bipolar2_5:   low = -2.5f; high = 2.5f;   break;
+    case RangeMacro::Unipolar2_5:  low = 0.f;   high = 2.5f;   break;
+    case RangeMacro::Bipolar1:     low = -1.f;  high = 1.f;    break;
+    case RangeMacro::Unipolar1:    low = 0.f;   high = 1.f;    break;
+    case RangeMacro::Negative5:    low = -5.f;  high = 0.f;    break;
+    case RangeMacro::Negative2_5:  low = -2.5f; high = 0.f;    break;
+    case RangeMacro::Last:         low = -5.f;  high = 5.f;    break;
+    }
+}
+
+const char *DiscreteMapSequencePage::getRangeMacroName(RangeMacro macro) const {
+    switch (macro) {
+    case RangeMacro::Full:        return "+/-5";
+    case RangeMacro::Unipolar5:   return "0-5";
+    case RangeMacro::Bipolar2_5:  return "+/-2.5";
+    case RangeMacro::Unipolar2_5: return "0-2.5";
+    case RangeMacro::Bipolar1:    return "+/-1";
+    case RangeMacro::Unipolar1:   return "0-1";
+    case RangeMacro::Negative5:   return "-5-0";
+    case RangeMacro::Negative2_5: return "-2.5-0";
+    case RangeMacro::Last:        break;
+    }
+    return "RANGE";
 }
 
 void DiscreteMapSequencePage::contextShow() {
