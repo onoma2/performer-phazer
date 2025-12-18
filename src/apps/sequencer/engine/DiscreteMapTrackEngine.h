@@ -100,6 +100,7 @@ private:
     bool _extOnceDone = false;
     float _extMinSeen = 0.0f;
     float _extMaxSeen = 0.0f;
+    int _lastScannerSegment = -1;
 
     // === Sync bookkeeping ===
     uint32_t _resetTickOffset = 0;

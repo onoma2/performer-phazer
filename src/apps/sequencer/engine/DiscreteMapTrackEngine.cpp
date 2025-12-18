@@ -26,10 +26,18 @@ void DiscreteMapTrackEngine::reset() {
     _running = true;
     _thresholdsDirty = true;
     _activity = false;
+    _lastScannerSegment = -1;
+}
+
+void DiscreteMapTrackEngine::changePattern() {
+    _sequence = &_discreteMapTrack.sequence(pattern());
+    _thresholdsDirty = true;
+    _prevLoop = _sequence->loop();
     _extOnceArmed = false;
     _extOnceDone = false;
     _extMinSeen = 0.f;
     _extMaxSeen = 0.f;
+    _lastScannerSegment = -1;
 }
 
 void DiscreteMapTrackEngine::restart() {
@@ -42,16 +50,7 @@ void DiscreteMapTrackEngine::restart() {
     _extOnceDone = false;
     _extMinSeen = 0.f;
     _extMaxSeen = 0.f;
-}
-
-void DiscreteMapTrackEngine::changePattern() {
-    _sequence = &_discreteMapTrack.sequence(pattern());
-    _thresholdsDirty = true;
-    _prevLoop = _sequence->loop();
-    _extOnceArmed = false;
-    _extOnceDone = false;
-    _extMinSeen = 0.f;
-    _extMaxSeen = 0.f;
+    _lastScannerSegment = -1;
 }
 
 TrackEngine::TickResult DiscreteMapTrackEngine::tick(uint32_t tick) {
@@ -152,6 +151,23 @@ TrackEngine::TickResult DiscreteMapTrackEngine::tick(uint32_t tick) {
         }
 
         extOnceFreeze = _extOnceDone || !_extOnceArmed;
+    }
+
+    // Scanner logic: map routed value (0-34) to 34 segments
+    // Segment 0: Bottom dead zone, 1..32: Stages 0..31, 33: Top dead zone
+    float scannerVal = _discreteMapTrack.routedScanner();
+    int currentSegment = int(clamp(scannerVal, 0.f, 34.f));
+    
+    // Edge detection
+    if (currentSegment != _lastScannerSegment) {
+        // If we just entered a valid stage segment (1..32)
+        if (currentSegment >= 1 && currentSegment <= 32) {
+            int stageIndex = currentSegment - 1;
+            if (stageIndex >= 0 && stageIndex < DiscreteMapSequence::StageCount) {
+                _sequence->stage(stageIndex).cycleDirection();
+            }
+        }
+        _lastScannerSegment = currentSegment;
     }
 
     // 2. Recalc length thresholds if needed

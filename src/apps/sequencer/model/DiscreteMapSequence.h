@@ -44,6 +44,13 @@ public:
         void setDirection(TriggerDir dir) {
             _direction = dir;
         }
+        void cycleDirection() {
+            int next = static_cast<int>(_direction) + 1;
+            if (next > static_cast<int>(TriggerDir::Off)) {
+                next = static_cast<int>(TriggerDir::Rise);
+            }
+            _direction = static_cast<TriggerDir>(next);
+        }
 
         // Note index (-63 to +64)
         int8_t noteIndex() const { return _noteIndex; }

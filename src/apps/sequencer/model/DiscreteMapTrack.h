@@ -75,7 +75,7 @@ public:
     void writeRouted(Routing::Target target, int intValue, float floatValue);
 
     float routedInput() const { return _routedInput; }
-    float routedThresholdBias() const { return _routedThresholdBias; }
+    float routedScanner() const { return _routedScanner; }
     float routedSync() const { return _routedSync; }
 
     int octave() const { return _octave; }
@@ -100,7 +100,7 @@ private:
 
     // Routed state
     float _routedInput = 0.f;
-    float _routedThresholdBias = 0.f;
+    float _routedScanner = 0.f;
     float _routedSync = 0.f;
     int8_t _octave = 0;
     int8_t _transpose = 0;

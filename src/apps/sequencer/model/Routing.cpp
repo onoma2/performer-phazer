@@ -378,7 +378,7 @@ static const TargetInfo targetInfos[int(Routing::Target::Last)] = {
     [int(Routing::Target::XFade)]                           = { 0,      100,    0,      100,    10      },
     // DiscreteMap targets
     [int(Routing::Target::DiscreteMapInput)]                = { -5,     5,      -5,     5,      1       },
-    [int(Routing::Target::DiscreteMapThreshold)]            = { -5,     5,      0,      0,      1       },
+    [int(Routing::Target::DiscreteMapScanner)]              = { 0,      34,     0,      34,     1       },
     [int(Routing::Target::DiscreteMapSync)]                 = { 0,      1,      0,      1,      1       },
     [int(Routing::Target::DiscreteMapRangeHigh)]            = { -5,     5,      -5,     5,      1       },
     [int(Routing::Target::DiscreteMapRangeLow)]             = { -5,     5,      -5,     5,      1       },
@@ -485,10 +485,12 @@ void Routing::printTargetValue(Routing::Target target, float normalized, StringB
         str("%+.2f", value * 0.01f);
         break;
     case Target::DiscreteMapInput:
-    case Target::DiscreteMapThreshold:
     case Target::DiscreteMapRangeHigh:
     case Target::DiscreteMapRangeLow:
         str("%+.2fV", value);
+        break;
+    case Target::DiscreteMapScanner:
+        str("%.1f", value);
         break;
     case Target::DiscreteMapSync:
         str(intValue ? "on" : "off");

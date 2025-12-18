@@ -108,7 +108,7 @@ public:
         // DiscreteMap Targets
         DiscreteMapFirst,
         DiscreteMapInput = DiscreteMapFirst,
-        DiscreteMapThreshold,
+        DiscreteMapScanner,
         DiscreteMapSync,
         DiscreteMapRangeHigh,
         DiscreteMapRangeLow,
@@ -176,7 +176,7 @@ public:
         case Target::XFade:                     return "XFade";
 
         case Target::DiscreteMapInput:          return "DMap Input";
-        case Target::DiscreteMapThreshold:      return "DMap Thresh";
+        case Target::DiscreteMapScanner:        return "DMap Scan";
         case Target::DiscreteMapSync:           return "DMap Sync";
         case Target::DiscreteMapRangeHigh:      return "DMap Above";
         case Target::DiscreteMapRangeLow:       return "DMap Below";
@@ -250,7 +250,7 @@ public:
 
         // DiscreteMap Targets (47-51)
         case Target::DiscreteMapInput:          return 47;
-        case Target::DiscreteMapThreshold:      return 48;
+        case Target::DiscreteMapScanner:        return 48;
         case Target::DiscreteMapSync:           return 49;
         case Target::DiscreteMapRangeHigh:      return 50;
         case Target::DiscreteMapRangeLow:       return 51;
