@@ -4,32 +4,19 @@
 #include "MidiUtils.h"
 #include "core/math/Math.h"
 
-static inline float applyCrease(float value) {
-    // The value here is already in the target parameter range (e.g. -12 to +12)
-    // So we apply the shift based on the zero crossing in that range
-    if (value <= 0.0f) {
-        return value + 5.0f;  // Shift upward for negative (and zero) values
-    } else {
-        return value - 5.0f;  // Shift downward for positive values
-    }
-}
-
-static inline float applyBiasDepth(float srcNormalized, const Routing::Route &route, int trackIndex) {
-    float min = route.min();
-    float max = route.max();
-    float span = max - min;
-    float mid = min + span * 0.5f;
-    float base = min + srcNormalized * span;
+// Apply per-track bias/depth to the normalized source (0..1) before the route window is applied.
+static inline float applyBiasDepthToSource(float srcNormalized, const Routing::Route &route, int trackIndex) {
     float depth = route.depthPct(trackIndex) * 0.01f;
     float bias = route.biasPct(trackIndex) * 0.01f;
-    float shaped = mid + (base - mid) * depth + span * bias;
+    float shaped = 0.5f + (srcNormalized - 0.5f) * depth + bias;
+    return clamp(shaped, 0.f, 1.f);
+}
 
-    // Apply crease if enabled for this track
-    if (route.creaseEnabled(trackIndex)) {
-        shaped = applyCrease(shaped);
-    }
-
-    return clamp(shaped, min, max);
+// Target-agnostic waveslicer: fold around 0.5 in normalized source space with a fixed ±0.5 jump.
+static inline float applyCreaseSource(float normalized) {
+    constexpr float creaseAmount = 0.5f;
+    float creased = normalized + (normalized <= 0.5f ? creaseAmount : -creaseAmount);
+    return clamp(creased, 0.f, 1.f);
 }
 
 // for allowing direct mapping
@@ -176,18 +163,24 @@ void RoutingEngine::updateSinks() {
 
         if (route.active()) {
             auto target = route.target();
-            float baseValue = route.min() + _sourceValues[routeIndex] * (route.max() - route.min());
             if (Routing::isPerTrackTarget(target)) {
                 uint8_t tracks = route.tracks();
+                float routeSpan = route.max() - route.min();
                 for (int trackIndex = 0; trackIndex < CONFIG_TRACK_COUNT; ++trackIndex) {
                     if (tracks & (1 << trackIndex)) {
-                        float shaped = applyBiasDepth(_sourceValues[routeIndex], route, trackIndex);
-                        _routing.writeTarget(target, (1 << trackIndex), shaped);
+                        float shapedSource = applyBiasDepthToSource(_sourceValues[routeIndex], route, trackIndex);
+                        if (route.creaseEnabled(trackIndex)) {
+                            shapedSource = applyCreaseSource(shapedSource);
+                        }
+                        float routed = route.min() + shapedSource * routeSpan;
+                        _routing.writeTarget(target, (1 << trackIndex), routed);
                     }
                 }
             } else if (Routing::isEngineTarget(target)) {
+                float baseValue = route.min() + _sourceValues[routeIndex] * (route.max() - route.min());
                 writeEngineTarget(target, baseValue);
             } else {
+                float baseValue = route.min() + _sourceValues[routeIndex] * (route.max() - route.min());
                 _routing.writeTarget(target, route.tracks(), baseValue);
             }
         }

@@ -12,6 +12,7 @@
 
 #include <array>
 #include <bitset>
+#include <utility>
 
 #include <cstdint>
 
@@ -693,14 +694,17 @@ public:
     bool isDirty() const { return _dirty; }
     void clearDirty() { _dirty = false; }
 
+    // Target value helpers (exposed for routing/shaping)
+    static float normalizeTargetValue(Target target, float value);
+    static float denormalizeTargetValue(Target target, float normalized);
+    static std::pair<float, float> targetValueRange(Target target);
+
     // global state for keeping active set of routed targets
     static bool isRouted(Target target, int trackIndex = -1);
     static void setRouted(Target target, uint8_t tracks, bool routed);
     static void printRouted(StringBuilder &str, Target target, int trackIndex = -1);
 
 private:
-    static float normalizeTargetValue(Target target, float value);
-    static float denormalizeTargetValue(Target target, float normalized);
     static std::pair<float, float> normalizedDefaultRange(Target target);
     static float targetValueStep(Target target, bool shift);
     static void printTargetValue(Target target, float normalized, StringBuilder &str);

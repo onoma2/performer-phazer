@@ -403,6 +403,11 @@ float Routing::denormalizeTargetValue(Routing::Target target, float normalized) 
     return normalized * (info.max - info.min) + info.min;
 }
 
+std::pair<float, float> Routing::targetValueRange(Target target) {
+    const auto &info = targetInfos[int(target)];
+    return { float(info.min), float(info.max) };
+}
+
 std::pair<float, float> Routing::normalizedDefaultRange(Target target) {
     const auto &info = targetInfos[int(target)];
     return { normalizeTargetValue(target, info.minDef), normalizeTargetValue(target, info.maxDef) };
