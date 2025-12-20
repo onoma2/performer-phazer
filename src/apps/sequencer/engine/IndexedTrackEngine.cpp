@@ -19,7 +19,7 @@ void IndexedTrackEngine::reset() {
     _cvOutput = 0.0f;
     _running = true;
     _activity = false;
-    _prevSync = 0.f;
+    _prevSync = routedSync();
     primeNextStep();
 }
 
@@ -34,7 +34,7 @@ void IndexedTrackEngine::restart() {
     _stepTimer = 0;
     _gateTimer = 0;
     _running = true;
-    _prevSync = 0.f;
+    _prevSync = routedSync();
     primeNextStep();
 }
 
@@ -59,6 +59,7 @@ TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
     case IndexedSequence::SyncMode::External: {
         float syncVal = routedSync();
         if (_prevSync <= 0.f && syncVal > 0.f) {
+            // External sync reset detected
             _currentStepIndex = 0;
             _stepTimer = 0;
             _gateTimer = 0;
