@@ -46,6 +46,8 @@ private:
     void insertStep();
     void splitStep();
     void deleteStep();
+    void copyStep();
+    void pasteStep();
 
     StepListModel _listModel;
     IndexedSequence *_sequence = nullptr;

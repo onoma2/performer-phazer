@@ -11,6 +11,8 @@ enum class ContextAction {
     Insert,
     Split,
     Delete,
+    Copy,
+    Paste,
     Last
 };
 
@@ -18,6 +20,8 @@ static const ContextMenuModel::Item contextMenuItems[] = {
     { "INSERT" },
     { "SPLIT" },
     { "DELETE" },
+    { "COPY" },
+    { "PASTE" },
 };
 
 IndexedStepsPage::IndexedStepsPage(PageManager &manager, PageContext &context) :
@@ -89,6 +93,12 @@ void IndexedStepsPage::contextAction(int index) {
     case ContextAction::Delete:
         deleteStep();
         break;
+    case ContextAction::Copy:
+        copyStep();
+        break;
+    case ContextAction::Paste:
+        pasteStep();
+        break;
     case ContextAction::Last:
         break;
     }
@@ -101,9 +111,13 @@ bool IndexedStepsPage::contextActionEnabled(int index) const {
     case ContextAction::Insert:
         return _sequence->canInsert();
     case ContextAction::Split:
-        return _sequence->canInsert(); // Splitting adds a step, so same check
+        return _sequence->canInsert();
     case ContextAction::Delete:
         return _sequence->canDelete();
+    case ContextAction::Copy:
+        return true;
+    case ContextAction::Paste:
+        return _model.clipBoard().canPasteIndexedSequenceSteps();
     default:
         return true;
     }
@@ -144,6 +158,32 @@ void IndexedStepsPage::deleteStep() {
     _sequence->deleteStep(stepIndex);
 
     showMessage("STEP DELETED");
+}
+
+void IndexedStepsPage::copyStep() {
+    if (!_sequence) return;
+
+    int currentRow = selectedRow();
+    int stepIndex = currentRow / 3;
+
+    ClipBoard::SelectedSteps selectedSteps;
+    selectedSteps.set(stepIndex);
+
+    _model.clipBoard().copyIndexedSequenceSteps(*_sequence, selectedSteps);
+    showMessage("STEP COPIED");
+}
+
+void IndexedStepsPage::pasteStep() {
+    if (!_sequence) return;
+
+    int currentRow = selectedRow();
+    int stepIndex = currentRow / 3;
+
+    ClipBoard::SelectedSteps selectedSteps;
+    selectedSteps.set(stepIndex);
+
+    _model.clipBoard().pasteIndexedSequenceSteps(*_sequence, selectedSteps);
+    showMessage("STEP PASTED");
 }
 
 void IndexedStepsPage::StepListModel::cell(int row, int column, StringBuilder &str) const {

@@ -7,6 +7,7 @@
 #include "CurveSequence.h"
 #include "TuesdaySequence.h"
 #include "DiscreteMapSequence.h"
+#include "IndexedSequence.h"
 #include "Project.h"
 #include "UserScale.h"
 
@@ -27,6 +28,8 @@ public:
     void copyNoteSequenceSteps(const NoteSequence &noteSequence, const SelectedSteps &selectedSteps);
     void copyCurveSequence(const CurveSequence &curveSequence);
     void copyCurveSequenceSteps(const CurveSequence &curveSequence, const SelectedSteps &selectedSteps);
+    void copyIndexedSequence(const IndexedSequence &sequence);
+    void copyIndexedSequenceSteps(const IndexedSequence &sequence, const SelectedSteps &selectedSteps);
     void copyDiscreteMapSequence(const DiscreteMapSequence &sequence);
     void copyPattern(int patternIndex);
     void copyUserScale(const UserScale &userScale);
@@ -36,6 +39,8 @@ public:
     void pasteNoteSequenceSteps(NoteSequence &noteSequence, const SelectedSteps &selectedSteps) const;
     void pasteCurveSequence(CurveSequence &curveSequence) const;
     void pasteCurveSequenceSteps(CurveSequence &curveSequence, const SelectedSteps &selectedSteps) const;
+    void pasteIndexedSequence(IndexedSequence &sequence) const;
+    void pasteIndexedSequenceSteps(IndexedSequence &sequence, const SelectedSteps &selectedSteps) const;
     void pasteDiscreteMapSequence(DiscreteMapSequence &sequence) const;
     void pastePattern(int patternIndex) const;
     void pasteUserScale(UserScale &userScale) const;
@@ -45,6 +50,8 @@ public:
     bool canPasteNoteSequenceSteps() const;
     bool canPasteCurveSequence() const;
     bool canPasteCurveSequenceSteps() const;
+    bool canPasteIndexedSequence() const;
+    bool canPasteIndexedSequenceSteps() const;
     bool canPasteDiscreteMapSequence() const;
     bool canPastePattern() const;
     bool canPasteUserScale() const;
@@ -57,6 +64,8 @@ private:
         NoteSequenceSteps,
         CurveSequence,
         CurveSequenceSteps,
+        IndexedSequence,
+        IndexedSequenceSteps,
         DiscreteMapSequence,
         Pattern,
         UserScale,
@@ -72,6 +81,11 @@ private:
         SelectedSteps selected;
     };
 
+    struct IndexedSequenceSteps {
+        IndexedSequence sequence;
+        SelectedSteps selected;
+    };
+
     struct Pattern {
         struct {
             Track::TrackMode trackMode;
@@ -80,11 +94,12 @@ private:
                 CurveSequence curve;
                 TuesdaySequence tuesday;
                 DiscreteMapSequence discreteMap;
+                IndexedSequence indexed;
             } data;
         } sequences[CONFIG_TRACK_COUNT];
     };
 
     Project &_project;
     Type _type = Type::None;
-    Container<Track, NoteSequence, NoteSequenceSteps, CurveSequence, CurveSequenceSteps, DiscreteMapSequence, Pattern, UserScale> _container;
+    Container<Track, NoteSequence, NoteSequenceSteps, CurveSequence, CurveSequenceSteps, IndexedSequence, IndexedSequenceSteps, DiscreteMapSequence, Pattern, UserScale> _container;
 };
