@@ -10,6 +10,7 @@ void IndexedTrack::cvOutputName(int index, StringBuilder &str) const {
 }
 
 void IndexedTrack::clear() {
+    _routedSync = 0.f;
     for (auto &sequence : _sequences) {
         sequence.clear();
     }
@@ -26,7 +27,14 @@ void IndexedTrack::read(VersionedSerializedReader &reader) {
 void IndexedTrack::writeRouted(Routing::Target target, int intValue, float floatValue) {
     // For now, forward sequence-level routable params to all patterns
     // In the future, we might add track-level routable params here
-    for (auto &sequence : _sequences) {
-        sequence.writeRouted(target, intValue, floatValue);
+    switch (target) {
+    case Routing::Target::DiscreteMapSync:
+        _routedSync = floatValue;
+        break;
+    default:
+        for (auto &sequence : _sequences) {
+            sequence.writeRouted(target, intValue, floatValue);
+        }
+        break;
     }
 }

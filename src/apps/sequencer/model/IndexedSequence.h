@@ -104,6 +104,13 @@ public:
         Last
     };
 
+    enum class SyncMode : uint8_t {
+        Off,
+        ResetMeasure,
+        External,
+        Last
+    };
+
     struct RouteConfig {
         uint8_t targetGroups = 0;       // Bitmask: 0b1010 = groups A+C
         ModTarget targetParam = ModTarget::Duration;
@@ -161,6 +168,28 @@ public:
         _scale = clamp(scale, -1, Scale::Count - 1);
     }
 
+    // syncMode
+    SyncMode syncMode() const { return _syncMode; }
+    void setSyncMode(SyncMode mode) {
+        _syncMode = ModelUtils::clampedEnum(mode);
+    }
+    void cycleSyncMode() {
+        auto next = static_cast<int>(_syncMode) + 1;
+        if (next >= static_cast<int>(SyncMode::Last)) next = 0;
+        setSyncMode(static_cast<SyncMode>(next));
+    }
+    void editSyncMode(int value, bool /*shift*/) {
+        setSyncMode(static_cast<SyncMode>(clamp(int(_syncMode) + value, 0, int(SyncMode::Last) - 1)));
+    }
+    void printSyncMode(StringBuilder &str) const {
+        switch (_syncMode) {
+        case SyncMode::Off:          str("Off"); break;
+        case SyncMode::ResetMeasure: str("Reset"); break;
+        case SyncMode::External:     str("Ext"); break;
+        case SyncMode::Last:         break;
+        }
+    }
+
     // root note (0-11: C-B)
     int rootNote() const { return _rootNote; }
     void setRootNote(int root) {
@@ -211,6 +240,7 @@ public:
         _activeLength = 16;
         _scale = -1;  // Use project scale
         _rootNote = 0;
+        _syncMode = SyncMode::Off;
         _resetMeasure = 0;
         _routeA.clear();
         _routeB.clear();
@@ -237,6 +267,7 @@ public:
         writer.write(_activeLength);
         writer.write(_scale);
         writer.write(_rootNote);
+        writer.write(static_cast<uint8_t>(_syncMode));
         writer.write(_resetMeasure);
 
         _routeA.write(writer);
@@ -253,6 +284,13 @@ public:
         reader.read(_activeLength);
         reader.read(_scale);
         reader.read(_rootNote);
+        if (reader.dataVersion() >= ProjectVersion::Version66) {
+            uint8_t sync;
+            reader.read(sync);
+            _syncMode = ModelUtils::clampedEnum(static_cast<SyncMode>(sync));
+        } else {
+            _syncMode = SyncMode::Off;
+        }
         if (reader.dataVersion() >= ProjectVersion::Version65) {
             reader.read(_resetMeasure);
         } else {
@@ -318,6 +356,7 @@ private:
     uint8_t _activeLength = 16;   // Dynamic step count (1-32)
     int8_t _scale = -1;           // Scale selection
     int8_t _rootNote = 0;         // Root note (C)
+    SyncMode _syncMode = SyncMode::Off;
     uint8_t _resetMeasure = 0;    // Bars (0 = off)
     int _trackIndex = -1;
 

@@ -5,6 +5,11 @@
 #include <algorithm>
 #include <cmath>
 
+float IndexedTrackEngine::routedSync() const {
+    // Reuse DMap sync target for external resets
+    return _indexedTrack.routedSync();
+}
+
 void IndexedTrackEngine::reset() {
     _sequence = &_indexedTrack.sequence(pattern());
 
@@ -14,6 +19,7 @@ void IndexedTrackEngine::reset() {
     _cvOutput = 0.0f;
     _running = true;
     _activity = false;
+    _prevSync = 0.f;
     primeNextStep();
 }
 
@@ -28,21 +34,45 @@ void IndexedTrackEngine::restart() {
     _stepTimer = 0;
     _gateTimer = 0;
     _running = true;
+    _prevSync = 0.f;
     primeNextStep();
 }
 
 TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
     _sequence = &_indexedTrack.sequence(pattern());
 
-    uint32_t resetDivisor = _sequence->resetMeasure() * _engine.measureDivisor();
-    if (resetDivisor > 0 && (tick % resetDivisor) == 0) {
-        _currentStepIndex = 0;
-        _stepTimer = 0;
-        _gateTimer = 0;
-        _cvOutput = 0.0f;
-        _running = true;
-        _activity = false;
-        primeNextStep();
+    // Sync handling (Off / ResetMeasure / External)
+    switch (_sequence->syncMode()) {
+    case IndexedSequence::SyncMode::ResetMeasure: {
+        uint32_t resetDivisor = _sequence->resetMeasure() * _engine.measureDivisor();
+        if (resetDivisor > 0 && (tick % resetDivisor) == 0) {
+            _currentStepIndex = 0;
+            _stepTimer = 0;
+            _gateTimer = 0;
+            _cvOutput = 0.0f;
+            _running = true;
+            _activity = false;
+            primeNextStep();
+        }
+        break;
+    }
+    case IndexedSequence::SyncMode::External: {
+        float syncVal = routedSync();
+        if (_prevSync <= 0.f && syncVal > 0.f) {
+            _currentStepIndex = 0;
+            _stepTimer = 0;
+            _gateTimer = 0;
+            _cvOutput = 0.0f;
+            _running = true;
+            _activity = false;
+            primeNextStep();
+        }
+        _prevSync = syncVal;
+        break;
+    }
+    case IndexedSequence::SyncMode::Off:
+    case IndexedSequence::SyncMode::Last:
+        break;
     }
 
     if (!_running) {

@@ -183,6 +183,9 @@ enum ProjectVersion {
     // added IndexedSequence::resetMeasure
     Version65 = 65,
 
+    // added IndexedSequence::syncMode
+    Version66 = 66,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

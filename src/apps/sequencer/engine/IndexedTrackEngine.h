@@ -44,6 +44,8 @@ private:
     void applyModulation(float cv, const IndexedSequence::RouteConfig &cfg,
                         uint16_t &duration, uint16_t &gate, int8_t &note);
 
+    float routedSync() const;
+
     IndexedTrack &_indexedTrack;
     IndexedSequence *_sequence = nullptr;
 
@@ -53,6 +55,7 @@ private:
     int _currentStepIndex = 0;      // Current step (0 to activeLength-1)
     bool _running = true;
     bool _pendingTrigger = false;   // Fire step at start of next tick
+    float _prevSync = 0.f;          // For external sync edge detection
 
     // === Output ===
     float _cvOutput = 0.0f;

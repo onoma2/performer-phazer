@@ -42,6 +42,8 @@ public:
     void read(VersionedSerializedReader &reader);
     void writeRouted(Routing::Target target, int intValue, float floatValue);
 
+    float routedSync() const { return _routedSync; }
+
 private:
     void setTrackIndex(int trackIndex) {
         _trackIndex = trackIndex;
@@ -52,6 +54,7 @@ private:
 
     int8_t _trackIndex = -1;
     IndexedSequenceArray _sequences;
+    float _routedSync = 0.f;
 
     friend class Track;
 };

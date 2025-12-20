@@ -59,6 +59,7 @@ private:
         ActiveLength,
         Scale,
         RootNote,
+        SyncMode,
         ResetMeasure,
         Last
     };
@@ -70,6 +71,7 @@ private:
         case ActiveLength:  return "Length";
         case Scale:         return "Scale";
         case RootNote:      return "Root Note";
+        case SyncMode:      return "Sync";
         case ResetMeasure:  return "Reset Measure";
         case Last:          break;
         }
@@ -97,6 +99,9 @@ private:
         case RootNote:
             _sequence->printRootNote(str);
             break;
+        case SyncMode:
+            _sequence->printSyncMode(str);
+            break;
         case ResetMeasure:
             _sequence->printResetMeasure(str);
             break;
@@ -121,6 +126,9 @@ private:
             break;
         case RootNote:
             _sequence->editRootNote(value, shift);
+            break;
+        case SyncMode:
+            _sequence->editSyncMode(value, shift);
             break;
         case ResetMeasure:
             _sequence->editResetMeasure(value, shift);
