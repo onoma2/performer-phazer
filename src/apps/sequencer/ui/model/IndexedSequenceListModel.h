@@ -59,6 +59,7 @@ private:
         ActiveLength,
         Scale,
         RootNote,
+        ResetMeasure,
         Last
     };
 
@@ -69,6 +70,7 @@ private:
         case ActiveLength:  return "Length";
         case Scale:         return "Scale";
         case RootNote:      return "Root Note";
+        case ResetMeasure:  return "Reset Measure";
         case Last:          break;
         }
         return nullptr;
@@ -95,6 +97,9 @@ private:
         case RootNote:
             _sequence->printRootNote(str);
             break;
+        case ResetMeasure:
+            _sequence->printResetMeasure(str);
+            break;
         case Last:
             break;
         }
@@ -116,6 +121,9 @@ private:
             break;
         case RootNote:
             _sequence->editRootNote(value, shift);
+            break;
+        case ResetMeasure:
+            _sequence->editResetMeasure(value, shift);
             break;
         case Last:
             break;

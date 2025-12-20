@@ -14,6 +14,7 @@ void IndexedTrackEngine::reset() {
     _cvOutput = 0.0f;
     _running = true;
     _activity = false;
+    primeNextStep();
 }
 
 void IndexedTrackEngine::changePattern() {
@@ -27,10 +28,22 @@ void IndexedTrackEngine::restart() {
     _stepTimer = 0;
     _gateTimer = 0;
     _running = true;
+    primeNextStep();
 }
 
 TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
     _sequence = &_indexedTrack.sequence(pattern());
+
+    uint32_t resetDivisor = _sequence->resetMeasure() * _engine.measureDivisor();
+    if (resetDivisor > 0 && (tick % resetDivisor) == 0) {
+        _currentStepIndex = 0;
+        _stepTimer = 0;
+        _gateTimer = 0;
+        _cvOutput = 0.0f;
+        _running = true;
+        _activity = false;
+        primeNextStep();
+    }
 
     if (!_running) {
         return TickResult::NoUpdate;
@@ -41,6 +54,11 @@ TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
     const int maxSkips = _sequence->activeLength();
 
     STEP_BEGIN:
+
+    if (_pendingTrigger) {
+        triggerStep();
+        _pendingTrigger = false;
+    }
 
     // 1. Handle Gate (counts down independently of step progress)
     if (_gateTimer > 0) {
@@ -63,6 +81,7 @@ TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
             return TickResult::NoUpdate;
         }
         advanceStep();
+        primeNextStep(); // ensure next real step fires immediately
         goto STEP_BEGIN;  // Retry with next step
     }
 
@@ -217,4 +236,9 @@ float IndexedTrackEngine::sequenceProgress() const {
     }
 
     return clamp(stepProgress, 0.0f, 1.0f);
+}
+
+bool IndexedTrackEngine::gateOutput(int index) const {
+    // Drop gate when transport is stopped
+    return _engine.state().running() && !mute() && _gateTimer > 0;
 }

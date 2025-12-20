@@ -5,6 +5,7 @@
 #include "ModelUtils.h"
 #include "Types.h"
 #include "Scale.h"
+#include "ProjectVersion.h"
 #include "Routing.h"
 
 #include "core/math/Math.h"
@@ -166,6 +167,24 @@ public:
         _rootNote = clamp(root, 0, 11);
     }
 
+    // resetMeasure (0 = off, >0 bars)
+    int resetMeasure() const { return _resetMeasure; }
+    void setResetMeasure(int resetMeasure) {
+        _resetMeasure = clamp(resetMeasure, 0, 128);
+    }
+
+    void editResetMeasure(int value, bool shift) {
+        setResetMeasure(ModelUtils::adjustedByPowerOfTwo(resetMeasure(), value, shift));
+    }
+
+    void printResetMeasure(StringBuilder &str) const {
+        if (resetMeasure() == 0) {
+            str("off");
+        } else {
+            str("%d %s", resetMeasure(), resetMeasure() > 1 ? "bars" : "bar");
+        }
+    }
+
     // Steps
     Step& step(int index) {
         return _steps[clamp(index, 0, MaxSteps - 1)];
@@ -192,15 +211,23 @@ public:
         _activeLength = 16;
         _scale = -1;  // Use project scale
         _rootNote = 0;
+        _resetMeasure = 0;
         _routeA.clear();
         _routeB.clear();
 
         // Initialize steps with sensible defaults
-        for (auto &s : _steps) {
+        for (int i = 0; i < MaxSteps; ++i) {
+            auto &s = _steps[i];
             s.clear();
-            s.setDuration(192);      // Quarter note at 192 PPQN
-            s.setGateLength(50);     // 50% gate length
-            s.setNoteIndex(0);       // Root note
+            if (i < 2) {
+                s.setDuration(192);      // Quarter note at 192 PPQN
+                s.setGateLength(50);     // 50% gate length
+                s.setNoteIndex(0);       // Root note
+            } else {
+                s.setDuration(0);        // Silent/skip by default
+                s.setGateLength(0);
+                s.setNoteIndex(0);
+            }
         }
     }
 
@@ -210,6 +237,7 @@ public:
         writer.write(_activeLength);
         writer.write(_scale);
         writer.write(_rootNote);
+        writer.write(_resetMeasure);
 
         _routeA.write(writer);
         _routeB.write(writer);
@@ -225,6 +253,11 @@ public:
         reader.read(_activeLength);
         reader.read(_scale);
         reader.read(_rootNote);
+        if (reader.dataVersion() >= ProjectVersion::Version65) {
+            reader.read(_resetMeasure);
+        } else {
+            _resetMeasure = 0;
+        }
 
         _routeA.read(reader);
         _routeB.read(reader);
@@ -285,6 +318,7 @@ private:
     uint8_t _activeLength = 16;   // Dynamic step count (1-32)
     int8_t _scale = -1;           // Scale selection
     int8_t _rootNote = 0;         // Root note (C)
+    uint8_t _resetMeasure = 0;    // Bars (0 = off)
     int _trackIndex = -1;
 
     RouteConfig _routeA;

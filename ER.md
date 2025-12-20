@@ -1,5 +1,59 @@
 # ER-101/ER-102 Comprehensive Manual
 
+## RELEVANT TO INDEXED TRACK
+
+### Core Concept
+The indexed track implementation in the performer firmware represents a sophisticated voltage sequencing system where each step contains an index pointer that references a position in a voltage table. This allows for complex, non-musical voltage relationships that are not constrained to traditional scales or semitones.
+
+### Step Structure
+Each step in an indexed sequence contains:
+- **Note Index** (7 bits): Values from -63 to +64, referencing positions in a voltage table
+- **Duration** (16 bits): Direct tick count, allowing for durations from 0 to 65,535 ticks
+- **Gate Length** (9 bits): Gate duration as a percentage (0-100%) of the step duration
+- **Group Mask**: 4 bits for group assignment (A-D), allowing conditional modulation
+
+### Sequence Properties
+- **Maximum Steps**: 32 steps per sequence
+- **Active Length**: Dynamic step count (1-32) that determines the sequence length
+- **Divisor**: Clock division in ticks (1-768), defaulting to 192 ticks (quarter note at 192 PPQN)
+- **Loop Mode**: Toggle between looping and playing once
+- **Scale Selection**: Can use project scale (-1) or track-specific scales (0 to Scale::Count-1)
+- **Root Note**: Transposition control (0-11, C to B)
+
+### Timing System
+The indexed track uses a duration-based sequencing model rather than division-based:
+- Each step remains active for its specified duration in ticks
+- Gate length is calculated as a percentage of the step duration
+- When a step's duration timer completes, the sequencer advances to the next step
+- In loop mode, the sequence returns to step 0 after the last step
+- In once mode, the sequence stops after the last step
+
+### CV Output Calculation
+The CV output is calculated by:
+1. Using the note index to look up a voltage value in the selected scale
+2. Applying root note offset if the scale is chromatic
+3. Outputting the resulting voltage directly without octave or modulo calculations
+
+### Modulation System
+The indexed track supports two modulation routes (A and B) with:
+- Target groups bitmask (for conditional modulation)
+- Modulation targets: Duration, Gate Length, or Note Index
+- Modulation amount (scale factor from -200% to +200%)
+- Enable/disable control
+
+### Special Features
+- **Reset Measure**: Ability to reset the sequence after a specified number of bars (0 = off)
+- **Follow Mode**: Editor can automatically follow the currently playing step
+- **Group Assignment**: Each step can belong to multiple groups simultaneously for complex modulation routing
+- **Active Length Control**: Variable sequence length that can be adjusted from 1 to 32 steps
+
+### UI Operations
+The system supports various operations through the UI:
+- Sequence initialization (INIT)
+- Route configuration (ROUTE)
+- Step-by-step editing of note index, duration, and gate length
+- Pattern management with 8 patterns plus 8 snapshots
+
 ## Introduction
 
 The ER-101 Indexed Quad Sequencer and ER-102 Quad Modulator represent a unique approach to voltage-based sequencing in the eurorack modular synthesizer environment. Unlike traditional step sequencers that advance one step per clock division, the ER-101 uses an "indexed" approach where each step has its own duration and gate length, allowing for complex timing relationships that would be difficult to achieve with conventional sequencers.
@@ -191,3 +245,75 @@ The system can function as:
 ## Conclusion
 
 The ER-101/ER-102 system represents a sophisticated approach to voltage sequencing with powerful tools for creating complex rhythmic and melodic patterns. The indexed approach combined with group-based conditional modulation provides capabilities that go well beyond traditional step sequencers, enabling a new paradigm of voltage-based musical expression.
+
+## Additional Features and Functions
+
+### Looping Functionality
+
+Looping any arbitrary subsequence of your track is as easy as navigating to the start step, pressing the LOOP START button, and then navigating to the end sequence and pressing the LOOP END button. When the PATTERN display is focused, you can press the LOOP START and END buttons to set the loop.
+
+### Step Copying and Pasting
+
+The COPY button can be used to copy steps or patterns to the clipboard and then INSERT copies in other locations, even on other tracks. This allows for efficient duplication and arrangement of sequence elements.
+
+### Snapshots
+
+You can save the current state to a snapshot, preserving your current setup for later recall.
+
+### Pattern Display
+
+In the PATTERN display focused state, timing splits are shown which help visualize the rhythmic structure of your sequence.
+
+### Track Operations
+
+The system supports various track operations including:
+- TRACK: Navigate between different tracks
+- STEP: Focus on specific steps within a track
+- PATTERN: View and edit the overall pattern structure
+
+### Editing Modes
+
+The ER-101/ER-102 system features several editing modes that change how the sequencer behaves:
+
+- **Follow Mode**: When enabled, the editor automatically follows the currently playing step, allowing for real-time editing of the sequence as it plays. This is particularly useful for making adjustments during performance.
+- **Lock Mode**: Prevents accidental changes to the sequence while allowing parameter adjustments to be heard immediately.
+- **Insert Mode**: Allows new steps to be inserted at the current position, pushing subsequent steps forward in the sequence.
+- **Overwrite Mode**: New data replaces existing data at the selected position without shifting other steps.
+
+### Navigation and Focus
+
+The system uses a focus-based approach for editing:
+- Pressing focus buttons allows selection of different parameter types
+- The display can focus on TRACK, STEP, PATTERN, or GROUP parameters
+- When the PATTERN display is focused, timing splits are shown which help visualize the rhythmic structure
+
+### Gate Operations
+
+GATE operations allow for precise control of gate signals with various functions like:
+- GATE length adjustment
+- Conditional gate triggering
+- Gate pattern manipulation
+
+## Technical Specifications
+
+### CV Inputs and Outputs
+
+- CV inputs accept a +/-10V range
+- CV inputs are 14-bit sampled at 7kHz
+- Multiple CV channels for flexible routing options
+
+### Group System Details
+
+- Steps can be assigned to multiple groups simultaneously
+- Group modifiers provide CV and GATE modulators
+- High and low transforms with configurable parameters
+- Slope controls with gain factors for each step parameter
+
+## Practical Applications
+
+The ER-101/ER-102 system can function as:
+- A complex LFO with programmable waveforms
+- A dynamic arpeggiator with complex timing
+- A polyrhythmic control voltage source
+- A modulation sequencer for timbral evolution
+- A conditional modulation system responding to external control signals

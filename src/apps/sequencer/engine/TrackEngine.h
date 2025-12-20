@@ -71,6 +71,8 @@ public:
     virtual void restart() = 0;
     virtual TickResult tick(uint32_t tick) = 0;
     virtual void update(float dt) = 0;
+    // Optional hook to drop gates/cleanup when transport stops
+    virtual void stop() {}
 
     virtual void changePattern() {}
 

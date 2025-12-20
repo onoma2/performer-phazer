@@ -19,13 +19,14 @@ public:
 
     virtual void reset() override;
     virtual void restart() override;
+    virtual void stop() override { _gateTimer = 0; _activity = false; }
     virtual TickResult tick(uint32_t tick) override;
     virtual void update(float dt) override;
 
     virtual void changePattern() override;
 
     virtual bool activity() const override { return _activity; }
-    virtual bool gateOutput(int index) const override { return !mute() && _gateTimer > 0; }
+    virtual bool gateOutput(int index) const override;
     virtual float cvOutput(int index) const override { return _cvOutput; }
     virtual float sequenceProgress() const override;
 
@@ -36,6 +37,7 @@ public:
     int currentStep() const { return _currentStepIndex; }
 
 private:
+    void primeNextStep() { _pendingTrigger = true; }
     void advanceStep();
     void triggerStep();
     float noteIndexToVoltage(int8_t noteIndex) const;
@@ -50,6 +52,7 @@ private:
     uint32_t _gateTimer = 0;        // Counts down from step.gateLength
     int _currentStepIndex = 0;      // Current step (0 to activeLength-1)
     bool _running = true;
+    bool _pendingTrigger = false;   // Fire step at start of next tick
 
     // === Output ===
     float _cvOutput = 0.0f;

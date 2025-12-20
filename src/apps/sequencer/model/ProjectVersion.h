@@ -1,3 +1,6 @@
+// Project version enum for serialization; guarded to avoid redefinition
+#pragma once
+
 enum ProjectVersion {
     // added NoteTrack::cvUpdateMode
     Version4 = 4,
@@ -176,6 +179,9 @@ enum ProjectVersion {
 
     // added Indexed track mode
     Version64 = 64,
+
+    // added IndexedSequence::resetMeasure
+    Version65 = 65,
 
     // automatically derive latest version
     Last,

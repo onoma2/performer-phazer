@@ -79,8 +79,8 @@ void IndexedStepsPage::StepListModel::edit(int row, int column, int value, bool 
         int stepSize = shift ? 12 : 1;
         step.setNoteIndex(step.noteIndex() + value * stepSize);
     } else if (isDurationRow(row)) {
-        // Edit duration: shift = fine (1 tick), normal = coarse (48 ticks = 16th note at 192 PPQN)
-        int stepSize = shift ? 1 : 48;
+        // Edit duration: shift = fine (1 tick), normal = track divisor (ticks per step unit)
+        int stepSize = shift ? 1 : _sequence->divisor();
         int newDuration = static_cast<int>(step.duration()) + value * stepSize;
         step.setDuration(clamp(newDuration, 0, 65535));
     } else if (isGateRow(row)) {
