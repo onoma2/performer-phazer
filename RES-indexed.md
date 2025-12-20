@@ -201,6 +201,17 @@ if (route.source == CV_IN_1 && route.flags & USE_GROUPS) {
     }
 }
 
+---
+
+### Feasibility / Resource Fit (no UI)
+
+- **Voltage/index model:** You can reuse existing `VoltScale`/UserScale as a raw lookup; an Indexed step stores an index, no modulo/octave math. One CV/Gate pair per track matches Performer’s track model.
+- **Step layout:** To stay light, pack fields: index (12–16 bits), duration (16 bits with global timescale), gate length (16 bits or % of duration in 8 bits), group mask (4–8 bits). That yields ~5–7 bytes/step. At 64 steps × 17 patterns ≈ 5–9 KB/track; tighter if you reduce steps/patterns.
+- **Engine:** Duration-driven tick (step timer + gate timer) is self-contained in a new `IndexedTrackEngine`; engine state is small (<~300 B). Routing could optionally honor per-step group masks.
+- **Groups:** Per-step group mask is cheap (byte). Can be used for selection/routing conditions.
+- **Math/edit:** Destructive math (±,× on duration/gate/index) is straightforward; non-destructive modifiers can piggyback on routing/offsets without extra per-step storage.
+- **RAM impact:** DiscreteMap-sized (~2 KB/track) is only achievable if you cut step/pattern counts or compress fields aggressively; otherwise expect between DiscreteMap and Note (~5–9 KB/track), which is feasible given current headroom.
+
 ```
 
 ### **Feasibility Checklist**
