@@ -27,6 +27,11 @@ void DiscreteMapTrackEngine::reset() {
     _thresholdsDirty = true;
     _activity = false;
     _lastScannerSegment = -1;
+
+    // Initialize sampled pitch params (for Gate mode)
+    _sampledOctave = _discreteMapTrack.octave();
+    _sampledTranspose = _discreteMapTrack.transpose();
+    _sampledRootNote = _sequence ? _sequence->rootNote() : 0;
 }
 
 void DiscreteMapTrackEngine::changePattern() {
@@ -194,6 +199,13 @@ TrackEngine::TickResult DiscreteMapTrackEngine::tick(uint32_t tick) {
 
     // Trigger Gate
     if (gateChanged && _activeStage >= 0) {
+        // Sample pitch params for Gate mode (sample-and-hold behavior)
+        if (_discreteMapTrack.cvUpdateMode() == DiscreteMapTrack::CvUpdateMode::Gate) {
+            _sampledOctave = _discreteMapTrack.octave();
+            _sampledTranspose = _discreteMapTrack.transpose();
+            _sampledRootNote = _sequence->rootNote();
+        }
+
         uint32_t stepTicks = _sequence->divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
         if (stepTicks == 0) stepTicks = 1;
         int gateLengthPercent = _sequence->gateLength();
@@ -379,14 +391,24 @@ int DiscreteMapTrackEngine::findActiveStage(float input, float prevInput) {
 float DiscreteMapTrackEngine::noteIndexToVoltage(int8_t noteIndex) {
     const Scale &scale = _sequence->selectedScale(_model.project().selectedScale());
 
-    int octave = _discreteMapTrack.octave();
-    int transpose = _discreteMapTrack.transpose();
+    // Use sampled values in Gate mode, current values in Always mode
+    int octave, transpose, rootNote;
+    if (_discreteMapTrack.cvUpdateMode() == DiscreteMapTrack::CvUpdateMode::Gate) {
+        octave = _sampledOctave;
+        transpose = _sampledTranspose;
+        rootNote = _sampledRootNote;
+    } else {
+        octave = _discreteMapTrack.octave();
+        transpose = _discreteMapTrack.transpose();
+        rootNote = _sequence->rootNote();
+    }
+
     int shift = octave * scale.notesPerOctave() + transpose;
 
     // Convert note index to volts using scale. For chromatic scales add rootNote in semitones.
     float volts = scale.noteToVolts(noteIndex + shift);
     if (scale.isChromatic()) {
-        volts += _sequence->rootNote() * (1.f / 12.f);
+        volts += rootNote * (1.f / 12.f);
     }
     return volts;
 }

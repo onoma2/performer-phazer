@@ -303,3 +303,150 @@ This section helps you choose the best shaper for your routing destination.
 - **Want movement?** Use **FreqFollower** (1s LFO) or **Location** (any source)
 - **Want rhythm?** Use **ProgDivider** (LFO) or **Activity** (Envelope/Trigger)
 - **Want chaos?** Use **TriangleFold** or **Crease** on continuous sources
+
+---
+
+## CV Update Mode Behavior (Transpose, Octave, RootNote)
+
+CV Update Mode controls when routing changes to pitch-related parameters (Transpose, Octave, RootNote) are applied to the CV output. This applies to **NoteTrack** and **DiscreteMapTrack**.
+
+### CV Update Mode: Gate (default)
+
+**Behavior:** Routing changes are only applied when a new note/stage triggers (gate high).
+
+**NoteTrack (NoteTrackEngine.cpp:675-678):**
+```
+if (stepGate || cvUpdateMode == Always) {
+    // Calculate CV using current transpose/octave/rootNote
+    _cvQueue.push({ tick, evalStepNote(..., octave, transpose, ..., rootNote), slide });
+}
+```
+- **Transpose/Octave:** Track-level parameters, read when gate triggers
+- **RootNote:** Sequence-level parameter, read when gate triggers
+- **Between gates:** CV output holds last value; routing changes are ignored until next gate
+
+**DiscreteMapTrack (DiscreteMapTrackEngine.cpp:210-221):**
+```
+bool gateCondition = (_activeStage >= 0) || cvUpdateMode == Always;
+if (shouldOutputCv) {
+    if (_activeStage >= 0) {
+        _targetCv = noteIndexToVoltage(...);  // Uses octave/transpose/rootNote
+    }
+}
+```
+- **Transpose/Octave:** Track-level, applied when stage is active
+- **RootNote:** Sequence-level, applied when stage is active
+- **Between stages:** CV output holds last value or slews; routing changes are ignored until next stage
+
+---
+
+### CV Update Mode: Always
+
+**Behavior:** Routing changes are applied immediately, regardless of gate state.
+
+**NoteTrack:**
+- CV is calculated and queued **every tick** (not just on gates)
+- Transpose/Octave/RootNote routing changes take effect immediately
+- CV output updates continuously as routing modulation changes
+
+**DiscreteMapTrack:**
+- `gateCondition` is always true (line 214)
+- CV recalculates **every tick** using current octave/transpose/rootNote
+- Routing changes take effect immediately
+- Note: If no stage is active, CV defaults to 0V
+
+---
+
+### Practical Routing Implications
+
+#### Gate Mode (CV updates only on note triggers)
+
+**Best for:**
+- **Discrete pitch changes:** Each new note reflects current routing modulation
+- **Per-note effects:** Transpose sweeps where each triggered note has different pitch
+- **Sample & hold behavior:** Routing modulation value is "sampled" at gate time
+
+**Example scenarios:**
+
+| Routing | Shaper | Result |
+|---------|--------|--------|
+| **1s LFO → Transpose (Gate mode)** | None | Each triggered note has different transpose based on LFO phase at trigger time; CV holds between notes |
+| **1s LFO → Transpose (Gate mode)** | ProgDivider | Stepped transpose changes, sampled when notes trigger; creates rhythmic pitch patterns |
+| **Envelope → Octave (Gate mode)** | Activity | Octave jumps based on envelope attack intensity; sampled at note trigger |
+| **Trigger → RootNote (Gate mode)** | ProgDivider | Each trigger changes root note for next triggered note; creates key changes |
+
+**Avoid:**
+- Continuous smooth pitch modulation (use Always mode instead)
+- FreqFollower or Location on fast-moving sequences (sampled value may be mid-transition)
+
+---
+
+#### Always Mode (CV updates continuously)
+
+**Best for:**
+- **Continuous pitch modulation:** Glissando, vibrato, pitch bends
+- **Smooth pitch sweeps:** Real-time transpose/octave changes while notes sustain
+- **Expressive control:** Pitch modulation that responds instantly to routing changes
+
+**Example scenarios:**
+
+| Routing | Shaper | Result |
+|---------|--------|--------|
+| **1s LFO → Transpose (Always mode)** | None | Continuous pitch sweep up/down; vibrato effect on sustained notes |
+| **1s LFO → Transpose (Always mode)** | FreqFollower | Breathing vibrato that fades in over 7s, fades out over 7s |
+| **1s LFO → Octave (Always mode)** | Location | Slow continuous octave drift up/down; creates gliding pitch movement |
+| **Envelope → Transpose (Always mode)** | None | Pitch bends with note envelope; percussive pitch drops |
+| **Gate → Octave (Always mode)** | Location | Slow 4s octave glide up when gate high, down when gate low |
+
+**Avoid:**
+- Stepped/discrete pitch changes (use Gate mode for cleaner results)
+- ProgDivider (creates glitchy in-between pitch values during transitions)
+
+---
+
+### Comparison Table: Gate vs Always Mode
+
+| Aspect | Gate Mode | Always Mode |
+|--------|-----------|-------------|
+| **CV Update Timing** | Only when gate/stage triggers | Every tick (continuous) |
+| **Transpose/Octave applied** | At note trigger | Continuously |
+| **RootNote applied** | At note trigger | Continuously |
+| **Between triggers** | CV holds last value | CV updates with routing changes |
+| **Use for** | Discrete per-note pitch changes | Continuous pitch modulation |
+| **Sampled routing value** | LFO phase at gate time | Current LFO value every tick |
+| **Best shapers** | None, ProgDivider, Activity, Crease | None, FreqFollower, Location, Envelope |
+
+---
+
+### Special Case: DiscreteMap Always Mode with No Active Stage
+
+When DiscreteMapTrack is in Always mode but no stage is currently active (`_activeStage < 0`):
+- CV output defaults to **0V** (DiscreteMapTrackEngine.cpp:224)
+- Routing changes to Transpose/Octave/RootNote are ignored (no stage to apply them to)
+- Once a stage becomes active, routing is applied immediately
+
+---
+
+### Recommended Shapers by CV Update Mode
+
+**For Gate Mode (sample-and-hold behavior):**
+- **None**: Direct source value sampled at gate time
+- **ProgDivider**: Stepped discrete values; great for rhythmic pitch patterns
+- **Activity**: Movement-triggered pitch changes
+- **Crease**: Binary pitch selection (low vs high)
+- **Envelope**: Peak-follower pitch; envelope intensity → pitch shift
+
+**For Always Mode (continuous modulation):**
+- **None**: Direct continuous pitch sweep
+- **FreqFollower**: Breathing vibrato/pitch modulation (17s cycle for 1s LFO)
+- **Location**: Slow wandering pitch drift
+- **Envelope**: Pitch envelope following; expressive pitch bends
+- **TriangleFold**: Double-rate pitch modulation (experimental)
+
+**Avoid in Gate Mode:**
+- FreqFollower (may sample during fade transition, causing inconsistent pitch)
+- Location (drifts between gates, sampled value is unpredictable)
+
+**Avoid in Always Mode:**
+- ProgDivider (creates glitchy in-between values during 1s slew transitions)
+- Crease (harsh mid-transition jumps during continuous update)

@@ -92,6 +92,11 @@ private:
     float _targetCv = 0.0f;
     uint32_t _gateTimer = 0;
 
+    // === Sampled pitch params (Gate mode) ===
+    int _sampledOctave = 0;
+    int _sampledTranspose = 0;
+    int _sampledRootNote = 0;
+
     // === Activity ===
     bool _activity = false;
 
