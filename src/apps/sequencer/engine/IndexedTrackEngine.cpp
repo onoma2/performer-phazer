@@ -100,7 +100,8 @@ TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
     }
 
     // 2. Check current step duration BEFORE incrementing timer
-    const auto &currentStep = _sequence->step(_currentStepIndex);
+    int effectiveStepIndex = (_currentStepIndex + _sequence->firstStep()) % _sequence->activeLength();
+    const auto &currentStep = _sequence->step(effectiveStepIndex);
     uint16_t stepDuration = currentStep.duration();
 
     // If step has zero duration, skip it immediately (without incrementing timer)
@@ -153,7 +154,8 @@ void IndexedTrackEngine::advanceStep() {
 }
 
 void IndexedTrackEngine::triggerStep() {
-    const auto &step = _sequence->step(_currentStepIndex);
+    int effectiveStepIndex = (_currentStepIndex + _sequence->firstStep()) % _sequence->activeLength();
+    const auto &step = _sequence->step(effectiveStepIndex);
 
     // Get base values from step
     uint16_t baseDuration = step.duration();

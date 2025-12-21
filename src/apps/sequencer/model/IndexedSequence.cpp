@@ -12,6 +12,9 @@ void IndexedSequence::writeRouted(Routing::Target target, int intValue, float fl
     case Routing::Target::RootNote:
         setRootNote(intValue);
         break;
+    case Routing::Target::FirstStep:
+        setFirstStep(intValue, true);
+        break;
     default:
         break;
     }

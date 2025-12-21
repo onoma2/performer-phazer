@@ -12,6 +12,7 @@
 #include "core/utils/StringBuilder.h"
 
 #include <array>
+#include <algorithm>
 #include <cstdint>
 
 class IndexedSequence {
@@ -142,6 +143,14 @@ public:
     };
 
     //----------------------------------------
+    // Routing Helper
+    //----------------------------------------
+
+    inline bool isRouted(Routing::Target target) const { return Routing::isRouted(target, _trackIndex); }
+    inline void printRouted(StringBuilder &str, Routing::Target target) const { Routing::printRouted(str, target, _trackIndex); }
+    void writeRouted(Routing::Target target, int intValue, float floatValue);
+
+    //----------------------------------------
     // Sequence Properties
     //----------------------------------------
 
@@ -160,6 +169,10 @@ public:
     int activeLength() const { return _activeLength; }
     void setActiveLength(int length) {
         _activeLength = clamp(length, 1, MaxSteps);
+        // Clamp first step to new length
+        if (firstStep() >= _activeLength) {
+            setFirstStep(_activeLength - 1);
+        }
     }
 
     // scale selection (-1 = Project scale, 0..N = Track scale)
@@ -191,9 +204,45 @@ public:
     }
 
     // root note (0-11: C-B)
-    int rootNote() const { return _rootNote; }
-    void setRootNote(int root) {
-        _rootNote = clamp(root, 0, 11);
+    int rootNote() const { return _rootNote.get(isRouted(Routing::Target::RootNote)); }
+    void setRootNote(int rootNote, bool routed = false) {
+        _rootNote.set(clamp(rootNote, -1, 11), routed);
+    }
+
+    void editRootNote(int value, bool shift) {
+        if (!isRouted(Routing::Target::RootNote)) {
+            setRootNote(rootNote() + value);
+        }
+    }
+
+    void printRootNote(StringBuilder &str) const {
+        printRouted(str, Routing::Target::RootNote);
+        if (rootNote() < 0) {
+            str("Default");
+        } else {
+            Types::printNote(str, rootNote());
+        }
+    }
+
+    // firstStep (Rotation Offset)
+
+    int firstStep() const {
+        return _firstStep.get(isRouted(Routing::Target::FirstStep));
+    }
+
+    void setFirstStep(int firstStep, bool routed = false) {
+        _firstStep.set(clamp(firstStep, 0, _activeLength - 1), routed);
+    }
+
+    void editFirstStep(int value, bool shift) {
+        if (!isRouted(Routing::Target::FirstStep)) {
+            setFirstStep(firstStep() + value);
+        }
+    }
+
+    void printFirstStep(StringBuilder &str) const {
+        printRouted(str, Routing::Target::FirstStep);
+        str("%d", firstStep() + 1);
     }
 
     // resetMeasure (0 = off, >0 bars)
@@ -291,8 +340,8 @@ public:
                 _steps[index].setNoteIndex(0);       // Root
             }
         }
-        // Else: Inserting in middle. The shift loop above (_steps[i] = _steps[i-1])
-        // effectively duplicated the step at 'index' into 'index+1', leaving 'index'
+        // Else: Inserting in middle. The shift loop above (_steps[i] = _steps[i-1]) 
+        // effectively duplicated the step at 'index' into 'index+1', leaving 'index' 
         // as the "clone" of the original step. No further action needed.
 
         _activeLength++;
@@ -329,7 +378,8 @@ public:
         _loop = true;
         _activeLength = 2;
         _scale = -1;  // Use project scale
-        _rootNote = 0;
+        _rootNote.clear();
+        _firstStep.clear();
         _syncMode = SyncMode::Off;
         _resetMeasure = 0;
         _routeA.clear();
@@ -356,9 +406,10 @@ public:
         writer.write(_loop);
         writer.write(_activeLength);
         writer.write(_scale);
-        writer.write(_rootNote);
+        writer.write(_rootNote); // Now writes Routable base
         writer.write(static_cast<uint8_t>(_syncMode));
         writer.write(_resetMeasure);
+        _firstStep.write(writer);
 
         _routeA.write(writer);
         _routeB.write(writer);
@@ -373,7 +424,10 @@ public:
         reader.read(_loop);
         reader.read(_activeLength);
         reader.read(_scale);
-        reader.read(_rootNote);
+        // Special handling for legacy non-Routable rootNote?
+        // Since user said "no projects with previous versions", we assume new format.
+        reader.read(_rootNote); 
+        
         if (reader.dataVersion() >= ProjectVersion::Version66) {
             uint8_t sync;
             reader.read(sync);
@@ -386,6 +440,8 @@ public:
         } else {
             _resetMeasure = 0;
         }
+        
+        _firstStep.read(reader);
 
         _routeA.read(reader);
         _routeB.read(reader);
@@ -393,12 +449,6 @@ public:
         for (auto &s : _steps) {
             s.read(reader);
         }
-    }
-
-    void writeRouted(Routing::Target target, int intValue, float floatValue);
-
-    inline bool isRouted(Routing::Target target) const {
-        return Routing::isRouted(target, _trackIndex);
     }
 
     void setTrackIndex(int trackIndex) { _trackIndex = trackIndex; }
@@ -428,13 +478,7 @@ public:
         }
     }
 
-    void editRootNote(int value, bool shift) {
-        setRootNote(rootNote() + value);
-    }
-
-    void printRootNote(StringBuilder &str) const {
-        Types::printNote(str, rootNote());
-    }
+    // editRootNote/printRootNote removed from here to avoid duplication
 
     void printLoop(StringBuilder &str) const {
         str(loop() ? "Loop" : "Once");
@@ -445,7 +489,8 @@ private:
     bool _loop = true;            // Loop mode
     uint8_t _activeLength = 16;   // Dynamic step count (1-32)
     int8_t _scale = -1;           // Scale selection
-    int8_t _rootNote = 0;         // Root note (C)
+    Routable<int8_t> _rootNote;   // Root note (C), now Routable
+    Routable<uint8_t> _firstStep; // Rotation offset (0-31)
     SyncMode _syncMode = SyncMode::Off;
     uint8_t _resetMeasure = 0;    // Bars (0 = off)
     int _trackIndex = -1;

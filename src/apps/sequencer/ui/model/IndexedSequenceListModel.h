@@ -45,6 +45,9 @@ public:
             return Routing::Target::Scale;
         case RootNote:
             return Routing::Target::RootNote;
+        case FirstStep:
+            return Routing::Target::FirstStep;
+        case Length:
         case Loop:
         case SyncMode:
         case ResetMeasure:
@@ -56,9 +59,11 @@ public:
 private:
     enum Item {
         Divisor,
+        Length,
         Loop,
         Scale,
         RootNote,
+        FirstStep,
         SyncMode,
         ResetMeasure,
         Last
@@ -67,9 +72,11 @@ private:
     static const char *itemName(Item item) {
         switch (item) {
         case Divisor:       return "Divisor";
+        case Length:        return "Length";
         case Loop:          return "Loop";
         case Scale:         return "Scale";
         case RootNote:      return "Root Note";
+        case FirstStep:     return "First Step";
         case SyncMode:      return "Sync";
         case ResetMeasure:  return "Reset Measure";
         case Last:          break;
@@ -86,6 +93,9 @@ private:
         case Divisor:
             _sequence->printDivisor(str);
             break;
+        case Length:
+            str("%d", _sequence->activeLength());
+            break;
         case Loop:
             _sequence->printLoop(str);
             break;
@@ -94,6 +104,9 @@ private:
             break;
         case RootNote:
             _sequence->printRootNote(str);
+            break;
+        case FirstStep:
+            _sequence->printFirstStep(str);
             break;
         case SyncMode:
             _sequence->printSyncMode(str);
@@ -111,6 +124,9 @@ private:
         case Divisor:
             _sequence->editDivisor(value, shift);
             break;
+        case Length:
+            _sequence->setActiveLength(_sequence->activeLength() + value);
+            break;
         case Loop:
             _sequence->toggleLoop();
             break;
@@ -119,6 +135,9 @@ private:
             break;
         case RootNote:
             _sequence->editRootNote(value, shift);
+            break;
+        case FirstStep:
+            _sequence->editFirstStep(value, shift);
             break;
         case SyncMode:
             _sequence->editSyncMode(value, shift);

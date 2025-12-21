@@ -133,7 +133,15 @@ void IndexedStepsPage::insertStep() {
     // Insert at current step
     _sequence->insertStep(stepIndex);
 
-    showMessage("STEP INSERTED");
+    // If clipboard has content, paste it into the new step
+    if (_model.clipBoard().canPasteIndexedSequenceSteps()) {
+        ClipBoard::SelectedSteps selectedSteps;
+        selectedSteps.set(stepIndex);
+        _model.clipBoard().pasteIndexedSequenceSteps(*_sequence, selectedSteps);
+        showMessage("STEP INSERTED (PASTE)");
+    } else {
+        showMessage("STEP INSERTED");
+    }
 }
 
 void IndexedStepsPage::splitStep() {
