@@ -68,6 +68,11 @@ void TopPage::editIndexedRouteConfig() {
     _manager.push(&pages.indexedRouteConfig);
 }
 
+void TopPage::editIndexedMath() {
+    auto &pages = _manager.pages();
+    _manager.push(&pages.indexedMath);
+}
+
 void TopPage::updateLeds(Leds &leds) {
     bool clockTick = _engine.clockRunning() && _engine.tick() % CONFIG_PPQN < (CONFIG_PPQN / 8);
 

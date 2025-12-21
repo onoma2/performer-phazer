@@ -41,6 +41,7 @@
 #include "IndexedStepsPage.h"
 #include "IndexedSequenceEditPage.h"
 #include "IndexedRouteConfigPage.h"
+#include "IndexedMathPage.h"
 
 #ifdef CONFIG_ENABLE_INTRO
 #include "IntroPage.h"
@@ -77,6 +78,7 @@ struct Pages {
     IndexedStepsPage indexedSteps;
     IndexedSequenceEditPage indexedSequenceEdit;
     IndexedRouteConfigPage indexedRouteConfig;
+    IndexedMathPage indexedMath;
     SystemPage system;
     // modal pages
     TempoPage tempo;
@@ -129,6 +131,7 @@ struct Pages {
         indexedSteps(manager, context),
         indexedSequenceEdit(manager, context),
         indexedRouteConfig(manager, context),
+        indexedMath(manager, context),
         system(manager, context),
         // modal pages
         tempo(manager, context),

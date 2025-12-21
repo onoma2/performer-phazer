@@ -161,20 +161,21 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
 
     // Footer Labels
     // F4 toggles between SEQ and STEP context mode (Edit mode) OR shows "GRPS" in Groups mode
-    // F5 navigates to route config page
+    // F5 navigates to math page, SHIFT+F5 to route config
     const char *footerLabels[5];
+    bool shift = pageKeyState()[Key::Shift];
     if (_functionMode == FunctionMode::Groups) {
         footerLabels[0] = "A";
         footerLabels[1] = "B";
         footerLabels[2] = "C";
         footerLabels[3] = "D";
-        footerLabels[4] = "ROUTE";
+        footerLabels[4] = shift ? "ROUTE" : "MATH";
     } else {
         footerLabels[0] = "NOTE";
         footerLabels[1] = "DUR";
         footerLabels[2] = "GATE";
         footerLabels[3] = (_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP";
-        footerLabels[4] = "ROUTE";
+        footerLabels[4] = shift ? "ROUTE" : "MATH";
     }
     WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), (_functionMode == FunctionMode::Groups) ? -1 : (int)_editMode);
 }
@@ -242,8 +243,12 @@ void IndexedSequenceEditPage::keyPress(KeyPressEvent &event) {
         }
 
         if (fn == 4) {
-            // F5: Navigate to Route Config page
-            _manager.pages().top.editIndexedRouteConfig();
+            // F5: Navigate to Math page, SHIFT+F5 to Route Config
+            if (shift) {
+                _manager.pages().top.editIndexedRouteConfig();
+            } else {
+                _manager.pages().top.editIndexedMath();
+            }
         }
 
         event.consume();

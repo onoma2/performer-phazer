@@ -236,8 +236,7 @@ void IndexedTrackEngine::applyModulation(
             float amountPct = cfg.amount * 0.01f;
             float factor = 1.0f + (cv * amountPct);
             float modded = static_cast<float>(duration) * factor;
-            int maxDuration = static_cast<int>(_engine.measureDivisor()) * 4;
-            maxDuration = clamp(maxDuration, 0, 65535);
+            int maxDuration = 65535;
             int newDuration = static_cast<int>(std::lround(modded));
             duration = clamp(newDuration, 0, maxDuration);
             break;
