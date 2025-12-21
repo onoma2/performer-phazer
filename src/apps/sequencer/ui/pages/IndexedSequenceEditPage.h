@@ -26,6 +26,11 @@ private:
         Gate
     };
 
+    enum class ContextMode {
+        Sequence,
+        Step
+    };
+
     static const int StepCount = 16;
 
     int stepOffset() const { return _section * StepCount; }
@@ -34,11 +39,20 @@ private:
     void contextAction(int index);
     bool contextActionEnabled(int index) const;
 
+    void insertStep();
+    void splitStep();
+    void deleteStep();
+    void copyStep();
+    void pasteStep();
+    void initSequence();
+    void routeSequence();
+
     IndexedSequence::Step& step(int index);
     const IndexedSequence::Step& step(int index) const;
 
     int _section = 0;
     EditMode _editMode = EditMode::Note;
+    ContextMode _contextMode = ContextMode::Sequence;
 
     StepSelection<IndexedSequence::MaxSteps> _stepSelection;
 };

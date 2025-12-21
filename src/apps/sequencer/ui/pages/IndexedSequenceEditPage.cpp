@@ -16,14 +16,25 @@ enum class ContextAction {
     Copy,
     Paste,
     Route,
+    Insert,
+    Split,
+    Delete,
     Last
 };
 
-static const ContextMenuModel::Item contextMenuItems[] = {
+static const ContextMenuModel::Item seqContextMenuItems[] = {
     { "INIT" },
     { "COPY" },
     { "PASTE" },
     { "ROUTE" },
+};
+
+static const ContextMenuModel::Item stepContextMenuItems[] = {
+    { "INSERT" },
+    { "SPLIT" },
+    { "DELETE" },
+    { "COPY" },
+    { "PASTE" },
 };
 
 IndexedSequenceEditPage::IndexedSequenceEditPage(PageManager &manager, PageContext &context) :
@@ -45,7 +56,6 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
     const auto &trackEngine = _engine.selectedTrackEngine().as<IndexedTrackEngine>();
 
     // 1. Top Section: Timeline Bar
-    // Calculate total duration of active steps
     int totalTicks = 0;
     int activeLength = sequence.activeLength();
     for (int i = 0; i < activeLength; ++i) {
@@ -64,24 +74,18 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
         for (int i = 0; i < activeLength; ++i) {
             const auto &step = sequence.step(i);
             int stepW = (int)(step.duration() * pixelsPerTick);
-            // Ensure at least 1 pixel width if duration > 0, but handle truncation
             if (stepW < 1 && step.duration() > 0) stepW = 1;
             
-            // Correction for last step to fit exactly?
-            // Accumulate error or just clamp? Simple approach for now.
             if (i == activeLength - 1) {
                 stepW = (barX + barW) - currentX;
             }
 
-            // Visual state
             bool selected = _stepSelection[i];
             bool active = (trackEngine.currentStep() == i);
 
-            // Draw Step Outline
             canvas.setColor(selected ? Color::Bright : (active ? Color::MediumBright : Color::Medium));
             canvas.drawRect(currentX, barY, stepW, barH);
 
-            // Draw Gate Fill
             int gateW = (int)(stepW * (step.gateLength() / 100.0f));
             if (gateW > 0) {
                 canvas.setColor(selected ? Color::Bright : (active ? Color::MediumBright : Color::Low));
@@ -93,9 +97,6 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
     }
 
     // 2. Bottom Section: Info & Edit (F1, F2, F3)
-    // Coords aligned with F-keys (approx centers: 25, 76, 127)
-    // We display info for the FIRST selected step (or nothing if none)
-    
     if (_stepSelection.any()) {
         int stepIndex = _stepSelection.first();
         const auto &step = sequence.step(stepIndex);
@@ -109,7 +110,6 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
         // F1: Note
         FixedStringBuilder<16> noteStr;
         const auto &scale = sequence.selectedScale(_project.selectedScale());
-        // Using rootNote from sequence or project? sequence has rootNote.
         scale.noteName(noteStr, step.noteIndex(), sequence.rootNote(), Scale::Format::Short1);
         canvas.drawTextCentered(0, y, 51, 16, noteStr);
 
@@ -128,7 +128,12 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
     }
 
     // Footer Labels
-    const char *footerLabels[] = { "NOTE", "DUR", "GATE", "", "NEXT" };
+    // F4 toggles between SEQ and STEP context mode
+    const char *footerLabels[] = { 
+        "NOTE", "DUR", "GATE", 
+        (_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP", 
+        "NEXT" 
+    };
     WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), (int)_editMode);
 }
 
@@ -137,7 +142,6 @@ void IndexedSequenceEditPage::updateLeds(Leds &leds) {
     const auto &trackEngine = _engine.selectedTrackEngine().as<IndexedTrackEngine>();
     int currentStep = trackEngine.currentStep();
 
-    // Map 16 physical keys to 16 steps of current section
     int stepOffset = this->stepOffset();
     
     for (int i = 0; i < 16; ++i) {
@@ -147,9 +151,6 @@ void IndexedSequenceEditPage::updateLeds(Leds &leds) {
         bool selected = _stepSelection[stepIndex];
         bool playing = (stepIndex == currentStep);
 
-        // Green = Playing
-        // Red = Selected
-        // Yellow = Both
         bool green = playing;
         bool red = selected;
 
@@ -172,7 +173,6 @@ void IndexedSequenceEditPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
-    // Step Selection (Pagination handled)
     if (key.isStep()) {
         int stepIndex = stepOffset() + key.step();
         if (stepIndex < _project.selectedIndexedSequence().activeLength()) {
@@ -182,20 +182,22 @@ void IndexedSequenceEditPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
-    // Function Keys
     if (key.isFunction()) {
-        // ... Future: Page switching with F5
+        int fn = key.function();
+        if (fn == 3) {
+            // F4: Toggle Context Mode
+            _contextMode = (_contextMode == ContextMode::Sequence) ? ContextMode::Step : ContextMode::Sequence;
+        }
+        // ... F5 page toggling placeholder ...
         event.consume();
         return;
     }
     
-    // Pagination (Left/Right)
     if (key.isLeft()) {
         _section = std::max(0, _section - 1);
         event.consume();
     }
     if (key.isRight()) {
-        // Max 2 sections (32 steps / 16 = 2) -> index 0 and 1
         _section = std::min(1, _section + 1);
         event.consume();
     }
@@ -206,30 +208,6 @@ void IndexedSequenceEditPage::encoder(EncoderEvent &event) {
     
     if (!_stepSelection.any()) return;
 
-    // Determine which parameter to edit based on active F-Key?
-    // User didn't specify holding F-key to edit. 
-    // Usually standard behavior is: 
-    // - Encoder 1 -> Param 1
-    // - Encoder 2 -> Param 2 ...
-    // But Performer usually has 1 main encoder.
-    // So we need a "Selected Parameter" state (Column selection)?
-    // OR we detect which F-key is held?
-    // "F1 Left side... F2 Middle... F3 Right" suggests columns.
-    // In Performer, usually you select a "Column" or "Layer".
-    
-    // For now, let's assume we need a "Layer" or "Focus" state.
-    // Let's use F1/F2/F3 to select the edit target?
-    // "F1 Left side... F2 Middle... F3 Right... F5 Next page"
-    // This implies F-keys SELECT the parameter to edit with the MAIN encoder.
-    
-    // Let's infer the active parameter from _activeLayer/Mode.
-    
-    // BUT: "F1... F2... F3" labels in footer often imply they ARE the buttons to press to select.
-    // So:
-    // Press F1 -> Select Note Edit Mode.
-    // Press F2 -> Select Duration Edit Mode.
-    // Press F3 -> Select Gate Edit Mode.
-    
     for (int i = 0; i < IndexedSequence::MaxSteps; ++i) {
         if (_stepSelection[i]) {
             auto &step = sequence.step(i);
@@ -247,7 +225,6 @@ void IndexedSequenceEditPage::encoder(EncoderEvent &event) {
                 break;
             }
             case EditMode::Gate:
-                // Shift: +/- 1%, Normal: +/- 5%
                 step.setGateLength(clamp(step.gateLength() + event.value() * (shift ? 1 : 5), 0, 100));
                 break;
             }
@@ -263,16 +240,11 @@ void IndexedSequenceEditPage::keyDown(KeyEvent &event) {
         _stepSelection.keyDown(event, stepOffset());
     }
     
-    // Function keys select edit mode
     if (key.isFunction()) {
         int fn = key.function();
         if (fn == 0) _editMode = EditMode::Note;
         if (fn == 1) _editMode = EditMode::Duration;
         if (fn == 2) _editMode = EditMode::Gate;
-        
-        if (fn == 4) {
-            // Next Page Toggle logic (placeholder)
-        }
     }
 }
 
@@ -284,51 +256,124 @@ void IndexedSequenceEditPage::keyUp(KeyEvent &event) {
 }
 
 void IndexedSequenceEditPage::contextShow() {
-    showContextMenu(ContextMenu(
-        contextMenuItems,
-        int(ContextAction::Last),
-        [&] (int index) { contextAction(index); },
-        [&] (int index) { return contextActionEnabled(index); }
-    ));
+    if (_contextMode == ContextMode::Sequence) {
+        showContextMenu(ContextMenu(
+            seqContextMenuItems,
+            4, // count
+            [&] (int index) { contextAction(index); },
+            [&] (int index) { return true; }
+        ));
+    } else {
+        showContextMenu(ContextMenu(
+            stepContextMenuItems,
+            5, // count
+            [&] (int index) { contextAction(index + 4); }, // Offset by 4 to map to ContextAction enum (Insert starts after Route)
+            [&] (int index) { return contextActionEnabled(index + 4); }
+        ));
+    }
 }
 
 void IndexedSequenceEditPage::contextAction(int index) {
-    auto &sequence = _project.selectedIndexedSequence();
     switch (ContextAction(index)) {
+    // SEQ Actions
     case ContextAction::Init:
-        sequence.clear();
-        showMessage("SEQUENCE CLEARED");
+        initSequence();
         break;
     case ContextAction::Copy:
-        // Copy selected steps? Or whole sequence?
-        // Usually steps if selection exists.
-        if (_stepSelection.any()) {
-             ClipBoard::SelectedSteps steps = _stepSelection.selected().to_ullong();
-            _model.clipBoard().copyIndexedSequenceSteps(sequence, steps);
-            showMessage("STEPS COPIED");
-        }
+        copyStep(); // Wait, SEQ copy behavior? Currently sticking to step copy as per previous code
         break;
     case ContextAction::Paste:
-        if (_stepSelection.any()) {
-             ClipBoard::SelectedSteps steps = _stepSelection.selected().to_ullong();
-            _model.clipBoard().pasteIndexedSequenceSteps(sequence, steps);
-            showMessage("STEPS PASTED");
-        }
+        pasteStep();
         break;
     case ContextAction::Route:
-        // Route something?
+        routeSequence();
         break;
-    case ContextAction::Last:
+    // STEP Actions
+    case ContextAction::Insert:
+        insertStep();
+        break;
+    case ContextAction::Split:
+        splitStep();
+        break;
+    case ContextAction::Delete:
+        deleteStep();
+        break;
+    default:
         break;
     }
 }
 
 bool IndexedSequenceEditPage::contextActionEnabled(int index) const {
+    auto &sequence = _project.selectedIndexedSequence();
     switch (ContextAction(index)) {
     case ContextAction::Paste:
         return _model.clipBoard().canPasteIndexedSequenceSteps();
+    case ContextAction::Insert:
+    case ContextAction::Split:
+        return sequence.canInsert();
+    case ContextAction::Delete:
+        return sequence.canDelete();
     default:
         return true;
+    }
+}
+
+void IndexedSequenceEditPage::initSequence() {
+    _project.selectedIndexedSequence().clear();
+    showMessage("SEQUENCE CLEARED");
+}
+
+void IndexedSequenceEditPage::routeSequence() {
+    _manager.pages().top.editRoute(Routing::Target::Divisor, _project.selectedTrackIndex());
+}
+
+void IndexedSequenceEditPage::insertStep() {
+    auto &sequence = _project.selectedIndexedSequence();
+    if (_stepSelection.any()) {
+        sequence.insertStep(_stepSelection.first());
+        // Auto-paste logic if clipboard valid
+        if (_model.clipBoard().canPasteIndexedSequenceSteps()) {
+            ClipBoard::SelectedSteps steps;
+            steps.set(_stepSelection.first());
+            _model.clipBoard().pasteIndexedSequenceSteps(sequence, steps);
+            showMessage("STEP INSERTED (PASTE)");
+        } else {
+            showMessage("STEP INSERTED");
+        }
+    }
+}
+
+void IndexedSequenceEditPage::splitStep() {
+    auto &sequence = _project.selectedIndexedSequence();
+    if (_stepSelection.any()) {
+        sequence.splitStep(_stepSelection.first());
+        showMessage("STEP SPLIT");
+    }
+}
+
+void IndexedSequenceEditPage::deleteStep() {
+    auto &sequence = _project.selectedIndexedSequence();
+    if (_stepSelection.any()) {
+        sequence.deleteStep(_stepSelection.first());
+        showMessage("STEP DELETED");
+    }
+}
+
+void IndexedSequenceEditPage::copyStep() {
+    auto &sequence = _project.selectedIndexedSequence();
+    if (_stepSelection.any()) {
+        ClipBoard::SelectedSteps steps = _stepSelection.selected().to_ullong();
+        _model.clipBoard().copyIndexedSequenceSteps(sequence, steps);
+        showMessage("STEPS COPIED");
+    }
+}
+
+void IndexedSequenceEditPage::pasteStep() {
+    auto &sequence = _project.selectedIndexedSequence();
+    if (_stepSelection.any()) {
+        ClipBoard::SelectedSteps steps = _stepSelection.selected().to_ullong();
+        _model.clipBoard().pasteIndexedSequenceSteps(sequence, steps);
+        showMessage("STEPS PASTED");
     }
 }
 
