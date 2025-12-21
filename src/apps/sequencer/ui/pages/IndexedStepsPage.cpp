@@ -225,8 +225,12 @@ void IndexedStepsPage::StepListModel::cell(int row, int column, StringBuilder &s
             // Display duration in ticks
             str("%d", step.duration());
         } else if (isGateRow(row)) {
-            // Display gate length as percentage
+        // Display gate length as percentage or trigger
+        if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
+            str("T");
+        } else {
             str("%d%%", step.gateLength());
+        }
         }
     }
 }
@@ -250,7 +254,13 @@ void IndexedStepsPage::StepListModel::edit(int row, int column, int value, bool 
     } else if (isGateRow(row)) {
         // Edit gate length: shift = 1%, normal = 10%
         int stepSize = shift ? 1 : 10;
-        int newGate = static_cast<int>(step.gateLength()) + value * stepSize;
-        step.setGateLength(clamp(newGate, 0, 100));
+        int currentGate = step.gateLength();
+        int newGate = currentGate + value * stepSize;
+        if (currentGate == IndexedSequence::GateLengthTrigger && value < 0) {
+            newGate = 100;
+        } else if (currentGate <= 100 && newGate > 100) {
+            newGate = IndexedSequence::GateLengthTrigger;
+        }
+        step.setGateLength(clamp(newGate, 0, int(IndexedSequence::GateLengthTrigger)));
     }
 }

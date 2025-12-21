@@ -185,11 +185,16 @@ void IndexedTrackEngine::triggerStep() {
     }
 
     // Calculate gate duration in ticks
-    // gateLength is stored as percentage (0-100)
-    // Convert to ticks: (duration * percentage / 100)
-    uint32_t gateTicks = (baseDuration * baseGatePercent) / 100;
-    if (gateTicks == 0 && baseGatePercent > 0) {
-        gateTicks = 1;  // Minimum 1 tick gate if non-zero percentage
+    uint32_t gateTicks = 0;
+    if (baseGatePercent == IndexedSequence::GateLengthTrigger) {
+        gateTicks = 3; // Fixed short trigger pulse
+    } else {
+        // gateLength is stored as percentage (0-100)
+        // Convert to ticks: (duration * percentage / 100)
+        gateTicks = (baseDuration * baseGatePercent) / 100;
+        if (gateTicks == 0 && baseGatePercent > 0) {
+            gateTicks = 1;  // Minimum 1 tick gate if non-zero percentage
+        }
     }
 
     // Set gate timer
@@ -243,6 +248,10 @@ void IndexedTrackEngine::applyModulation(
         }
 
         case IndexedSequence::ModTarget::GateLength: {
+            if (gate == IndexedSequence::GateLengthTrigger) {
+                // Preserve trigger gate length sentinel
+                break;
+            }
             // Additive percentage modulation
             int modAmount = static_cast<int>(cv * cfg.amount);
             int newGate = static_cast<int>(gate) + modAmount;

@@ -61,6 +61,7 @@ private:
     void applyMathToStep(IndexedSequence::Step &step, const MathConfig &cfg);
 
     bool matchesGroup(const IndexedSequence::Step &step, uint8_t targetGroups) const;
+    bool configChanged() const;
 
     int valueMin(const MathConfig &cfg) const;
     int valueMax(const MathConfig &cfg) const;
@@ -73,6 +74,8 @@ private:
 
     MathConfig _opA;
     MathConfig _opB;
+    MathConfig _opABase;
+    MathConfig _opBBase;
 
     Random _rng;
 };

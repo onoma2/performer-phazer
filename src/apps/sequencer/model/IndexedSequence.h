@@ -25,6 +25,7 @@ public:
     static constexpr int PatternCount = CONFIG_PATTERN_COUNT;  // 8 patterns
     static constexpr uint8_t TargetGroupsAll = 0;
     static constexpr uint8_t TargetGroupsUngrouped = 0x10;
+    static constexpr uint16_t GateLengthTrigger = 101; // Special: fixed short trigger pulse
 
     //----------------------------------------
     // Step
@@ -35,7 +36,7 @@ public:
         // Bit-packed step data (32 bits):
         // bits 0-6:   note_index (7 bits = 0-127, using 0-63 for Scale lookup)
         // bits 7-22:  duration (16 bits = direct tick count, 0-65535)
-        // bits 23-31: gate_length (9 bits = 0-511, as % of duration)
+        // bits 23-31: gate_length (9 bits = 0-511, 0-100% or GateLengthTrigger)
 
         int8_t noteIndex() const {
             return static_cast<int8_t>(_packed & 0x7F);
@@ -59,7 +60,7 @@ public:
         }
 
         void setGateLength(uint16_t percentage) {
-            percentage = clamp(percentage, uint16_t(0), uint16_t(100));
+            percentage = clamp(percentage, uint16_t(0), uint16_t(GateLengthTrigger));
             _packed = (_packed & ~(0x1FF << 23)) | ((percentage & 0x1FF) << 23);
         }
 

@@ -34,6 +34,8 @@ IndexedMathPage::IndexedMathPage(PageManager &manager, PageContext &context) :
 void IndexedMathPage::enter() {
     _activeOp = ActiveOp::A;
     _editParam = EditParam::Target;
+    _opABase = _opA;
+    _opBBase = _opB;
     _rng = Random(os::ticks());
 }
 
@@ -57,7 +59,7 @@ void IndexedMathPage::draw(Canvas &canvas) {
         "OP",
         "VALUE",
         "GROUPS",
-        pageKeyState()[Key::Shift] ? "BACK" : "COMMIT",
+        configChanged() ? "COMMIT" : "BACK",
     };
     WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), int(_editParam));
 }
@@ -84,9 +86,14 @@ void IndexedMathPage::keyPress(KeyPressEvent &event) {
         if (fn == 4) {
             if (key.shiftModifier()) {
                 _manager.pop();
-            } else {
-                applyMath(activeConfig());
+            } else if (configChanged()) {
+                applyMath(_opA);
+                applyMath(_opB);
+                _opABase = _opA;
+                _opBBase = _opB;
                 showMessage("MATH APPLIED");
+            } else {
+                _manager.pop();
             }
             event.consume();
             return;
@@ -185,10 +192,10 @@ void IndexedMathPage::drawMathConfig(Canvas &canvas, const MathConfig &cfg, int 
     canvas.setBlendMode(BlendMode::Set);
 
     const int colWidth = CONFIG_LCD_WIDTH / CONFIG_FUNCTION_KEY_COUNT;
-    auto drawCentered = [&canvas, colWidth, y] (int col, const char *text, Color color) {
-        int colX = col * colWidth;
+    auto drawCentered = [&canvas, y] (int col, const char *text, Color color) {
+        int colX = col * (CONFIG_LCD_WIDTH / CONFIG_FUNCTION_KEY_COUNT);
         int textWidth = canvas.textWidth(text);
-        int x = colX + (colWidth - textWidth) / 2;
+        int x = colX + ((CONFIG_LCD_WIDTH / CONFIG_FUNCTION_KEY_COUNT) - textWidth) / 2;
         canvas.setColor(color);
         canvas.drawText(x, y, text);
     };
@@ -289,7 +296,7 @@ void IndexedMathPage::applyMathToStep(IndexedSequence::Step &step, const MathCon
         case MathOp::Jitter: gate += randValue; break;
         case MathOp::Last:   break;
         }
-        gate = clamp(gate, 0, 100);
+        gate = clamp(gate, 0, int(IndexedSequence::GateLengthTrigger));
         step.setGateLength(uint16_t(gate));
         break;
     }
@@ -324,6 +331,16 @@ bool IndexedMathPage::matchesGroup(const IndexedSequence::Step &step, uint8_t ta
     return (step.groupMask() & targetGroups) != 0;
 }
 
+bool IndexedMathPage::configChanged() const {
+    auto equal = [] (const MathConfig &a, const MathConfig &b) {
+        return a.target == b.target &&
+            a.op == b.op &&
+            a.value == b.value &&
+            a.targetGroups == b.targetGroups;
+    };
+    return !equal(_opA, _opABase) || !equal(_opB, _opBBase);
+}
+
 int IndexedMathPage::valueMin(const MathConfig &cfg) const {
     switch (cfg.op) {
     case MathOp::Set:
@@ -354,7 +371,7 @@ int IndexedMathPage::valueMax(const MathConfig &cfg) const {
         case IndexedSequence::ModTarget::Duration:
             return 65535;
         case IndexedSequence::ModTarget::GateLength:
-            return 100;
+            return IndexedSequence::GateLengthTrigger;
         case IndexedSequence::ModTarget::NoteIndex:
             return 64;
         case IndexedSequence::ModTarget::Last:
@@ -391,6 +408,14 @@ void IndexedMathPage::clampValue(MathConfig &cfg) const {
 
 void IndexedMathPage::formatValue(const MathConfig &cfg, StringBuilder &str) const {
     switch (cfg.op) {
+    case MathOp::Set:
+        if (cfg.target == IndexedSequence::ModTarget::GateLength &&
+            cfg.value == IndexedSequence::GateLengthTrigger) {
+            str("T");
+        } else {
+            str("%d", cfg.value);
+        }
+        break;
     case MathOp::Mul:
     case MathOp::Div:
         str("%d%%", cfg.value);

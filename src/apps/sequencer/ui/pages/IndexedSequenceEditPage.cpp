@@ -37,6 +37,14 @@ static const ContextMenuModel::Item stepContextMenuItems[] = {
     { "PASTE" },
 };
 
+static const ContextAction stepContextActions[] = {
+    ContextAction::Insert,
+    ContextAction::Split,
+    ContextAction::Delete,
+    ContextAction::Copy,
+    ContextAction::Paste,
+};
+
 IndexedSequenceEditPage::IndexedSequenceEditPage(PageManager &manager, PageContext &context) :
     BasePage(manager, context)
 {
@@ -86,7 +94,12 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
             canvas.setColor(selected ? Color::Bright : (active ? Color::MediumBright : Color::Medium));
             canvas.drawRect(currentX, barY, stepW, barH);
 
-            int gateW = (int)(stepW * (step.gateLength() / 100.0f));
+            int gateW = 0;
+            if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
+                gateW = std::min(2, stepW);
+            } else {
+                gateW = (int)(stepW * (step.gateLength() / 100.0f));
+            }
             if (gateW > 0) {
                 canvas.setColor(selected ? Color::Bright : (active ? Color::MediumBright : Color::Low));
                 canvas.fillRect(currentX + 1, barY + 1, gateW, barH - 2);
@@ -143,7 +156,11 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
 
             // F3: Gate
             FixedStringBuilder<16> gateStr;
-            gateStr("%d%%", step.gateLength());
+            if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
+                gateStr("T");
+            } else {
+                gateStr("%d%%", step.gateLength());
+            }
             canvas.drawTextCentered(102, y, 51, 16, gateStr);
         }
     } else {
@@ -287,7 +304,17 @@ void IndexedSequenceEditPage::encoder(EncoderEvent &event) {
                 break;
             }
             case EditMode::Gate:
-                step.setGateLength(clamp(step.gateLength() + event.value() * (shift ? 1 : 5), 0, 100));
+                {
+                    int stepSize = shift ? 1 : 5;
+                    int currentGate = step.gateLength();
+                    int newGate = currentGate + event.value() * stepSize;
+                    if (currentGate == IndexedSequence::GateLengthTrigger && event.value() < 0) {
+                        newGate = 100;
+                    } else if (currentGate <= 100 && newGate > 100) {
+                        newGate = IndexedSequence::GateLengthTrigger;
+                    }
+                    step.setGateLength(clamp(newGate, 0, int(IndexedSequence::GateLengthTrigger)));
+                }
                 break;
             }
         }
@@ -337,14 +364,14 @@ void IndexedSequenceEditPage::contextShow() {
             seqContextMenuItems,
             4, // count
             [&] (int index) { contextAction(index); },
-            [&] (int index) { return true; }
+            [&] (int index) { return contextActionEnabled(index); }
         ));
     } else {
         showContextMenu(ContextMenu(
             stepContextMenuItems,
             5, // count
-            [&] (int index) { contextAction(index + 4); }, // Offset by 4 to map to ContextAction enum (Insert starts after Route)
-            [&] (int index) { return contextActionEnabled(index + 4); }
+            [&] (int index) { contextAction(static_cast<int>(stepContextActions[index])); },
+            [&] (int index) { return contextActionEnabled(static_cast<int>(stepContextActions[index])); }
         ));
     }
 }
@@ -356,10 +383,18 @@ void IndexedSequenceEditPage::contextAction(int index) {
         initSequence();
         break;
     case ContextAction::Copy:
-        copyStep(); // Wait, SEQ copy behavior? Currently sticking to step copy as per previous code
+        if (_contextMode == ContextMode::Sequence) {
+            copySequence();
+        } else {
+            copyStep();
+        }
         break;
     case ContextAction::Paste:
-        pasteStep();
+        if (_contextMode == ContextMode::Sequence) {
+            pasteSequence();
+        } else {
+            pasteStep();
+        }
         break;
     case ContextAction::Route:
         routeSequence();
@@ -382,8 +417,12 @@ void IndexedSequenceEditPage::contextAction(int index) {
 bool IndexedSequenceEditPage::contextActionEnabled(int index) const {
     auto &sequence = _project.selectedIndexedSequence();
     switch (ContextAction(index)) {
+    case ContextAction::Copy:
+        return _contextMode == ContextMode::Sequence ? true : _stepSelection.any();
     case ContextAction::Paste:
-        return _model.clipBoard().canPasteIndexedSequenceSteps();
+        return _contextMode == ContextMode::Sequence ?
+            _model.clipBoard().canPasteIndexedSequence() :
+            _model.clipBoard().canPasteIndexedSequenceSteps();
     case ContextAction::Insert:
     case ContextAction::Split:
         return sequence.canInsert();
@@ -479,6 +518,16 @@ void IndexedSequenceEditPage::pasteStep() {
         _model.clipBoard().pasteIndexedSequenceSteps(sequence, steps);
         showMessage("STEPS PASTED");
     }
+}
+
+void IndexedSequenceEditPage::copySequence() {
+    _model.clipBoard().copyIndexedSequence(_project.selectedIndexedSequence());
+    showMessage("SEQUENCE COPIED");
+}
+
+void IndexedSequenceEditPage::pasteSequence() {
+    _model.clipBoard().pasteIndexedSequence(_project.selectedIndexedSequence());
+    showMessage("SEQUENCE PASTED");
 }
 
 IndexedSequence::Step& IndexedSequenceEditPage::step(int index) {

@@ -49,6 +49,8 @@ private:
     void deleteStep();
     void copyStep();
     void pasteStep();
+    void copySequence();
+    void pasteSequence();
     void initSequence();
     void routeSequence();
 
