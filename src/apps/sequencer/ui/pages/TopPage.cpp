@@ -385,7 +385,7 @@ void TopPage::setSequenceEditPage() {
         setMainPage(pages.discreteMapSequence);
         break;
     case Track::TrackMode::Indexed:
-        setMainPage(pages.indexedSteps);
+        setMainPage(pages.indexedSequenceEdit);
         break;
     case Track::TrackMode::Last:
         break;

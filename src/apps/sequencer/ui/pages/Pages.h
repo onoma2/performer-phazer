@@ -39,6 +39,7 @@
 #include "DiscreteMapSequencePage.h"
 #include "IndexedSequencePage.h"
 #include "IndexedStepsPage.h"
+#include "IndexedSequenceEditPage.h"
 
 #ifdef CONFIG_ENABLE_INTRO
 #include "IntroPage.h"
@@ -73,6 +74,7 @@ struct Pages {
     DiscreteMapSequencePage discreteMapSequence;
     IndexedSequencePage indexedSequence;
     IndexedStepsPage indexedSteps;
+    IndexedSequenceEditPage indexedSequenceEdit;
     SystemPage system;
     // modal pages
     TempoPage tempo;
@@ -123,6 +125,7 @@ struct Pages {
         discreteMapSequence(manager, context),
         indexedSequence(manager, context),
         indexedSteps(manager, context),
+        indexedSequenceEdit(manager, context),
         system(manager, context),
         // modal pages
         tempo(manager, context),

@@ -101,6 +101,7 @@ set(sources
     ui/pages/DiscreteMapSequencePage.cpp
     ui/pages/IndexedSequencePage.cpp
     ui/pages/IndexedStepsPage.cpp
+    ui/pages/IndexedSequenceEditPage.cpp
     ui/pages/MonitorPage.cpp
     ui/pages/NoteSequenceEditPage.cpp
     ui/pages/NoteSequencePage.cpp
