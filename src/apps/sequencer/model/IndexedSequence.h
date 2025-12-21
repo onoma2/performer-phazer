@@ -302,30 +302,30 @@ public:
     // Current step becomes first half (ceil duration), new step at index+1 becomes second half (floor duration)
     void splitStep(int index) {
         if (_activeLength >= MaxSteps) return; // Can't exceed max steps
-        
+
         index = clamp(index, 0, int(_activeLength) - 1);
         auto &currentStep = _steps[index];
         uint16_t totalDuration = currentStep.duration();
-        
+
         // Calculate durations
         // First step gets ceil(total / 2) -> (total + 1) / 2
         // Second step gets floor(total / 2) -> total / 2
         uint16_t duration1 = (totalDuration + 1) / 2;
         uint16_t duration2 = totalDuration / 2;
-        
+
         // Shift steps to the right from insertion point (index + 1)
         for (int i = _activeLength; i > index + 1; i--) {
             _steps[i] = _steps[i - 1];
         }
-        
+
         // Update current step (first half)
         currentStep.setDuration(duration1);
-        
+
         // Initialize new step (second half) at index + 1
         // It inherits all properties from the original step except duration
-        _steps[index + 1] = currentStep; 
+        _steps[index + 1] = currentStep;
         _steps[index + 1].setDuration(duration2);
-        
+
         _activeLength++;
     }
 
@@ -355,8 +355,8 @@ public:
                 _steps[index].setNoteIndex(0);       // Root
             }
         }
-        // Else: Inserting in middle. The shift loop above (_steps[i] = _steps[i-1]) 
-        // effectively duplicated the step at 'index' into 'index+1', leaving 'index' 
+        // Else: Inserting in middle. The shift loop above (_steps[i] = _steps[i-1])
+        // effectively duplicated the step at 'index' into 'index+1', leaving 'index'
         // as the "clone" of the original step. No further action needed.
 
         _activeLength++;
@@ -389,9 +389,9 @@ public:
     bool canDelete() const { return _activeLength > 1; }
 
     void clear() {
-        _divisor = 192;  // Quarter note at 192 PPQN
+        _divisor = 12;  // 1/16 note at 192 PPQN
         _loop = true;
-        _activeLength = 2;
+        _activeLength = 8;
         _scale = -1;  // Use project scale
         _rootNote.clear();
         _firstStep.clear();
@@ -404,9 +404,9 @@ public:
         for (int i = 0; i < MaxSteps; ++i) {
             auto &s = _steps[i];
             s.clear();
-            if (i < 2) {
-                s.setDuration(192);      // Quarter note at 192 PPQN
-                s.setGateLength(50);     // 50% gate length
+            if (i < 8) {
+                s.setDuration(12);       // 1/16 note at 192 PPQN
+                s.setGateLength(0);      // default off
                 s.setNoteIndex(0);       // Root note
             } else {
                 s.setDuration(0);        // Silent/skip by default
@@ -441,8 +441,8 @@ public:
         reader.read(_scale);
         // Special handling for legacy non-Routable rootNote?
         // Since user said "no projects with previous versions", we assume new format.
-        reader.read(_rootNote); 
-        
+        reader.read(_rootNote);
+
         if (reader.dataVersion() >= ProjectVersion::Version66) {
             uint8_t sync;
             reader.read(sync);
@@ -455,7 +455,7 @@ public:
         } else {
             _resetMeasure = 0;
         }
-        
+
         _firstStep.read(reader);
 
         _routeA.read(reader);

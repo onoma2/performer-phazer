@@ -83,7 +83,7 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
             const auto &step = sequence.step(i);
             int stepW = (int)(step.duration() * pixelsPerTick);
             if (stepW < 1 && step.duration() > 0) stepW = 1;
-            
+
             if (i == activeLength - 1) {
                 stepW = (barX + barW) - currentX;
             }
@@ -173,6 +173,36 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
         uint32_t measureTicks = timeSig.measureDivisor();
         float bars = (float)totalTicks / measureTicks;
 
+        // Show current step values above the step/bars info
+        if (trackEngine.currentStep() >= 0 && trackEngine.currentStep() < sequence.activeLength()) {
+            const auto &step = sequence.step(trackEngine.currentStep());
+            const auto &scale = sequence.selectedScale(_project.selectedScale());
+            int rootNote = sequence.rootNote() < 0 ? _project.rootNote() : sequence.rootNote();
+            const auto &track = _project.selectedTrack().indexedTrack();
+            int shift = track.octave() * scale.notesPerOctave() + track.transpose();
+            int noteIndex = step.noteIndex() + shift;
+
+            FixedStringBuilder<8> noteName;
+            scale.noteName(noteName, noteIndex, rootNote, Scale::Format::Short1);
+            float volts = scale.noteToVolts(noteIndex);
+            if (scale.isChromatic()) {
+                volts += rootNote * (1.f / 12.f);
+            }
+
+            FixedStringBuilder<12> gateStr;
+            if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
+                gateStr("T");
+            } else {
+                gateStr("%d%%", step.gateLength());
+            }
+
+            canvas.setFont(Font::Tiny);
+            canvas.setColor(Color::Medium);
+            FixedStringBuilder<48> info;
+            info("%.2f %s %d  %s", volts, static_cast<const char *>(noteName), step.duration(), static_cast<const char *>(gateStr));
+            canvas.drawTextCentered(0, 32, 256, 8, info);
+        }
+
         canvas.setColor(Color::Medium);
         FixedStringBuilder<32> infoStr;
         infoStr("STEP %d/%d  BARS %.1f", currentStep, totalSteps, bars);
@@ -206,7 +236,7 @@ void IndexedSequenceEditPage::updateLeds(Leds &leds) {
     int currentStep = trackEngine.currentStep();
 
     int stepOffset = this->stepOffset();
-    
+
     for (int i = 0; i < 16; ++i) {
         int stepIndex = stepOffset + i;
         if (stepIndex >= sequence.activeLength()) break;
@@ -274,7 +304,7 @@ void IndexedSequenceEditPage::keyPress(KeyPressEvent &event) {
         event.consume();
         return;
     }
-    
+
     if (key.isLeft()) {
         _section = std::max(0, _section - 1);
         event.consume();
@@ -287,21 +317,21 @@ void IndexedSequenceEditPage::keyPress(KeyPressEvent &event) {
 
 void IndexedSequenceEditPage::encoder(EncoderEvent &event) {
     auto &sequence = _project.selectedIndexedSequence();
-    
+
     if (!_stepSelection.any()) return;
 
     for (int i = 0; i < IndexedSequence::MaxSteps; ++i) {
         if (_stepSelection[i]) {
             auto &step = sequence.step(i);
             bool shift = globalKeyState()[Key::Shift];
-            
+
             switch (_editMode) {
             case EditMode::Note:
                 step.setNoteIndex(step.noteIndex() + event.value() * (shift ? 12 : 1));
                 break;
             case EditMode::Duration: {
                 int div = sequence.divisor();
-                int stepVal = shift ? 1 : div;
+                int stepVal = shift ? div : 1;
                 int newDur = step.duration() + event.value() * stepVal;
                 step.setDuration(clamp(newDur, 0, 65535));
                 break;
@@ -322,7 +352,7 @@ void IndexedSequenceEditPage::encoder(EncoderEvent &event) {
             }
         }
     }
-    
+
     event.consume();
 }
 
@@ -482,7 +512,7 @@ void IndexedSequenceEditPage::splitStep() {
 
     if (splitAny) {
         // Clear selection because indices have shifted
-        _stepSelection.clear(); 
+        _stepSelection.clear();
         showMessage("STEPS SPLIT");
     }
 }

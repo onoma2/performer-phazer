@@ -250,8 +250,8 @@ void IndexedStepsPage::StepListModel::edit(int row, int column, int value, bool 
         int stepSize = shift ? 12 : 1;
         step.setNoteIndex(step.noteIndex() + value * stepSize);
     } else if (isDurationRow(row)) {
-        // Edit duration: shift = fine (1 tick), normal = track divisor (ticks per step unit)
-        int stepSize = shift ? 1 : _sequence->divisor();
+        // Edit duration: shift = divisor, normal = 1 tick
+        int stepSize = shift ? _sequence->divisor() : 1;
         int newDuration = static_cast<int>(step.duration()) + value * stepSize;
         step.setDuration(clamp(newDuration, 0, 65535));
     } else if (isGateRow(row)) {
