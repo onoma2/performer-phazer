@@ -96,32 +96,49 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
         }
     }
 
-    // 2. Bottom Section: Info & Edit (F1, F2, F3)
+    // 2. Bottom Section: Info & Edit (F1, F2, F3) or Group Indicators (F1-F4)
     if (_stepSelection.any()) {
-        int stepIndex = _stepSelection.first();
-        const auto &step = sequence.step(stepIndex);
-        
         const int y = 40;
-        
+
         canvas.setFont(Font::Small);
         canvas.setBlendMode(BlendMode::Set);
         canvas.setColor(Color::Bright);
 
-        // F1: Note
-        FixedStringBuilder<16> noteStr;
-        const auto &scale = sequence.selectedScale(_project.selectedScale());
-        scale.noteName(noteStr, step.noteIndex(), sequence.rootNote(), Scale::Format::Short1);
-        canvas.drawTextCentered(0, y, 51, 16, noteStr);
+        if (_functionMode == FunctionMode::Groups) {
+            // Group editing mode: Show group membership for selected steps
+            // Display vertically centered above F buttons (F1-F4 = Groups A-D)
+            int stepIndex = _stepSelection.first();
+            const auto &step = sequence.step(stepIndex);
+            uint8_t groupMask = step.groupMask();
 
-        // F2: Duration
-        FixedStringBuilder<16> durStr;
-        durStr("%d", step.duration());
-        canvas.drawTextCentered(51, y, 51, 16, durStr);
+            // F1-F4: Groups A-D
+            const char* groupLabels[] = {"A", "B", "C", "D"};
+            for (int i = 0; i < 4; ++i) {
+                bool inGroup = (groupMask & (1 << i)) != 0;
+                canvas.setColor(inGroup ? Color::Bright : Color::Medium);
+                canvas.drawTextCentered(i * 51, y, 51, 16, groupLabels[i]);
+            }
+        } else {
+            // Edit mode: Show note/duration/gate values
+            int stepIndex = _stepSelection.first();
+            const auto &step = sequence.step(stepIndex);
 
-        // F3: Gate
-        FixedStringBuilder<16> gateStr;
-        gateStr("%d%%", step.gateLength());
-        canvas.drawTextCentered(102, y, 51, 16, gateStr);
+            // F1: Note
+            FixedStringBuilder<16> noteStr;
+            const auto &scale = sequence.selectedScale(_project.selectedScale());
+            scale.noteName(noteStr, step.noteIndex(), sequence.rootNote(), Scale::Format::Short1);
+            canvas.drawTextCentered(0, y, 51, 16, noteStr);
+
+            // F2: Duration
+            FixedStringBuilder<16> durStr;
+            durStr("%d", step.duration());
+            canvas.drawTextCentered(51, y, 51, 16, durStr);
+
+            // F3: Gate
+            FixedStringBuilder<16> gateStr;
+            gateStr("%d%%", step.gateLength());
+            canvas.drawTextCentered(102, y, 51, 16, gateStr);
+        }
     } else {
         int currentStep = trackEngine.currentStep() + 1;
         int totalSteps = sequence.activeLength();
@@ -136,13 +153,23 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
     }
 
     // Footer Labels
-    // F4 toggles between SEQ and STEP context mode
-    const char *footerLabels[] = { 
-        "NOTE", "DUR", "GATE", 
-        (_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP", 
-        "NEXT" 
-    };
-    WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), (int)_editMode);
+    // F4 toggles between SEQ and STEP context mode (Edit mode) OR shows "GRPS" in Groups mode
+    // F5 navigates to route config page
+    const char *footerLabels[5];
+    if (_functionMode == FunctionMode::Groups) {
+        footerLabels[0] = "A";
+        footerLabels[1] = "B";
+        footerLabels[2] = "C";
+        footerLabels[3] = "D";
+        footerLabels[4] = "ROUTE";
+    } else {
+        footerLabels[0] = "NOTE";
+        footerLabels[1] = "DUR";
+        footerLabels[2] = "GATE";
+        footerLabels[3] = (_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP";
+        footerLabels[4] = "ROUTE";
+    }
+    WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), (_functionMode == FunctionMode::Groups) ? -1 : (int)_editMode);
 }
 
 void IndexedSequenceEditPage::updateLeds(Leds &leds) {
@@ -192,11 +219,26 @@ void IndexedSequenceEditPage::keyPress(KeyPressEvent &event) {
 
     if (key.isFunction()) {
         int fn = key.function();
+        bool shift = globalKeyState()[Key::Shift];
+
         if (fn == 3) {
-            // F4: Toggle Context Mode
-            _contextMode = (_contextMode == ContextMode::Sequence) ? ContextMode::Step : ContextMode::Sequence;
+            // F4: Toggle Function Mode (SHIFT) or Context Mode (no SHIFT)
+            if (shift) {
+                // SHIFT+F4: Toggle between Edit and Groups function modes
+                _functionMode = (_functionMode == FunctionMode::Edit) ? FunctionMode::Groups : FunctionMode::Edit;
+            } else {
+                // F4: Toggle Context Mode (only in Edit mode)
+                if (_functionMode == FunctionMode::Edit) {
+                    _contextMode = (_contextMode == ContextMode::Sequence) ? ContextMode::Step : ContextMode::Sequence;
+                }
+            }
         }
-        // ... F5 page toggling placeholder ...
+
+        if (fn == 4) {
+            // F5: Navigate to Route Config page
+            _manager.pages().top.editIndexedRouteConfig();
+        }
+
         event.consume();
         return;
     }
@@ -247,12 +289,26 @@ void IndexedSequenceEditPage::keyDown(KeyEvent &event) {
     if (key.isStep()) {
         _stepSelection.keyDown(event, stepOffset());
     }
-    
+
     if (key.isFunction()) {
         int fn = key.function();
-        if (fn == 0) _editMode = EditMode::Note;
-        if (fn == 1) _editMode = EditMode::Duration;
-        if (fn == 2) _editMode = EditMode::Gate;
+
+        if (_functionMode == FunctionMode::Groups) {
+            // Groups mode: F1-F4 toggle group membership (A-D)
+            if (fn >= 0 && fn < 4) {
+                auto &sequence = _project.selectedIndexedSequence();
+                for (int i = 0; i < IndexedSequence::MaxSteps; ++i) {
+                    if (_stepSelection[i]) {
+                        sequence.step(i).toggleGroup(fn);
+                    }
+                }
+            }
+        } else {
+            // Edit mode: F1-F3 select edit mode
+            if (fn == 0) _editMode = EditMode::Note;
+            if (fn == 1) _editMode = EditMode::Duration;
+            if (fn == 2) _editMode = EditMode::Gate;
+        }
     }
 }
 

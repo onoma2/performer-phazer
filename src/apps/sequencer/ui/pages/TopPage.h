@@ -13,6 +13,7 @@ public:
     void init();
 
     void editRoute(Routing::Target target, int trackIndex);
+    void editIndexedRouteConfig();
 
     virtual void updateLeds(Leds &leds) override;
 

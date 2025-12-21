@@ -227,7 +227,7 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
         _project.writeRouted(target, intValue, floatValue);
     } else if (isPlayStateTarget(target)) {
         _project.playState().writeRouted(target, tracks, intValue, floatValue);
-    } else if (isTrackTarget(target) || isSequenceTarget(target) || isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target) || isDiscreteMapTarget(target)) {
+    } else if (isTrackTarget(target) || isSequenceTarget(target) || isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target) || isDiscreteMapTarget(target) || isIndexedTarget(target)) {
         for (int trackIndex = 0; trackIndex < CONFIG_TRACK_COUNT; ++trackIndex) {
             if (tracks & (1<<trackIndex)) {
                 auto &track = _project.track(trackIndex);
@@ -285,7 +285,7 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
                 case Track::TrackMode::Indexed:
                     if (isTrackTarget(target) || isDiscreteMapTarget(target)) {
                         track.indexedTrack().writeRouted(target, intValue, floatValue);
-                    } else if (isSequenceTarget(target)) {
+                    } else if (isSequenceTarget(target) || isIndexedTarget(target)) {
                         for (int patternIndex = 0; patternIndex < CONFIG_PATTERN_COUNT; ++patternIndex) {
                             track.indexedTrack().sequence(patternIndex).writeRouted(target, intValue, floatValue);
                         }
@@ -411,6 +411,9 @@ static const TargetInfo targetInfos[int(Routing::Target::Last)] = {
     [int(Routing::Target::DiscreteMapSync)]                 = { 0,      1,      0,      1,      1       },
     [int(Routing::Target::DiscreteMapRangeHigh)]            = { -5,     5,      -5,     5,      1       },
     [int(Routing::Target::DiscreteMapRangeLow)]             = { -5,     5,      -5,     5,      1       },
+    // Indexed modulation targets
+    [int(Routing::Target::IndexedA)]                        = { -100,   100,    -100,   100,    1       },
+    [int(Routing::Target::IndexedB)]                        = { -100,   100,    -100,   100,    1       },
 };
 
 float Routing::normalizeTargetValue(Routing::Target target, float value) {
@@ -528,6 +531,10 @@ void Routing::printTargetValue(Routing::Target target, float normalized, StringB
         break;
     case Target::DiscreteMapSync:
         str(intValue ? "on" : "off");
+        break;
+    case Target::IndexedA:
+    case Target::IndexedB:
+        str("%+d%%", intValue);
         break;
     default:
         str("%d", intValue);

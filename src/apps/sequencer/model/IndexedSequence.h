@@ -274,10 +274,14 @@ public:
 
     // Route configuration
     const RouteConfig& routeA() const { return _routeA; }
+    RouteConfig& routeA() { return _routeA; }
     void setRouteA(const RouteConfig& cfg) { _routeA = cfg; }
+    float routedIndexedA() const { return _routedIndexedA; }
 
     const RouteConfig& routeB() const { return _routeB; }
+    RouteConfig& routeB() { return _routeB; }
     void setRouteB(const RouteConfig& cfg) { _routeB = cfg; }
+    float routedIndexedB() const { return _routedIndexedB; }
 
     //----------------------------------------
     // Methods
@@ -497,6 +501,8 @@ private:
 
     RouteConfig _routeA;
     RouteConfig _routeB;
+    float _routedIndexedA = 0.f;  // Routed CV value for route A
+    float _routedIndexedB = 0.f;  // Routed CV value for route B
 
     std::array<Step, MaxSteps> _steps;
 };

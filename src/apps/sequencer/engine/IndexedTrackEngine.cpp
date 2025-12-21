@@ -164,20 +164,22 @@ void IndexedTrackEngine::triggerStep() {
 
     // Apply Route A modulation (if enabled and step is in target groups)
     if (_sequence->routeA().enabled) {
-        // TODO: Get CV value from routing engine (Phase 5)
-        // float cvA = _engine.getRoutingValue(Routing::Target::IndexedA, _track.trackIndex());
-        // if (step.groupMask() & _sequence->routeA().targetGroups) {
-        //     applyModulation(cvA, _sequence->routeA(), baseDuration, baseGatePercent, baseNote);
-        // }
+        float cvA = _sequence->routedIndexedA();
+        if (step.groupMask() & _sequence->routeA().targetGroups) {
+            applyModulation(cvA, _sequence->routeA(), baseDuration, baseGatePercent, baseNote);
+        }
     }
 
     // Apply Route B modulation (if enabled and step is in target groups)
     if (_sequence->routeB().enabled) {
-        // TODO: Get CV value from routing engine (Phase 5)
-        // float cvB = _engine.getRoutingValue(Routing::Target::IndexedB, _track.trackIndex());
-        // if (step.groupMask() & _sequence->routeB().targetGroups) {
-        //     applyModulation(cvB, _sequence->routeB(), baseDuration, baseGatePercent, baseNote);
-        // }
+        float cvB = _sequence->routedIndexedB();
+        printf("[ENGINE] RouteB enabled, cvB=%f, groupMask=0x%02X, targetGroups=0x%02X\n",
+               cvB, step.groupMask(), _sequence->routeB().targetGroups);
+        if (step.groupMask() & _sequence->routeB().targetGroups) {
+            printf("[ENGINE] Applying modulation: duration before=%d\n", baseDuration);
+            applyModulation(cvB, _sequence->routeB(), baseDuration, baseGatePercent, baseNote);
+            printf("[ENGINE] Applying modulation: duration after=%d\n", baseDuration);
+        }
     }
 
     // Calculate gate duration in ticks

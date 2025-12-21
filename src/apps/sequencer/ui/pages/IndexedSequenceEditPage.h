@@ -31,6 +31,11 @@ private:
         Step
     };
 
+    enum class FunctionMode {
+        Edit,     // F1-F3 = Note/Duration/Gate editing
+        Groups    // F1-F4 = Group A/B/C/D toggles
+    };
+
     static const int StepCount = 16;
 
     int stepOffset() const { return _section * StepCount; }
@@ -53,6 +58,7 @@ private:
     int _section = 0;
     EditMode _editMode = EditMode::Note;
     ContextMode _contextMode = ContextMode::Sequence;
+    FunctionMode _functionMode = FunctionMode::Edit;
 
     StepSelection<IndexedSequence::MaxSteps> _stepSelection;
 };

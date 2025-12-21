@@ -115,6 +115,12 @@ public:
         DiscreteMapRangeLow,
         DiscreteMapLast = DiscreteMapRangeLow,
 
+        // Indexed Modulation Targets
+        IndexedFirst,
+        IndexedA = IndexedFirst,
+        IndexedB,
+        IndexedLast = IndexedB,
+
         Last,
     };
 
@@ -181,6 +187,9 @@ public:
         case Target::DiscreteMapSync:           return "DMap Sync";
         case Target::DiscreteMapRangeHigh:      return "DMap Above";
         case Target::DiscreteMapRangeLow:       return "DMap Below";
+
+        case Target::IndexedA:                  return "Indexed A";
+        case Target::IndexedB:                  return "Indexed B";
 
         case Target::Last:                      break;
         }
@@ -256,6 +265,10 @@ public:
         case Target::DiscreteMapRangeHigh:      return 50;
         case Target::DiscreteMapRangeLow:       return 51;
 
+        // Indexed Targets (52-53)
+        case Target::IndexedA:                  return 52;
+        case Target::IndexedB:                  return 53;
+
         case Target::Last:                      break;
         }
         return 0;
@@ -297,10 +310,14 @@ public:
         return target >= Target::DiscreteMapFirst && target <= Target::DiscreteMapLast;
     }
 
+    static bool isIndexedTarget(Target target) {
+        return target >= Target::IndexedFirst && target <= Target::IndexedLast;
+    }
+
     static bool isPerTrackTarget(Target target) {
         return isPlayStateTarget(target) || isTrackTarget(target) || isSequenceTarget(target) ||
                isTuesdayTarget(target) || isChaosTarget(target) || isWavefolderTarget(target) ||
-               isDiscreteMapTarget(target);
+               isDiscreteMapTarget(target) || isIndexedTarget(target);
     }
 
     enum class Shaper : uint8_t {

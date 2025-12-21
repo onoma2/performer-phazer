@@ -102,6 +102,7 @@ set(sources
     ui/pages/IndexedSequencePage.cpp
     ui/pages/IndexedStepsPage.cpp
     ui/pages/IndexedSequenceEditPage.cpp
+    ui/pages/IndexedRouteConfigPage.cpp
     ui/pages/MonitorPage.cpp
     ui/pages/NoteSequenceEditPage.cpp
     ui/pages/NoteSequencePage.cpp
