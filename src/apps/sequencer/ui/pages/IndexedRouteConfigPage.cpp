@@ -8,6 +8,16 @@
 #include "core/utils/StringBuilder.h"
 
 #include "model/Track.h"
+#include <cmath>
+
+namespace {
+bool routeConfigEqual(const IndexedSequence::RouteConfig &a, const IndexedSequence::RouteConfig &b) {
+    return a.targetGroups == b.targetGroups &&
+        a.targetParam == b.targetParam &&
+        std::fabs(a.amount - b.amount) < 0.0001f &&
+        a.enabled == b.enabled;
+}
+} // namespace
 
 IndexedRouteConfigPage::IndexedRouteConfigPage(PageManager &manager, PageContext &context) :
     BasePage(manager, context)
@@ -17,6 +27,9 @@ IndexedRouteConfigPage::IndexedRouteConfigPage(PageManager &manager, PageContext
 void IndexedRouteConfigPage::enter() {
     _activeRoute = ActiveRoute::RouteA;
     _editParam = EditParam::Enabled;
+    const auto &sequence = _project.selectedIndexedSequence();
+    _routeAStaged = sequence.routeA();
+    _routeBStaged = sequence.routeB();
 }
 
 void IndexedRouteConfigPage::exit() {
@@ -31,16 +44,14 @@ void IndexedRouteConfigPage::draw(Canvas &canvas) {
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "ROUTE CONFIG");
 
-    auto &sequence = _project.selectedIndexedSequence();
-
     // Draw Route A
-    drawRouteConfig(canvas, sequence.routeA(), 16, _activeRoute == ActiveRoute::RouteA);
+    drawRouteConfig(canvas, _routeAStaged, 16, _activeRoute == ActiveRoute::RouteA);
 
     // Draw Route B
-    drawRouteConfig(canvas, sequence.routeB(), 36, _activeRoute == ActiveRoute::RouteB);
+    drawRouteConfig(canvas, _routeBStaged, 36, _activeRoute == ActiveRoute::RouteB);
 
     // Footer: F1-F4 for parameter selection, F5 to exit
-    const char *footerLabels[] = { "ENABLE", "GROUPS", "TARGET", "AMOUNT", "BACK" };
+    const char *footerLabels[] = { "ENABLE", "GROUPS", "TARGET", "AMOUNT", stagedChanged() ? "COMMIT" : "BACK" };
     WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), (int)_editParam);
 }
 
@@ -112,9 +123,16 @@ void IndexedRouteConfigPage::keyPress(KeyPressEvent &event) {
             _editParam = static_cast<EditParam>(fn);
         }
 
-        // F5: Go back to previous page (IndexedSequenceEditPage)
+        // F5: Commit changes (if any) or go back
         if (fn == 4) {
-            _manager.pop();
+            if (stagedChanged()) {
+                auto &sequence = _project.selectedIndexedSequence();
+                sequence.setRouteA(_routeAStaged);
+                sequence.setRouteB(_routeBStaged);
+                showMessage("ROUTE UPDATED");
+            } else {
+                _manager.pop();
+            }
         }
 
         event.consume();
@@ -171,19 +189,23 @@ void IndexedRouteConfigPage::encoder(EncoderEvent &event) {
 }
 
 IndexedSequence::RouteConfig& IndexedRouteConfigPage::activeRouteConfig() {
-    auto &sequence = _project.selectedIndexedSequence();
     if (_activeRoute == ActiveRoute::RouteA) {
-        return sequence.routeA();
+        return _routeAStaged;
     } else {
-        return sequence.routeB();
+        return _routeBStaged;
     }
 }
 
 const IndexedSequence::RouteConfig& IndexedRouteConfigPage::activeRouteConfig() const {
-    auto &sequence = _project.selectedIndexedSequence();
     if (_activeRoute == ActiveRoute::RouteA) {
-        return sequence.routeA();
+        return _routeAStaged;
     } else {
-        return sequence.routeB();
+        return _routeBStaged;
     }
+}
+
+bool IndexedRouteConfigPage::stagedChanged() const {
+    const auto &sequence = _project.selectedIndexedSequence();
+    return !routeConfigEqual(_routeAStaged, sequence.routeA()) ||
+        !routeConfigEqual(_routeBStaged, sequence.routeB());
 }

@@ -32,9 +32,12 @@ private:
 
     ActiveRoute _activeRoute = ActiveRoute::RouteA;
     EditParam _editParam = EditParam::Enabled;
+    IndexedSequence::RouteConfig _routeAStaged;
+    IndexedSequence::RouteConfig _routeBStaged;
 
     IndexedSequence::RouteConfig& activeRouteConfig();
     const IndexedSequence::RouteConfig& activeRouteConfig() const;
+    bool stagedChanged() const;
 
     void drawRouteConfig(Canvas &canvas, const IndexedSequence::RouteConfig &cfg, int y, bool active);
     void drawGroupMask(Canvas &canvas, uint8_t groupMask, int x, int y);
