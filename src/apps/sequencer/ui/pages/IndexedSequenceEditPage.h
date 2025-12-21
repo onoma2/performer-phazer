@@ -1,6 +1,8 @@
 #pragma once
 
 #include "BasePage.h"
+#include "ui/StepSelection.h"
+#include "model/IndexedSequence.h"
 
 class IndexedSequenceEditPage : public BasePage {
 public:
@@ -12,6 +14,31 @@ public:
     virtual void draw(Canvas &canvas) override;
     virtual void updateLeds(Leds &leds) override;
 
+    virtual void keyDown(KeyEvent &event) override;
+    virtual void keyUp(KeyEvent &event) override;
     virtual void keyPress(KeyPressEvent &event) override;
     virtual void encoder(EncoderEvent &event) override;
+
+private:
+    enum class EditMode {
+        Note,
+        Duration,
+        Gate
+    };
+
+    static const int StepCount = 16;
+
+    int stepOffset() const { return _section * StepCount; }
+
+    void contextShow();
+    void contextAction(int index);
+    bool contextActionEnabled(int index) const;
+
+    IndexedSequence::Step& step(int index);
+    const IndexedSequence::Step& step(int index) const;
+
+    int _section = 0;
+    EditMode _editMode = EditMode::Note;
+
+    StepSelection<IndexedSequence::MaxSteps> _stepSelection;
 };
