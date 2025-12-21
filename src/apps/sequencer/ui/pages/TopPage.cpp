@@ -254,7 +254,9 @@ void TopPage::setSequencePage() {
     auto &pages = _manager.pages();
     bool fromSequenceView = (currentPage == &pages.noteSequence ||
                             currentPage == &pages.accumulator ||
-                            currentPage == &pages.tuesdaySequence);
+                            currentPage == &pages.tuesdaySequence ||
+                            currentPage == &pages.indexedSequence ||
+                            currentPage == &pages.indexedSteps);
 
     // Cycle to next view only if we're currently on a sequence view
     if (fromSequenceView) {
@@ -302,7 +304,14 @@ void TopPage::setSequenceView(SequenceView view) {
         setMainPage(pages.discreteMapStages);
         break;
     case Track::TrackMode::Indexed:
-        setMainPage(pages.indexedSteps);
+        switch (view) {
+        case SequenceView::NoteSequence:
+            setMainPage(pages.indexedSequence);
+            break;
+        case SequenceView::Accumulator:
+            setMainPage(pages.indexedSteps);
+            break;
+        }
         break;
     case Track::TrackMode::Last:
         break;

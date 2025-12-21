@@ -123,6 +123,7 @@ set(sources
     ui/model/AccumulatorListModel.h
     ui/model/AccumulatorStepsListModel.h
     ui/model/DiscreteMapSequenceListModel.h
+    ui/model/IndexedTrackListModel.h
     # ui/painters
     ui/painters/SequencePainter.cpp
     ui/painters/SongPainter.cpp

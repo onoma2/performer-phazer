@@ -10,6 +10,7 @@ void IndexedTrack::cvOutputName(int index, StringBuilder &str) const {
 }
 
 void IndexedTrack::clear() {
+    _cvUpdateMode = CvUpdateMode::Gate;
     _routedSync = 0.f;
     for (auto &sequence : _sequences) {
         sequence.clear();
@@ -17,10 +18,16 @@ void IndexedTrack::clear() {
 }
 
 void IndexedTrack::write(VersionedSerializedWriter &writer) const {
+    writer.write(_cvUpdateMode);
     writeArray(writer, _sequences);
 }
 
 void IndexedTrack::read(VersionedSerializedReader &reader) {
+    if (reader.dataVersion() >= ProjectVersion::Version67) {
+        reader.read(_cvUpdateMode);
+    } else {
+        _cvUpdateMode = CvUpdateMode::Gate;
+    }
     readArray(reader, _sequences);
 }
 

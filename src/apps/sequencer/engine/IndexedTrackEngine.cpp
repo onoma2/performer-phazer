@@ -192,7 +192,9 @@ void IndexedTrackEngine::triggerStep() {
     _gateTimer = gateTicks;
 
     // Calculate CV output (direct Scale lookup, no octave/modulo math)
-    _cvOutput = noteIndexToVoltage(baseNote);
+    if (_indexedTrack.cvUpdateMode() == IndexedTrack::CvUpdateMode::Always || gateTicks > 0) {
+        _cvOutput = noteIndexToVoltage(baseNote);
+    }
 
     // Activity indicator
     _activity = true;

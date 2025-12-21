@@ -114,8 +114,8 @@ void TrackPage::setTrack(Track &track) {
         newListModel = &_discreteMapSequenceListModel;
         break;
     case Track::TrackMode::Indexed:
-        _indexedSequenceListModel.setSequence(&_project.selectedIndexedSequence());
-        newListModel = &_indexedSequenceListModel;
+        _indexedTrackListModel.setTrack(&track.indexedTrack());
+        newListModel = &_indexedTrackListModel;
         break;
     case Track::TrackMode::Last:
         ASSERT(false, "invalid track mode");

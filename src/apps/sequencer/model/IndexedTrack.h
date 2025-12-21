@@ -19,6 +19,36 @@ public:
     // Properties
     //----------------------------------------
 
+    // CvUpdateMode
+
+    enum class CvUpdateMode : uint8_t {
+        Gate,
+        Always,
+        Last
+    };
+
+    static const char *cvUpdateModeName(CvUpdateMode mode) {
+        switch (mode) {
+        case CvUpdateMode::Gate:    return "Gate";
+        case CvUpdateMode::Always:  return "Always";
+        case CvUpdateMode::Last:    break;
+        }
+        return nullptr;
+    }
+
+    CvUpdateMode cvUpdateMode() const { return _cvUpdateMode; }
+    void setCvUpdateMode(CvUpdateMode cvUpdateMode) {
+        _cvUpdateMode = ModelUtils::clampedEnum(cvUpdateMode);
+    }
+
+    void editCvUpdateMode(int value, bool shift) {
+        setCvUpdateMode(ModelUtils::adjustedEnum(cvUpdateMode(), value));
+    }
+
+    void printCvUpdateMode(StringBuilder &str) const {
+        str(cvUpdateModeName(cvUpdateMode()));
+    }
+
     // sequences
 
     const IndexedSequenceArray &sequences() const { return _sequences; }
@@ -53,6 +83,7 @@ private:
     }
 
     int8_t _trackIndex = -1;
+    CvUpdateMode _cvUpdateMode = CvUpdateMode::Gate;
     IndexedSequenceArray _sequences;
     float _routedSync = 0.f;
 

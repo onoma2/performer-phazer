@@ -186,6 +186,9 @@ enum ProjectVersion {
     // added IndexedSequence::syncMode
     Version66 = 66,
 
+    // added IndexedTrack::cvUpdateMode
+    Version67 = 67,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

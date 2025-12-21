@@ -8,6 +8,7 @@
 #include "ui/model/TuesdaySequenceListModel.h"
 #include "ui/model/DiscreteMapSequenceListModel.h"
 #include "ui/model/IndexedSequenceListModel.h"
+#include "ui/model/IndexedTrackListModel.h"
 
 class TrackPage : public ListPage {
 public:
@@ -41,4 +42,5 @@ private:
     TuesdaySequenceListModel _tuesdaySequenceListModel;
     DiscreteMapSequenceListModel _discreteMapSequenceListModel;
     IndexedSequenceListModel _indexedSequenceListModel;
+    IndexedTrackListModel _indexedTrackListModel;
 };
