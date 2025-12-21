@@ -52,6 +52,7 @@ private:
     // === Timing state ===
     uint32_t _stepTimer = 0;        // Counts up to step.duration
     uint32_t _gateTimer = 0;        // Counts down from step.gateLength
+    uint32_t _effectiveStepDuration = 0; // Sampled duration for current step
     int _currentStepIndex = 0;      // Current step (0 to activeLength-1)
     bool _running = true;
     bool _pendingTrigger = false;   // Fire step at start of next tick

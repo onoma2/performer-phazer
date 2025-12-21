@@ -16,6 +16,7 @@ void IndexedTrackEngine::reset() {
     _currentStepIndex = 0;
     _stepTimer = 0;
     _gateTimer = 0;
+    _effectiveStepDuration = 0;
     _cvOutput = 0.0f;
     _running = true;
     _activity = false;
@@ -33,6 +34,7 @@ void IndexedTrackEngine::restart() {
     _currentStepIndex = 0;
     _stepTimer = 0;
     _gateTimer = 0;
+    _effectiveStepDuration = 0;
     _running = true;
     _prevSync = routedSync();
     primeNextStep();
@@ -100,9 +102,7 @@ TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
     }
 
     // 2. Check current step duration BEFORE incrementing timer
-    int effectiveStepIndex = (_currentStepIndex + _sequence->firstStep()) % _sequence->activeLength();
-    const auto &currentStep = _sequence->step(effectiveStepIndex);
-    uint16_t stepDuration = currentStep.duration();
+    uint16_t stepDuration = static_cast<uint16_t>(_effectiveStepDuration);
 
     // If step has zero duration, skip it immediately (without incrementing timer)
     if (stepDuration == 0) {
@@ -188,6 +188,7 @@ void IndexedTrackEngine::triggerStep() {
 
     // Set gate timer
     _gateTimer = gateTicks;
+    _effectiveStepDuration = baseDuration;
 
     // Calculate CV output (direct Scale lookup, no octave/modulo math)
     if (_indexedTrack.cvUpdateMode() == IndexedTrack::CvUpdateMode::Always || gateTicks > 0) {
@@ -225,10 +226,14 @@ void IndexedTrackEngine::applyModulation(
 
     switch (cfg.targetParam) {
         case IndexedSequence::ModTarget::Duration: {
-            // Additive modulation in ticks
-            int modAmount = static_cast<int>(cv * cfg.amount);
-            int newDuration = static_cast<int>(duration) + modAmount;
-            duration = clamp(newDuration, 0, 65535);
+            // Scale duration by percentage of base duration
+            float amountPct = cfg.amount * 0.01f;
+            float factor = 1.0f + (cv * amountPct);
+            float modded = static_cast<float>(duration) * factor;
+            int maxDuration = static_cast<int>(_engine.measureDivisor()) * 4;
+            maxDuration = clamp(maxDuration, 0, 65535);
+            int newDuration = static_cast<int>(std::lround(modded));
+            duration = clamp(newDuration, 0, maxDuration);
             break;
         }
 
@@ -262,9 +267,8 @@ float IndexedTrackEngine::sequenceProgress() const {
     float stepProgress = static_cast<float>(_currentStepIndex) / _sequence->activeLength();
 
     // Add sub-step progress within current step
-    const auto &step = _sequence->step(_currentStepIndex);
-    if (step.duration() > 0) {
-        float subStepProgress = static_cast<float>(_stepTimer) / step.duration();
+    if (_effectiveStepDuration > 0) {
+        float subStepProgress = static_cast<float>(_stepTimer) / _effectiveStepDuration;
         stepProgress += subStepProgress / _sequence->activeLength();
     }
 
