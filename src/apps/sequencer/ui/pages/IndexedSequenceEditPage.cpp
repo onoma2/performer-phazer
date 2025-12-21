@@ -140,8 +140,11 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
             FixedStringBuilder<8> noteName;
             const auto &scale = sequence.selectedScale(_project.selectedScale());
             int rootNote = sequence.rootNote() < 0 ? _project.rootNote() : sequence.rootNote();
-            scale.noteName(noteName, step.noteIndex(), rootNote, Scale::Format::Short1);
-            float volts = scale.noteToVolts(step.noteIndex());
+            const auto &track = _project.selectedTrack().indexedTrack();
+            int shift = track.octave() * scale.notesPerOctave() + track.transpose();
+            int noteIndex = step.noteIndex() + shift;
+            scale.noteName(noteName, noteIndex, rootNote, Scale::Format::Short1);
+            float volts = scale.noteToVolts(noteIndex);
             if (scale.isChromatic()) {
                 volts += rootNote * (1.f / 12.f);
             }

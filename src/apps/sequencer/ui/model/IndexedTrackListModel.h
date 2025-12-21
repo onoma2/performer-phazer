@@ -33,18 +33,29 @@ public:
     }
 
     virtual Routing::Target routingTarget(int row) const override {
-        return Routing::Target::None;
+        switch (Item(row)) {
+        case Octave:
+            return Routing::Target::Octave;
+        case Transpose:
+            return Routing::Target::Transpose;
+        default:
+            return Routing::Target::None;
+        }
     }
 
 private:
     enum Item {
         CvUpdateMode,
+        Octave,
+        Transpose,
         Last
     };
 
     static const char *itemName(Item item) {
         switch (item) {
         case CvUpdateMode: return "CV Update";
+        case Octave:       return "Octave";
+        case Transpose:    return "Transpose";
         case Last:         break;
         }
         return nullptr;
@@ -59,6 +70,12 @@ private:
         case CvUpdateMode:
             _track->printCvUpdateMode(str);
             break;
+        case Octave:
+            _track->printOctave(str);
+            break;
+        case Transpose:
+            _track->printTranspose(str);
+            break;
         case Last:
             break;
         }
@@ -68,6 +85,12 @@ private:
         switch (item) {
         case CvUpdateMode:
             _track->editCvUpdateMode(value, shift);
+            break;
+        case Octave:
+            _track->editOctave(value, shift);
+            break;
+        case Transpose:
+            _track->editTranspose(value, shift);
             break;
         case Last:
             break;

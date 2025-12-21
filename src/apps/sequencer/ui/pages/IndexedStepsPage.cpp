@@ -212,11 +212,14 @@ void IndexedStepsPage::StepListModel::cell(int row, int column, StringBuilder &s
                 const Scale &scale = _sequence->selectedScale(_project->selectedScale());
                 FixedStringBuilder<8> noteName;
                 int rootNote = _sequence->rootNote() < 0 ? _project->rootNote() : _sequence->rootNote();
-                scale.noteName(noteName, step.noteIndex(), rootNote, Scale::Format::Short1);
-                float volts = scale.noteToVolts(step.noteIndex());
+                const auto &track = _project->selectedTrack().indexedTrack();
+                int shift = track.octave() * scale.notesPerOctave() + track.transpose();
+                int noteIndex = step.noteIndex() + shift;
+                float volts = scale.noteToVolts(noteIndex);
                 if (scale.isChromatic()) {
                     volts += rootNote * (1.f / 12.f);
                 }
+                scale.noteName(noteName, noteIndex, rootNote, Scale::Format::Short1);
                 str("%.2f %s", volts, static_cast<const char *>(noteName));
             } else {
                 str("%+d", int(step.noteIndex()));
@@ -225,12 +228,12 @@ void IndexedStepsPage::StepListModel::cell(int row, int column, StringBuilder &s
             // Display duration in ticks
             str("%d", step.duration());
         } else if (isGateRow(row)) {
-        // Display gate length as percentage or trigger
-        if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
-            str("T");
-        } else {
-            str("%d%%", step.gateLength());
-        }
+            // Display gate length as percentage or trigger
+            if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
+                str("T");
+            } else {
+                str("%d%%", step.gateLength());
+            }
         }
     }
 }

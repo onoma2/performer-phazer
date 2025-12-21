@@ -12,6 +12,8 @@ void IndexedTrack::cvOutputName(int index, StringBuilder &str) const {
 void IndexedTrack::clear() {
     _cvUpdateMode = CvUpdateMode::Gate;
     _routedSync = 0.f;
+    setOctave(0);
+    setTranspose(0);
     for (auto &sequence : _sequences) {
         sequence.clear();
     }
@@ -19,6 +21,8 @@ void IndexedTrack::clear() {
 
 void IndexedTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_cvUpdateMode);
+    writer.write(_octave.base);
+    writer.write(_transpose.base);
     writeArray(writer, _sequences);
 }
 
@@ -28,6 +32,15 @@ void IndexedTrack::read(VersionedSerializedReader &reader) {
     } else {
         _cvUpdateMode = CvUpdateMode::Gate;
     }
+    if (reader.dataVersion() >= ProjectVersion::Version68) {
+        reader.read(_octave.base);
+        reader.read(_transpose.base);
+    } else {
+        _octave.base = 0;
+        _transpose.base = 0;
+    }
+    _octave.routed = 0;
+    _transpose.routed = 0;
     readArray(reader, _sequences);
 }
 
@@ -37,6 +50,12 @@ void IndexedTrack::writeRouted(Routing::Target target, int intValue, float float
     switch (target) {
     case Routing::Target::DiscreteMapSync:
         _routedSync = floatValue;
+        break;
+    case Routing::Target::Octave:
+        setOctave(intValue, true);
+        break;
+    case Routing::Target::Transpose:
+        setTranspose(intValue, true);
         break;
     default:
         for (auto &sequence : _sequences) {

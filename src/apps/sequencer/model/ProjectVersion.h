@@ -189,6 +189,9 @@ enum ProjectVersion {
     // added IndexedTrack::cvUpdateMode
     Version67 = 67,
 
+    // added IndexedTrack octave/transpose
+    Version68 = 68,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,
