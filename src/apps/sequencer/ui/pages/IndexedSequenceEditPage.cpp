@@ -273,8 +273,8 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
         footerLabels[0] = "NOTE";
         footerLabels[1] = _durationTransfer ? "DUR-TR" : "DUR";
         footerLabels[2] = "GATE";
-        footerLabels[3] = (_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP";
-        footerLabels[4] = shift ? "ROUTE" : "MATH";
+        footerLabels[3] = shift ? "GROUPS" : ((_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP");
+        footerLabels[4] = shift ? "ROUTES" : "MATH";
     }
     WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), (_functionMode == FunctionMode::Groups) ? -1 : (int)_editMode);
 }
