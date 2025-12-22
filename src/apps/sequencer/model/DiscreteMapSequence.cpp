@@ -128,43 +128,25 @@ void DiscreteMapSequence::read(VersionedSerializedReader &reader) {
     reader.read(clockSource);
     _clockSource = static_cast<ClockSource>(clockSource);
 
-    if (reader.dataVersion() >= ProjectVersion::Version60) {
-        reader.read(syncMode);
-        _syncMode = ModelUtils::clampedEnum(static_cast<SyncMode>(syncMode));
-    } else {
-        _syncMode = SyncMode::Off;
-    }
+    reader.read(syncMode);
+    _syncMode = ModelUtils::clampedEnum(static_cast<SyncMode>(syncMode));
 
     reader.read(_divisor);
     reader.read(_gateLength);
     reader.read(_loop);
 
-    if (reader.dataVersion() >= ProjectVersion::Version60) {
-        reader.read(_resetMeasure);
-    } else {
-        _resetMeasure = 8;
-    }
+    reader.read(_resetMeasure);
 
     reader.read(thresholdMode);
     _thresholdMode = static_cast<ThresholdMode>(thresholdMode);
 
-    if (reader.dataVersion() >= ProjectVersion::Version58) {
-        reader.read(_scale);
-    } else {
-        _scale = -1;
-    }
+    reader.read(_scale);
 
     reader.read(_rootNote);
     reader.read(_slewEnabled);
 
-    if (reader.dataVersion() >= ProjectVersion::Version61) {
-        reader.read(_rangeHigh);
-        reader.read(_rangeLow);
-    } else {
-        // Backward compatibility: default to full ±5V range
-        _rangeHigh = 5.0f;
-        _rangeLow = -5.0f;
-    }
+    reader.read(_rangeHigh);
+    reader.read(_rangeLow);
 
     for (auto &stage : _stages) {
         stage.read(reader);

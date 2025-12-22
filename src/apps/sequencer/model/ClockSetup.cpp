@@ -38,11 +38,7 @@ void ClockSetup::read(VersionedSerializedReader &reader) {
     reader.read(_mode);
     reader.read(_shiftMode);
     reader.read(_clockInputDivisor);
-    if (reader.dataVersion() >= ProjectVersion::Version70) {
-        reader.read(_clockInputMultiplier);
-    } else {
-        _clockInputMultiplier = 1;
-    }
+    reader.read(_clockInputMultiplier);
     reader.read(_clockInputMode);
     reader.read(_clockOutputDivisor);
     reader.read(_clockOutputSwing, ProjectVersion::Version11);

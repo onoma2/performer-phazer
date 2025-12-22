@@ -109,28 +109,17 @@ void Routing::Route::read(VersionedSerializedReader &reader) {
     reader.read(_tracks);
     reader.read(_min);
     reader.read(_max);
-    if (reader.dataVersion() >= ProjectVersion::Version57) {
-        for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
-            reader.read(_biasPct[i]);
-            reader.read(_depthPct[i]);
-        }
-    } else {
-        _biasPct.fill(DefaultBiasPct);
-        _depthPct.fill(DefaultDepthPct);
+    for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+        reader.read(_biasPct[i]);
+        reader.read(_depthPct[i]);
     }
-    if (reader.dataVersion() >= ProjectVersion::Version62) {  // Added creaseEnabled
-        for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
-            reader.read(_creaseEnabled[i]);
-        }
-    } else {
-        _creaseEnabled.fill(false);  // Default to false for older projects
+
+    for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+        reader.read(_creaseEnabled[i]);
     }
-    if (reader.dataVersion() >= ProjectVersion::Version63) {
-        for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
-            reader.read(_shaper[i]);
-        }
-    } else {
-        _shaper.fill(Shaper::None);
+
+    for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
+        reader.read(_shaper[i]);
     }
     reader.read(_source);
     if (isCvSource(_source)) {

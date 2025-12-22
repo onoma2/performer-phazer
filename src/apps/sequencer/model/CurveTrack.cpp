@@ -61,49 +61,9 @@ void CurveTrack::read(VersionedSerializedReader &reader) {
     reader.read(_rotate.base);
     reader.read(_shapeProbabilityBias.base, ProjectVersion::Version15);
     reader.read(_gateProbabilityBias.base, ProjectVersion::Version15);
-    if (reader.dataVersion() >= ProjectVersion::Version42) {
-        reader.read(_globalPhase);
-    } else {
-        uint8_t phaseOffset;
-        reader.read(phaseOffset, ProjectVersion::Version35);
-        setGlobalPhase(float(phaseOffset) / 100.f);
-    }
-    if (reader.dataVersion() >= ProjectVersion::Version43) {
-        float dummyFold;
-        float dummyGain;
-        reader.read(dummyFold);
-        reader.read(dummyGain);
-        // Discard old track-level wavefolder settings
-        float dummy;
-        reader.read(dummy); // _wavefolderSymmetry (or placeholder)
-    }
-    if (reader.dataVersion() >= ProjectVersion::Version44) {
-        float dummyFilter;
-        reader.read(dummyFilter);
-    }
-    if (reader.dataVersion() >= ProjectVersion::Version45) {
-        float dummy;
-        reader.read(dummy); // _foldF placeholder
-        reader.read(dummy); // _filterF placeholder
-    } 
-    if (reader.dataVersion() >= ProjectVersion::Version46) {
-        float dummyXFade;
-        reader.read(dummyXFade);
-    }
-    if (reader.dataVersion() >= ProjectVersion::Version48) {
-        int dummyChaosAmount;
-        int dummyChaosRate;
-        int dummyChaosParam1;
-        int dummyChaosParam2;
-        reader.read(dummyChaosAmount);
-        reader.read(dummyChaosRate);
-        reader.read(dummyChaosParam1);
-        reader.read(dummyChaosParam2);
-    }
-    if (reader.dataVersion() >= ProjectVersion::Version49) {
-        CurveSequence::ChaosAlgorithm dummyChaosAlgo;
-        reader.read(dummyChaosAlgo);
-    }
+
+    reader.read(_globalPhase);
+
     readArray(reader, _sequences);
 }
 

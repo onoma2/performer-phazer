@@ -376,36 +376,21 @@ void NoteSequence::read(VersionedSerializedReader &reader) {
     readArray(reader, _steps);
 
     // Read accumulator state (Version33+)
-    if (reader.dataVersion() >= ProjectVersion::Version33) {
-        _accumulator.read(reader);
-    } else {
-        // Backward compatibility: use default accumulator
-        _accumulator = Accumulator();
-    }
+    _accumulator.read(reader);
 
     // Read harmony properties (Version34+)
-    if (reader.dataVersion() >= ProjectVersion::Version34) {
-        uint8_t harmonyFlags1;
-        reader.read(harmonyFlags1);
-        _harmonyRole = static_cast<HarmonyRole>((harmonyFlags1 >> 0) & 0x7);  // 3 bits
-        _harmonyScale = (harmonyFlags1 >> 3) & 0x7;                            // 3 bits
-        _harmonyInversion = (harmonyFlags1 >> 6) & 0x3;                        // 2 bits
-        reader.read(_masterTrackIndex);
+    uint8_t harmonyFlags1;
+    reader.read(harmonyFlags1);
+    _harmonyRole = static_cast<HarmonyRole>((harmonyFlags1 >> 0) & 0x7);  // 3 bits
+    _harmonyScale = (harmonyFlags1 >> 3) & 0x7;                            // 3 bits
+    _harmonyInversion = (harmonyFlags1 >> 6) & 0x3;                        // 2 bits
+    reader.read(_masterTrackIndex);
 
-        // Read second harmony byte (Version34+ with inversion/voicing)
-        uint8_t harmonyFlags2;
-        reader.read(harmonyFlags2);
-        _harmonyVoicing = (harmonyFlags2 >> 0) & 0x3;  // 2 bits
+    // Read second harmony byte (Version34+ with inversion/voicing)
+    uint8_t harmonyFlags2;
+    reader.read(harmonyFlags2);
+    _harmonyVoicing = (harmonyFlags2 >> 0) & 0x3;  // 2 bits
 
-        // Read third harmony byte (Version34+ with transpose)
-        reader.read(_harmonyTranspose);
-    } else {
-        // Backward compatibility: use defaults
-        _harmonyRole = HarmonyOff;
-        _masterTrackIndex = 0;
-        _harmonyScale = 0;
-        _harmonyInversion = 0;
-        _harmonyVoicing = 0;
-        _harmonyTranspose = 0;
-    }
+    // Read third harmony byte (Version34+ with transpose)
+    reader.read(_harmonyTranspose);
 }

@@ -30,15 +30,9 @@ void DiscreteMapTrack::write(VersionedSerializedWriter &writer) const {
 }
 
 void DiscreteMapTrack::read(VersionedSerializedReader &reader) {
-    if (reader.dataVersion() >= ProjectVersion::Version59) {
-        reader.read(_octave);
-        reader.read(_transpose);
-    }
-    if (reader.dataVersion() >= ProjectVersion::Version62) { // Added DiscreteMapTrack cvUpdateMode
-        reader.read(_cvUpdateMode);
-    } else {
-        setCvUpdateMode(CvUpdateMode::Gate); // Default for older projects
-    }
+    reader.read(_octave);
+    reader.read(_transpose);
+    reader.read(_cvUpdateMode);
     readArray(reader, _sequences);
 }
 

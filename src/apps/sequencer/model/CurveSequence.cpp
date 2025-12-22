@@ -277,29 +277,15 @@ void CurveSequence::read(VersionedSerializedReader &reader) {
     reader.read(_firstStep.base);
     reader.read(_lastStep.base);
 
-    if (reader.dataVersion() >= ProjectVersion::Version49) {
-        reader.read(_wavefolderFold.base);
-        reader.read(_wavefolderGain.base);
-        reader.read(_djFilter.base);
-        reader.read(_xFade.base);
-        reader.read(_chaosAmount.base);
-        reader.read(_chaosRate.base);
-        reader.read(_chaosParam1.base);
-        reader.read(_chaosParam2.base);
-        reader.read(_chaosAlgo);
-    } else {
-        // Defaults for old versions (these were on the Track before, but we can't easily migrate from track to all sequences without a dedicated migration step in Project loading)
-        // For now, default to clean state.
-        setWavefolderFold(0.f);
-        setWavefolderGain(0.f);
-        setDjFilter(0.f);
-        setXFade(1.f);
-        setChaosAmount(0);
-        setChaosRate(0);
-        setChaosParam1(0);
-        setChaosParam2(0);
-        setChaosAlgo(ChaosAlgorithm::Latoocarfian);
-    }
+    reader.read(_wavefolderFold.base);
+    reader.read(_wavefolderGain.base);
+    reader.read(_djFilter.base);
+    reader.read(_xFade.base);
+    reader.read(_chaosAmount.base);
+    reader.read(_chaosRate.base);
+    reader.read(_chaosParam1.base);
+    reader.read(_chaosParam2.base);
+    reader.read(_chaosAlgo);
 
     readArray(reader, _steps);
 }

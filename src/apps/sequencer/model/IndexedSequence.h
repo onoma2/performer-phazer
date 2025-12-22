@@ -451,41 +451,28 @@ public:
         reader.read(_divisor);
         reader.read(_loop);
         reader.read(_activeLength);
-        reader.read(_scale);
-        // Special handling for legacy non-Routable rootNote?
-        // Since user said "no projects with previous versions", we assume new format.
-        reader.read(_rootNote);
-
-        if (reader.dataVersion() >= ProjectVersion::Version66) {
+            reader.read(_scale);
+            reader.read(_rootNote);
+        
             uint8_t sync;
             reader.read(sync);
             _syncMode = ModelUtils::clampedEnum(static_cast<SyncMode>(sync));
-        } else {
-            _syncMode = SyncMode::Off;
-        }
-        if (reader.dataVersion() >= ProjectVersion::Version65) {
+        
             reader.read(_resetMeasure);
-        } else {
-            _resetMeasure = 0;
-        }
-
-        _firstStep.read(reader);
-
-        _routeA.read(reader);
-        _routeB.read(reader);
-        if (reader.dataVersion() >= ProjectVersion::Version71) {
+        
+            _firstStep.read(reader);
+        
+            _routeA.read(reader);
+            _routeB.read(reader);
+        
             uint8_t mode;
             reader.read(mode);
             _routeCombineMode = ModelUtils::clampedEnum(static_cast<RouteCombineMode>(mode));
-        } else {
-            _routeCombineMode = RouteCombineMode::AtoB;
+        
+            for (auto &s : _steps) {
+                s.read(reader);
+            }
         }
-
-        for (auto &s : _steps) {
-            s.read(reader);
-        }
-    }
-
     void setTrackIndex(int trackIndex) { _trackIndex = trackIndex; }
 
     const Scale &selectedScale(const Scale &projectScale) const {

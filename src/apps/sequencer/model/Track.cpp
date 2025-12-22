@@ -116,7 +116,6 @@ void Track::cvOutputName(int index, StringBuilder &str) const {
 }
 
 void Track::write(VersionedSerializedWriter &writer) const {
-    writer.write(_trackIndex);
     writer.writeEnum(_trackMode, trackModeSerialize);
     writer.write(_linkTrack);
     _runGate.write(writer);
@@ -148,24 +147,13 @@ void Track::write(VersionedSerializedWriter &writer) const {
 }
 
 void Track::read(VersionedSerializedReader &reader) {
-  reader.read(_trackIndex);
-  reader.read(_trackMode);
+  reader.readEnum(_trackMode, trackModeSerialize);
   reader.read(_linkTrack);
   
-  if (reader.dataVersion() >= ProjectVersion::Version69) {
-      _runGate.read(reader);
-  } else {
-      _runGate.clear();
-      _runGate.base = 1;
-  }
+  _runGate.read(reader);
 
-  if (reader.dataVersion() >= ProjectVersion::Version47) {
-    _cvOutputRotate.read(reader);
-    _gateOutputRotate.read(reader);
-  } else {
-    _cvOutputRotate.clear();
-    _gateOutputRotate.clear();
-  }
+  _cvOutputRotate.read(reader);
+  _gateOutputRotate.read(reader);
 
     initContainer();
 

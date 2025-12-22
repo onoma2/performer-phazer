@@ -181,60 +181,27 @@ void TuesdaySequence::write(VersionedSerializedWriter &writer) const {
 void TuesdaySequence::read(VersionedSerializedReader &reader) {
     // All fields need version guards since TuesdayTrack is new in Version35
     // Defaults come from member initialization in TuesdayTrack.h
-    reader.read(_algorithm.base, ProjectVersion::Version35);
-    reader.read(_flow.base, ProjectVersion::Version35);
-    reader.read(_ornament.base, ProjectVersion::Version35);
-    reader.read(_power.base, ProjectVersion::Version35);
-    reader.read(_start, ProjectVersion::Version35);
-    reader.read(_loopLength, ProjectVersion::Version35);
-    reader.read(_glide.base, ProjectVersion::Version35);
-    reader.read(_trill.base, ProjectVersion::Version41);
-    reader.read(_stepTrill.base, ProjectVersion::Version51);
-    reader.read(_skew, ProjectVersion::Version35);
-    reader.read(_cvUpdateMode, ProjectVersion::Version35);
-    reader.read(_octave.base, ProjectVersion::Version35);
-    reader.read(_transpose.base, ProjectVersion::Version35);
-    if (reader.dataVersion() < ProjectVersion::Version10) {
-        reader.readAs<uint8_t>(_divisor.base);
-    } else {
-        reader.read(_divisor.base);
-    }
-    reader.read(_resetMeasure, ProjectVersion::Version35);
-    reader.read(_scale, ProjectVersion::Version35);
-    reader.read(_rootNote, ProjectVersion::Version35);
+    reader.read(_algorithm.base);
+    reader.read(_flow.base);
+    reader.read(_ornament.base);
+    reader.read(_power.base);
+    reader.read(_start);
+    reader.read(_loopLength);
+    reader.read(_glide.base);
+    reader.read(_trill.base);
+    reader.read(_stepTrill.base);
+    reader.read(_skew);
+    reader.read(_cvUpdateMode);
+    reader.read(_octave.base);
+    reader.read(_transpose.base);
+    reader.read(_divisor.base);
+    reader.read(_resetMeasure);
+    reader.read(_scale);
+    reader.read(_rootNote);
     _rotate.read(reader);
     _gateLength.read(reader);
     _gateOffset.read(reader);
-    // Read mask parameter (backward compatibility with older projects)
-    if (reader.dataVersion() >= ProjectVersion::Version56) {
-        // For newest files, read the mask parameter and progression
-        reader.read(_maskParameter, ProjectVersion::Version55);
-        reader.read(_timeMode, ProjectVersion::Version54);
-        reader.read(_maskProgression, ProjectVersion::Version56);
-    } else if (reader.dataVersion() >= ProjectVersion::Version55) {
-        // For version 55 files, read mask parameter and timeMode, set progression to default
-        reader.read(_maskParameter, ProjectVersion::Version55);
-        reader.read(_timeMode, ProjectVersion::Version54);
-        _maskProgression = 0; // Default to no progression for older files
-    } else if (reader.dataVersion() >= ProjectVersion::Version53) {
-        // For version 53-54 files that have the old primeMaskPattern, read and convert
-        uint8_t oldPrimeMaskPattern;
-        reader.read(oldPrimeMaskPattern, ProjectVersion::Version53);
-        reader.read(_maskParameter, ProjectVersion::Version53);
-        reader.read(_timeMode, ProjectVersion::Version54);
-        _maskProgression = 0; // Default to no progression for older files
-
-        // Convert old primeMaskPattern to new behavior if needed
-        // If old pattern was 1 (ALLOW ALL), keep _maskParameter as is (0 = ALL)
-        // If old pattern was 0 (MASK ALL), set _maskParameter to 15 (NONE)
-        if (oldPrimeMaskPattern == 0) {
-            _maskParameter = 15;  // Convert MASK ALL to NONE
-        }
-        // For old prime/fib patterns, the maskParam values remain the same but will now map to new mask values
-    } else {
-        // For even older files, just maintain defaults
-        reader.read(_timeMode, ProjectVersion::Version54);
-        _maskParameter = 0; // Default to ALL
-        _maskProgression = 0; // Default to no progression
-    }
+    reader.read(_maskParameter);
+    reader.read(_timeMode);
+    reader.read(_maskProgression);
 }

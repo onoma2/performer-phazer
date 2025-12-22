@@ -27,18 +27,9 @@ void IndexedTrack::write(VersionedSerializedWriter &writer) const {
 }
 
 void IndexedTrack::read(VersionedSerializedReader &reader) {
-    if (reader.dataVersion() >= ProjectVersion::Version67) {
-        reader.read(_cvUpdateMode);
-    } else {
-        _cvUpdateMode = CvUpdateMode::Gate;
-    }
-    if (reader.dataVersion() >= ProjectVersion::Version68) {
-        reader.read(_octave.base);
-        reader.read(_transpose.base);
-    } else {
-        _octave.base = 0;
-        _transpose.base = 0;
-    }
+    reader.read(_cvUpdateMode);
+    reader.read(_octave.base);
+    reader.read(_transpose.base);
     _octave.routed = 0;
     _transpose.routed = 0;
     readArray(reader, _sequences);
