@@ -192,6 +192,9 @@ enum ProjectVersion {
     // added IndexedTrack octave/transpose
     Version68 = 68,
 
+    // added Track::runGate
+    Version69 = 69,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

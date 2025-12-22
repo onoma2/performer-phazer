@@ -3,12 +3,14 @@
 #include "ProjectVersion.h"
 
 void Track::clear() {
-    _trackMode = TrackMode::Default;
-    _linkTrack = -1;
-    setCvOutputRotate(0);
-    setGateOutputRotate(0);
+  _trackMode = TrackMode::Default;
+  _linkTrack = -1;
+  _runGate.clear();
+  _runGate.base = 1; // Default to Run = On
+  _cvOutputRotate.clear();
+  _gateOutputRotate.clear();
 
-    initContainer();
+  initContainer();
 }
 
 void Track::clearPattern(int patternIndex) {
@@ -144,16 +146,24 @@ void Track::write(VersionedSerializedWriter &writer) const {
 }
 
 void Track::read(VersionedSerializedReader &reader) {
-    reader.readEnum(_trackMode, trackModeSerialize);
-    reader.read(_linkTrack);
-    
-    if (reader.dataVersion() >= ProjectVersion::Version47) { // Assuming Version47 is next available or using dummy check
-         reader.read(_cvOutputRotate.base);
-         reader.read(_gateOutputRotate.base);
-    } else {
-         setCvOutputRotate(0);
-         setGateOutputRotate(0);
-    }
+  reader.read(_trackIndex);
+  reader.read(_trackMode);
+  reader.read(_linkTrack);
+  
+  if (reader.dataVersion() >= ProjectVersion::Version69) {
+      _runGate.read(reader);
+  } else {
+      _runGate.clear();
+      _runGate.base = 1;
+  }
+
+  if (reader.dataVersion() >= ProjectVersion::Version47) {
+    _cvOutputRotate.read(reader);
+    _gateOutputRotate.read(reader);
+  } else {
+    _cvOutputRotate.clear();
+    _gateOutputRotate.clear();
+  }
 
     initContainer();
 

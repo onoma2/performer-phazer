@@ -241,6 +241,10 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
                     track.setGateOutputRotate(intValue, true);
                     continue;
                 }
+                if (target == Target::Run) {
+                    track.setRunGate(floatValue > 0.7f, true);
+                    continue;
+                }
 
                 switch (track.trackMode()) {
                 case Track::TrackMode::Note:
@@ -378,6 +382,7 @@ static const TargetInfo targetInfos[int(Routing::Target::Last)] = {
     [int(Routing::Target::ShapeProbabilityBias)]            = { -8,     8,      -8,     8,      8       },
     [int(Routing::Target::CvOutputRotate)]                  = { -8,     8,      0,      8,      1       },
     [int(Routing::Target::GateOutputRotate)]                = { -8,     8,      0,      8,      1       },
+    [int(Routing::Target::Run)]                             = { 0,      1,      0,      1,      1       },
     // Sequence targets
     [int(Routing::Target::FirstStep)]                       = { 0,      63,     0,      63,     16      },
     [int(Routing::Target::LastStep)]                        = { 0,      63,     0,      63,     16      },
@@ -491,6 +496,7 @@ void Routing::printTargetValue(Routing::Target target, float normalized, StringB
     case Target::TapTempo:
     case Target::Mute:
     case Target::Fill:
+    case Target::Run:
         str(intValue ? "on" : "off");
         break;
     case Target::Scale:

@@ -141,6 +141,23 @@ public:
       return _cvOutputRotate.base != 0 || Routing::isRouted(Routing::Target::CvOutputRotate, _trackIndex);
   }
 
+  // runGate
+
+  bool runGate() const {
+      // Logic: If not routed, return base (default 1/true).
+      // If routed, return value > 0 (High = Run, Low = Stop).
+      return _runGate.get(Routing::isRouted(Routing::Target::Run, _trackIndex)) > 0;
+  }
+
+  void setRunGate(bool run, bool routed = false) {
+      _runGate.set(run ? 1 : 0, routed);
+  }
+
+  void printRunGate(StringBuilder &str) const {
+       Routing::printRouted(str, Routing::Target::Run, _trackIndex);
+       str(runGate() ? "On" : "Off");
+  }
+
   // gateOutputRotate
 
   int gateOutputRotate() const { return _gateOutputRotate.get(Routing::isRouted(Routing::Target::GateOutputRotate, _trackIndex)); }
@@ -320,6 +337,7 @@ private:
   uint8_t _trackIndex = -1;
   TrackMode _trackMode;
   int8_t _linkTrack;
+  Routable<uint8_t> _runGate;
   Routable<int8_t> _cvOutputRotate;
   Routable<int8_t> _gateOutputRotate;
 

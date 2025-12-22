@@ -53,7 +53,8 @@ public:
 
         // Track targets
         TrackFirst,
-        SlideTime = TrackFirst,
+        Run = TrackFirst,
+        SlideTime,
         Octave,
         Transpose,
         Offset,
@@ -128,6 +129,7 @@ public:
         switch (target) {
         case Target::None:                      return "None";
 
+        case Target::Run:                       return "Run";
         case Target::Play:                      return "Play";
         case Target::PlayToggle:                return "Play Toggle";
         case Target::Record:                    return "Record";
@@ -268,6 +270,8 @@ public:
         // Indexed Targets (52-53)
         case Target::IndexedA:                  return 52;
         case Target::IndexedB:                  return 53;
+
+        case Target::Run:                       return 54;
 
         case Target::Last:                      break;
         }
