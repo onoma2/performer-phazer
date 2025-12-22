@@ -122,8 +122,37 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
 
     // 2. Bottom Section: Info & Edit (F1, F2, F3) or Group Indicators (F1-F4)
     if (_stepSelection.any()) {
-        const int y = 40;
+        // Step selected: Show bars/deltas on row 1, selected step values on row 2
+        const auto &timeSig = _project.timeSignature();
+        uint32_t measureTicks = timeSig.measureDivisor();
+        uint32_t beatTicks = timeSig.noteDivisor();
+        float bars = (float)totalTicks / measureTicks;
 
+        canvas.setFont(Font::Tiny);
+        canvas.setColor(Color::Medium);
+        FixedStringBuilder<48> infoStr;
+        auto deltaToBoundary = [](int ticks, int period) -> int {
+            if (period <= 0) {
+                return 0;
+            }
+            if (ticks < period) {
+                return period - ticks;
+            }
+            int remainder = ticks % period;
+            if (remainder == 0) {
+                return 0;
+            }
+            int toPrev = -remainder;
+            int toNext = period - remainder;
+            return (abs(toPrev) <= abs(toNext)) ? toPrev : toNext;
+        };
+
+        int deltaBar = deltaToBoundary(totalTicks, int(measureTicks));
+        int deltaBeat = deltaToBoundary(totalTicks, int(beatTicks));
+        infoStr("BARS %.1f  DT %+d / %+d", bars, deltaBar, deltaBeat);
+        canvas.drawTextCentered(0, 32, 256, 8, infoStr);
+
+        const int y = 40;
         canvas.setFont(Font::Small);
         canvas.setBlendMode(BlendMode::Set);
         canvas.setColor(Color::Bright);
@@ -197,14 +226,10 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
             canvas.drawTextCentered(102, y, 51, 16, gateStr);
         }
     } else {
+        // No step selected: Show "STEP N/N" with playing step info on row 1
         int currentStep = trackEngine.currentStep() + 1;
         int totalSteps = sequence.activeLength();
-        const auto &timeSig = _project.timeSignature();
-        uint32_t measureTicks = timeSig.measureDivisor();
-        uint32_t beatTicks = timeSig.noteDivisor();
-        float bars = (float)totalTicks / measureTicks;
 
-        // Show current step values above the step/bars info
         if (trackEngine.currentStep() >= 0 && trackEngine.currentStep() < sequence.activeLength()) {
             const auto &step = sequence.step(trackEngine.currentStep());
             const auto &scale = sequence.selectedScale(_project.selectedScale());
@@ -230,32 +255,9 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
             canvas.setFont(Font::Tiny);
             canvas.setColor(Color::Medium);
             FixedStringBuilder<48> info;
-            info("%.2f %s %d  %s", volts, static_cast<const char *>(noteName), step.duration(), static_cast<const char *>(gateStr));
+            info("STEP %d/%d  %.2f %s %d  %s", currentStep, totalSteps, volts, static_cast<const char *>(noteName), step.duration(), static_cast<const char *>(gateStr));
             canvas.drawTextCentered(0, 32, 256, 8, info);
         }
-
-        canvas.setColor(Color::Medium);
-        FixedStringBuilder<48> infoStr;
-        auto deltaToBoundary = [](int ticks, int period) -> int {
-            if (period <= 0) {
-                return 0;
-            }
-            if (ticks < period) {
-                return period - ticks;
-            }
-            int remainder = ticks % period;
-            if (remainder == 0) {
-                return 0;
-            }
-            int toPrev = -remainder;
-            int toNext = period - remainder;
-            return (abs(toPrev) <= abs(toNext)) ? toPrev : toNext;
-        };
-
-        int deltaBar = deltaToBoundary(totalTicks, int(measureTicks));
-        int deltaBeat = deltaToBoundary(totalTicks, int(beatTicks));
-        infoStr("STEP %d/%d  BARS %.1f  DT %+d / %+d", currentStep, totalSteps, bars, deltaBar, deltaBeat);
-        canvas.drawTextCentered(0, 40, 256, 16, infoStr);
     }
 
     // Footer Labels
