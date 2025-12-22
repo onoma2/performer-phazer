@@ -48,6 +48,7 @@ private:
 
     IndexedTrack &_indexedTrack;
     IndexedSequence *_sequence = nullptr;
+    int _cachedPattern = -1;        // Cached pattern index to avoid redundant lookups
 
     // === Timing state ===
     uint32_t _stepTimer = 0;        // Counts up to step.duration

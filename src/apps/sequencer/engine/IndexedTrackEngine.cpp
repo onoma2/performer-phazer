@@ -11,7 +11,9 @@ float IndexedTrackEngine::routedSync() const {
 }
 
 void IndexedTrackEngine::reset() {
-    _sequence = &_indexedTrack.sequence(pattern());
+    int currentPattern = pattern();
+    _sequence = &_indexedTrack.sequence(currentPattern);
+    _cachedPattern = currentPattern;
 
     _currentStepIndex = 0;
     _stepTimer = 0;
@@ -25,7 +27,9 @@ void IndexedTrackEngine::reset() {
 }
 
 void IndexedTrackEngine::changePattern() {
-    _sequence = &_indexedTrack.sequence(pattern());
+    int currentPattern = pattern();
+    _sequence = &_indexedTrack.sequence(currentPattern);
+    _cachedPattern = currentPattern;
     // Keep playback position when changing patterns
     // (could optionally reset to step 0 here)
 }
@@ -41,7 +45,12 @@ void IndexedTrackEngine::restart() {
 }
 
 TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
-    _sequence = &_indexedTrack.sequence(pattern());
+    // Only update sequence pointer when pattern actually changes
+    int currentPattern = pattern();
+    if (currentPattern != _cachedPattern) {
+        _sequence = &_indexedTrack.sequence(currentPattern);
+        _cachedPattern = currentPattern;
+    }
 
     // Sync handling (Off / ResetMeasure / External)
     switch (_sequence->syncMode()) {

@@ -31,6 +31,99 @@ void IndexedTrackEngine::tick(uint32_t tick) {
 
 ---
 
+### Pattern Architecture & Routing Clarification
+
+**Important**: Each IndexedTrack has **16 patterns** (CONFIG_PATTERN_COUNT), and pattern changes affect which sequence the engine is playing.
+
+**Routing Flow for IndexedA/IndexedB** (src/apps/sequencer/model/Routing.cpp:278-285):
+
+```cpp
+case Track::TrackMode::Indexed:
+    // When routing writes IndexedA or IndexedB targets:
+    for (int patternIndex = 0; patternIndex < CONFIG_PATTERN_COUNT; ++patternIndex) {
+        // Writes to ALL 16 patterns simultaneously!
+        track.indexedTrack().sequence(patternIndex).writeRouted(target, intValue, floatValue);
+    }
+```
+
+**Key Insight**: Routed CV values (`_routedIndexedA`, `_routedIndexedB`) are **broadcast to all 16 patterns**, but each pattern has **different routing configurations**.
+
+**Per-Pattern Data**:
+- `RouteConfig routeA` - Target groups, param, amount, enabled
+- `RouteConfig routeB` - Independent config for route B
+- `float _routedIndexedA` - Synchronized across all patterns (same value)
+- `float _routedIndexedB` - Synchronized across all patterns (same value)
+
+**Example**:
+```
+Pattern 0: routeA targets Duration, amount=100%, enabled=true
+Pattern 1: routeA targets NoteIndex, amount=50%, enabled=false
+Pattern 2: routeA targets GateLength, amount=75%, enabled=true
+
+All patterns receive: _routedIndexedA = 0.5 (same CV value from routing engine)
+But each applies it differently based on its own RouteConfig!
+```
+
+**Why Optimization is Valid**:
+
+The sequence pointer is needed to access **pattern-specific routing configurations**, not the routed CV values themselves. Pattern changes are rare (user action, song mode, MIDI program change), while tick() runs at 1kHz.
+
+**Without optimization**: 1000 pattern lookups/second even when playing the same pattern
+**With optimization**: 1 lookup when pattern changes, then cached until next change
+
+When pattern changes from 0→1, the engine needs the new sequence pointer to access Pattern 1's RouteConfig (different target params, amounts, groups), even though both patterns receive the same _routedIndexedA value from the routing engine.
+
+**Visual Flow**:
+```
+RoutingEngine.updateSinks() (called every engine update, ~1kHz)
+    ├─ CV Input / MIDI / etc.
+    └─ Calculates: floatValue = 0.5
+
+        ↓ writeRouted(IndexedA, floatValue)
+
+    Broadcasts to ALL 16 patterns in parallel:
+    ├─ Pattern 0._routedIndexedA = 0.5
+    ├─ Pattern 1._routedIndexedA = 0.5
+    ├─ Pattern 2._routedIndexedA = 0.5
+    └─ ... Pattern 15._routedIndexedA = 0.5
+         (All updated simultaneously via loop in Routing.cpp:282-284)
+
+IndexedTrackEngine.tick() (also ~1kHz, happens AFTER routing update)
+    ├─ pattern() returns: 2 (currently playing Pattern 2)
+    │
+    ├─ OPTIMIZATION POINT:
+    │   if (pattern() != _cachedPattern) {  ← Only true when pattern changes
+    │       _sequence = &patterns[2]
+    │       _cachedPattern = 2
+    │   }
+    │
+    └─ triggerStep() uses _sequence pointer:
+        ├─ _sequence->routedIndexedA()  (= 0.5, updated by routing engine)
+        └─ _sequence->routeA()          (= Pattern 2's unique config)
+            ├─ .targetParam = ModTarget::Duration
+            ├─ .amount = 100%
+            ├─ .targetGroups = 0b0011 (groups A+B)
+            └─ .enabled = true
+```
+
+**Key Timing**: Routing writes happen in RoutingEngine before IndexedTrackEngine.tick(), ensuring fresh CV values are available. The optimization caches the **sequence pointer**, not the CV values - CV values remain dynamically updated.
+
+**When Routing Configs Can Change**:
+- User editing route settings via UI (IndexedSequenceEditPage SHIFT+F5)
+- Pattern copy/paste operations
+- Project load from SD card
+- MIDI CC or routing source changes (affects CV values, not configs)
+
+**When Pattern Changes Occur**:
+- User selects different pattern (UI button press)
+- Song mode triggers pattern change
+- MIDI Program Change message
+- Pattern request system (immediate/synced/latched modes)
+
+**Performance Impact**: Pattern changes are rare (seconds to minutes apart), while tick() runs 1000×/second. Caching eliminates ~999/1000 redundant lookups.
+
+---
+
 ### 2. Route Modulation - Cache Frequently Used Values
 
 **Location**: `src/apps/sequencer/engine/IndexedTrackEngine.cpp:156-276`
@@ -585,5 +678,5 @@ for (int i = 0; i < activeLength; ++i) {
 
 ---
 
-**Last Updated**: 2025-12-22
-**Analysis Version**: 1.0
+**Last Updated**: 2025-12-23
+**Analysis Version**: 1.1 - Added pattern/routing architecture clarification
