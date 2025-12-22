@@ -37,6 +37,9 @@ void IndexedMathPage::enter() {
     _opABase = _opA;
     _opBBase = _opB;
     _rng = Random(os::ticks());
+
+    // Capture step selection from IndexedSequenceEditPage
+    _selectedSteps = _manager.pages().indexedSequenceEdit.stepSelection().selected();
 }
 
 void IndexedMathPage::exit() {
@@ -157,6 +160,7 @@ void IndexedMathPage::encoder(EncoderEvent &event) {
             9, 10, 11, 12,
             13, 14, 15,
             IndexedSequence::TargetGroupsUngrouped,
+            IndexedSequence::TargetGroupsSelected,
             IndexedSequence::TargetGroupsAll,
         };
         static constexpr int cycleSize = int(sizeof(groupCycle) / sizeof(groupCycle[0]));
@@ -221,7 +225,7 @@ void IndexedMathPage::drawMathConfig(Canvas &canvas, const MathConfig &cfg, int 
     const auto &sequence = _project.selectedIndexedSequence();
     for (int i = 0; i < sequence.activeLength(); ++i) {
         const auto &step = sequence.step(i);
-        if (matchesGroup(step, cfg.targetGroups)) {
+        if (matchesGroup(step, cfg.targetGroups, i)) {
             affectedSteps++;
         }
     }
@@ -236,6 +240,14 @@ void IndexedMathPage::drawGroupMask(Canvas &canvas, uint8_t groupMask, int x, in
         int textWidth = canvas.textWidth(ungroupedLabel);
         canvas.setColor(onColor);
         canvas.drawText(x + (width - textWidth) / 2, y, ungroupedLabel);
+        return;
+    }
+
+    if (groupMask == IndexedSequence::TargetGroupsSelected) {
+        const char *selectedLabel = "SEL";
+        int textWidth = canvas.textWidth(selectedLabel);
+        canvas.setColor(onColor);
+        canvas.drawText(x + (width - textWidth) / 2, y, selectedLabel);
         return;
     }
 
@@ -262,7 +274,7 @@ void IndexedMathPage::applyMath(const MathConfig &cfg) {
 
     for (int i = 0; i < sequence.activeLength(); ++i) {
         auto &step = sequence.step(i);
-        if (!matchesGroup(step, cfg.targetGroups)) {
+        if (!matchesGroup(step, cfg.targetGroups, i)) {
             continue;
         }
         applyMathToStep(step, cfg, i, sequence.activeLength());
@@ -370,12 +382,15 @@ void IndexedMathPage::applyMathToStep(IndexedSequence::Step &step, const MathCon
     }
 }
 
-bool IndexedMathPage::matchesGroup(const IndexedSequence::Step &step, uint8_t targetGroups) const {
+bool IndexedMathPage::matchesGroup(const IndexedSequence::Step &step, uint8_t targetGroups, int stepIndex) const {
     if (targetGroups == IndexedSequence::TargetGroupsAll) {
         return true;
     }
     if (targetGroups == IndexedSequence::TargetGroupsUngrouped) {
         return step.groupMask() == 0;
+    }
+    if (targetGroups == IndexedSequence::TargetGroupsSelected) {
+        return stepIndex >= 0 && stepIndex < int(_selectedSteps.size()) && _selectedSteps[stepIndex];
     }
     return (step.groupMask() & targetGroups) != 0;
 }

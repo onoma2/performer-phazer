@@ -4,6 +4,8 @@
 #include "model/IndexedSequence.h"
 #include "core/utils/Random.h"
 
+#include <bitset>
+
 class IndexedMathPage : public BasePage {
 public:
     IndexedMathPage(PageManager &manager, PageContext &context);
@@ -62,7 +64,7 @@ private:
     void applyMath(const MathConfig &cfg);
     void applyMathToStep(IndexedSequence::Step &step, const MathConfig &cfg, int stepIndex, int stepCount);
 
-    bool matchesGroup(const IndexedSequence::Step &step, uint8_t targetGroups) const;
+    bool matchesGroup(const IndexedSequence::Step &step, uint8_t targetGroups, int stepIndex) const;
     bool configChanged() const;
     void resetConfigs();
 
@@ -81,4 +83,5 @@ private:
     MathConfig _opBBase;
 
     Random _rng;
+    std::bitset<IndexedSequence::MaxSteps> _selectedSteps;
 };

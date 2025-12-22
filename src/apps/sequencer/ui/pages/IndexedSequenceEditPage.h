@@ -19,6 +19,9 @@ public:
     virtual void keyPress(KeyPressEvent &event) override;
     virtual void encoder(EncoderEvent &event) override;
 
+    // Public accessor for step selection (used by math page)
+    const StepSelection<IndexedSequence::MaxSteps> &stepSelection() const { return _stepSelection; }
+
 private:
     enum class EditMode {
         Note,

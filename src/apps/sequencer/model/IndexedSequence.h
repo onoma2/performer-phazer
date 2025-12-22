@@ -25,6 +25,7 @@ public:
     static constexpr int PatternCount = CONFIG_PATTERN_COUNT;  // 8 patterns
     static constexpr uint8_t TargetGroupsAll = 0;
     static constexpr uint8_t TargetGroupsUngrouped = 0x10;
+    static constexpr uint8_t TargetGroupsSelected = 0x20;
     static constexpr uint16_t GateLengthTrigger = 101; // Special: fixed short trigger pulse
 
     //----------------------------------------
