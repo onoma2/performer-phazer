@@ -37,6 +37,14 @@ public:
     int currentStep() const { return _currentStepIndex; }
 
 private:
+    // Constants for step parameters
+    static constexpr uint32_t TRIGGER_PULSE_TICKS = 3;
+    static constexpr uint16_t MAX_DURATION = 65535;
+    static constexpr uint16_t MAX_GATE_PERCENT = 100;
+    static constexpr int8_t MIN_NOTE_INDEX = -63;
+    static constexpr int8_t MAX_NOTE_INDEX = 64;
+
+private:
     void primeNextStep() { _pendingTrigger = true; }
     void advanceStep();
     void triggerStep();

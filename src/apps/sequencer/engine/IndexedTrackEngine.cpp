@@ -249,7 +249,7 @@ void IndexedTrackEngine::triggerStep() {
                 const float mod = resolveModulation(modA, aActive, modB, bActive, combineMode);
                 float modded = static_cast<float>(baseDuration) * (1.0f + mod);
                 int newDuration = static_cast<int>(std::lround(modded));
-                baseDuration = clamp(newDuration, 0, 65535);
+                baseDuration = clamp(newDuration, 0, int(MAX_DURATION));
                 break;
             }
             case IndexedSequence::ModTarget::GateLength: {
@@ -267,7 +267,7 @@ void IndexedTrackEngine::triggerStep() {
                 const float modB = bActive ? cvB * routeB.amount : 0.0f;
                 const float mod = resolveModulation(modA, aActive, modB, bActive, combineMode);
                 const int newNote = static_cast<int>(baseNote + mod);
-                baseNote = clamp(newNote, -63, 64);
+                baseNote = clamp(newNote, int(MIN_NOTE_INDEX), int(MAX_NOTE_INDEX));
                 break;
             }
             case IndexedSequence::ModTarget::Last:
@@ -291,7 +291,7 @@ void IndexedTrackEngine::triggerStep() {
     // Calculate gate duration in ticks
     uint32_t gateTicks = 0;
     if (baseGatePercent == IndexedSequence::GateLengthTrigger) {
-        gateTicks = 3; // Fixed short trigger pulse
+        gateTicks = TRIGGER_PULSE_TICKS;
     } else {
         // gateLength is stored as percentage (0-100)
         // Convert to ticks: (duration * percentage / 100)
@@ -348,9 +348,8 @@ void IndexedTrackEngine::applyModulation(
             float amountPct = cfg.amount * 0.01f;
             float factor = 1.0f + (cv * amountPct);
             float modded = static_cast<float>(duration) * factor;
-            int maxDuration = 65535;
             int newDuration = static_cast<int>(std::lround(modded));
-            duration = clamp(newDuration, 0, maxDuration);
+            duration = clamp(newDuration, 0, int(MAX_DURATION));
             break;
         }
 
@@ -362,7 +361,7 @@ void IndexedTrackEngine::applyModulation(
             // Additive percentage modulation
             int modAmount = static_cast<int>(cv * cfg.amount);
             int newGate = static_cast<int>(gate) + modAmount;
-            gate = clamp(newGate, 0, 100);
+            gate = clamp(newGate, 0, int(MAX_GATE_PERCENT));
             break;
         }
 
@@ -370,7 +369,7 @@ void IndexedTrackEngine::applyModulation(
             // Transpose (additive semitones)
             int modAmount = static_cast<int>(cv * cfg.amount);
             int newNote = static_cast<int>(note) + modAmount;
-            note = clamp(newNote, -63, 64);
+            note = clamp(newNote, int(MIN_NOTE_INDEX), int(MAX_NOTE_INDEX));
             break;
         }
 
