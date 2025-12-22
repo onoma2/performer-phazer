@@ -125,12 +125,7 @@ TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
         return TickResult::NoUpdate;
     }
 
-    // Safety counter to prevent infinite loops when all steps have zero duration
-    int skipCounter = 0;
-    const int maxSkips = _sequence->activeLength();
-
-    STEP_BEGIN:
-
+    // Fire pending trigger (set during reset/sync)
     if (_pendingTrigger) {
         triggerStep();
         _pendingTrigger = false;
@@ -139,36 +134,25 @@ TrackEngine::TickResult IndexedTrackEngine::tick(uint32_t tick) {
     // 1. Handle Gate (counts down independently of step progress)
     if (_gateTimer > 0) {
         _gateTimer--;
-        if (_gateTimer == 0) {
-            // Gate off (handled by gateOutput() check)
-        }
     }
 
-    // 2. Check current step duration BEFORE incrementing timer
-    uint16_t stepDuration = static_cast<uint16_t>(_effectiveStepDuration);
+    // 2. Get current step duration
+    const uint16_t stepDuration = static_cast<uint16_t>(_effectiveStepDuration);
 
-    // If step has zero duration, skip it immediately (without incrementing timer)
+    // If current step has zero duration, don't advance timer (wait for next tick)
+    // Note: advanceStep() already skips zero-duration steps, so this should rarely happen
+    // except when user edits the current step to zero while playing
     if (stepDuration == 0) {
-        skipCounter++;
-        if (skipCounter >= maxSkips) {
-            // All steps have zero duration - stop playback to prevent infinite loop
-            // _running = false; // Do not stop running, just wait for next tick (user might edit duration)
-            return TickResult::NoUpdate;
-        }
-        advanceStep();
-        primeNextStep(); // ensure next real step fires immediately
-        goto STEP_BEGIN;  // Retry with next step
+        return TickResult::NoUpdate;
     }
 
-    // 3. Handle Duration (the accumulator) - only for valid steps
+    // 3. Handle Duration (the accumulator)
     _stepTimer++;
 
     // 4. Check for Step Transition
     if (_stepTimer >= stepDuration) {
-        advanceStep();
-
-        // Trigger the new step we just advanced to
-        triggerStep();
+        advanceStep();  // This automatically skips zero-duration steps
+        triggerStep();   // Trigger the new step we just advanced to
     }
 
     return TickResult::NoUpdate;
@@ -180,17 +164,52 @@ void IndexedTrackEngine::update(float dt) {
 }
 
 void IndexedTrackEngine::advanceStep() {
+    const int activeLength = _sequence->activeLength();
+
+    // Advance to next step
     _currentStepIndex++;
 
     // Handle loop/once mode
-    if (_currentStepIndex >= _sequence->activeLength()) {
+    if (_currentStepIndex >= activeLength) {
         if (_sequence->loop()) {
             _currentStepIndex = 0;  // Loop back to start
         } else {
-            _currentStepIndex = _sequence->activeLength() - 1;  // Stay on last step
+            _currentStepIndex = activeLength - 1;  // Stay on last step
             _running = false;  // Stop playback
+            _stepTimer = 0;
+            return;
         }
     }
+
+    // Skip over any zero-duration steps
+    int skipCounter = 0;
+    while (skipCounter < activeLength) {
+        int effectiveIndex = (_currentStepIndex + _sequence->firstStep()) % activeLength;
+        uint16_t duration = _sequence->step(effectiveIndex).duration();
+
+        if (duration > 0) {
+            // Found a step with non-zero duration
+            break;
+        }
+
+        // Step has zero duration, advance to next
+        _currentStepIndex++;
+        skipCounter++;
+
+        if (_currentStepIndex >= activeLength) {
+            if (_sequence->loop()) {
+                _currentStepIndex = 0;
+            } else {
+                _currentStepIndex = activeLength - 1;
+                _running = false;
+                _stepTimer = 0;
+                return;
+            }
+        }
+    }
+
+    // If all steps have zero duration, we've looped through everything
+    // Stay on current step (user might edit duration later)
 
     // Reset step timer for new step
     _stepTimer = 0;
