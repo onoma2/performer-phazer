@@ -5,6 +5,40 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+
+// Helper: Check if step matches route target groups
+inline bool stepMatchesRouteGroups(const IndexedSequence::Step &step, const IndexedSequence::RouteConfig &cfg) {
+    uint8_t targetGroups = cfg.targetGroups;
+    return targetGroups == IndexedSequence::TargetGroupsAll ||
+           (targetGroups == IndexedSequence::TargetGroupsUngrouped && step.groupMask() == 0) ||
+           (step.groupMask() & targetGroups);
+}
+
+// Helper: Combine two modulation values based on mode
+inline float combineModulation(float a, float b, IndexedSequence::RouteCombineMode mode) {
+    switch (mode) {
+    case IndexedSequence::RouteCombineMode::Mux: return 0.5f * (a + b);
+    case IndexedSequence::RouteCombineMode::Min: return std::min(a, b);
+    case IndexedSequence::RouteCombineMode::Max: return std::max(a, b);
+    case IndexedSequence::RouteCombineMode::AtoB:
+    case IndexedSequence::RouteCombineMode::Last:
+        break;
+    }
+    return a;
+}
+
+// Helper: Resolve modulation from two routes (A and B)
+inline float resolveModulation(float modA, bool modAActive, float modB, bool modBActive,
+                                IndexedSequence::RouteCombineMode mode) {
+    if (modAActive && modBActive) {
+        return combineModulation(modA, modB, mode);
+    }
+    return modAActive ? modA : (modBActive ? modB : 0.0f);
+}
+
+} // anonymous namespace
+
 float IndexedTrackEngine::routedSync() const {
     // Reuse DMap sync target for external resets
     return _indexedTrack.routedSync();
@@ -171,52 +205,29 @@ void IndexedTrackEngine::triggerStep() {
     uint16_t baseGatePercent = step.gateLength();
     int8_t baseNote = step.noteIndex();
 
+    // Fetch route configurations once
     const auto &routeA = _sequence->routeA();
     const auto &routeB = _sequence->routeB();
-    auto combineMode = _sequence->routeCombineMode();
+    const auto combineMode = _sequence->routeCombineMode();
 
-    auto matchesGroup = [&step] (const IndexedSequence::RouteConfig &cfg) {
-        auto targetGroups = cfg.targetGroups;
-        return targetGroups == IndexedSequence::TargetGroupsAll ||
-            (targetGroups == IndexedSequence::TargetGroupsUngrouped && step.groupMask() == 0) ||
-            (step.groupMask() & targetGroups);
-    };
-
-    bool combineRoutes = combineMode != IndexedSequence::RouteCombineMode::AtoB &&
+    // Check if routes should be combined (both enabled, same target param, not AtoB mode)
+    const bool combineRoutes = combineMode != IndexedSequence::RouteCombineMode::AtoB &&
         routeA.enabled && routeB.enabled &&
         routeA.targetParam == routeB.targetParam;
 
     if (combineRoutes) {
-        bool aActive = matchesGroup(routeA);
-        bool bActive = matchesGroup(routeB);
+        // Check which routes are active for this step's groups
+        const bool aActive = stepMatchesRouteGroups(step, routeA);
+        const bool bActive = stepMatchesRouteGroups(step, routeB);
         if (aActive || bActive) {
-            float cvA = _sequence->routedIndexedA();
-            float cvB = _sequence->routedIndexedB();
-
-            auto combineMod = [combineMode] (float a, float b) {
-                switch (combineMode) {
-                case IndexedSequence::RouteCombineMode::Mux: return 0.5f * (a + b);
-                case IndexedSequence::RouteCombineMode::Min: return std::min(a, b);
-                case IndexedSequence::RouteCombineMode::Max: return std::max(a, b);
-                case IndexedSequence::RouteCombineMode::AtoB:
-                case IndexedSequence::RouteCombineMode::Last:
-                    break;
-                }
-                return a;
-            };
-
-            auto resolveMod = [&] (float modA, bool modAActive, float modB, bool modBActive) {
-                if (modAActive && modBActive) {
-                    return combineMod(modA, modB);
-                }
-                return modAActive ? modA : (modBActive ? modB : 0.0f);
-            };
+            const float cvA = _sequence->routedIndexedA();
+            const float cvB = _sequence->routedIndexedB();
 
             switch (routeA.targetParam) {
             case IndexedSequence::ModTarget::Duration: {
-                float modA = aActive ? cvA * (routeA.amount * 0.01f) : 0.0f;
-                float modB = bActive ? cvB * (routeB.amount * 0.01f) : 0.0f;
-                float mod = resolveMod(modA, aActive, modB, bActive);
+                const float modA = aActive ? cvA * (routeA.amount * 0.01f) : 0.0f;
+                const float modB = bActive ? cvB * (routeB.amount * 0.01f) : 0.0f;
+                const float mod = resolveModulation(modA, aActive, modB, bActive, combineMode);
                 float modded = static_cast<float>(baseDuration) * (1.0f + mod);
                 int newDuration = static_cast<int>(std::lround(modded));
                 baseDuration = clamp(newDuration, 0, 65535);
@@ -224,19 +235,19 @@ void IndexedTrackEngine::triggerStep() {
             }
             case IndexedSequence::ModTarget::GateLength: {
                 if (baseGatePercent != IndexedSequence::GateLengthTrigger) {
-                    float modA = aActive ? cvA * routeA.amount : 0.0f;
-                    float modB = bActive ? cvB * routeB.amount : 0.0f;
-                    float mod = resolveMod(modA, aActive, modB, bActive);
-                    int newGate = static_cast<int>(baseGatePercent + mod);
+                    const float modA = aActive ? cvA * routeA.amount : 0.0f;
+                    const float modB = bActive ? cvB * routeB.amount : 0.0f;
+                    const float mod = resolveModulation(modA, aActive, modB, bActive, combineMode);
+                    const int newGate = static_cast<int>(baseGatePercent + mod);
                     baseGatePercent = clamp(newGate, 0, int(IndexedSequence::GateLengthTrigger));
                 }
                 break;
             }
             case IndexedSequence::ModTarget::NoteIndex: {
-                float modA = aActive ? cvA * routeA.amount : 0.0f;
-                float modB = bActive ? cvB * routeB.amount : 0.0f;
-                float mod = resolveMod(modA, aActive, modB, bActive);
-                int newNote = static_cast<int>(baseNote + mod);
+                const float modA = aActive ? cvA * routeA.amount : 0.0f;
+                const float modB = bActive ? cvB * routeB.amount : 0.0f;
+                const float mod = resolveModulation(modA, aActive, modB, bActive, combineMode);
+                const int newNote = static_cast<int>(baseNote + mod);
                 baseNote = clamp(newNote, -63, 64);
                 break;
             }
@@ -246,14 +257,14 @@ void IndexedTrackEngine::triggerStep() {
         }
     } else {
         // Apply Route A modulation (if enabled and step is in target groups)
-        if (routeA.enabled && matchesGroup(routeA)) {
-            float cvA = _sequence->routedIndexedA();
+        if (routeA.enabled && stepMatchesRouteGroups(step, routeA)) {
+            const float cvA = _sequence->routedIndexedA();
             applyModulation(cvA, routeA, baseDuration, baseGatePercent, baseNote);
         }
 
         // Apply Route B modulation (if enabled and step is in target groups)
-        if (routeB.enabled && matchesGroup(routeB)) {
-            float cvB = _sequence->routedIndexedB();
+        if (routeB.enabled && stepMatchesRouteGroups(step, routeB)) {
+            const float cvB = _sequence->routedIndexedB();
             applyModulation(cvB, routeB, baseDuration, baseGatePercent, baseNote);
         }
     }
