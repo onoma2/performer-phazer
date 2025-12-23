@@ -50,15 +50,16 @@ enum {
     QuickEditSplit = -2,
     QuickEditSwap = -3,
     QuickEditMerge = -4,
+    QuickEditSetFirst = -5,
 };
 
 static const int quickEditItems[8] = {
     QuickEditSplit,                                   // Step 9
     QuickEditSwap,                                    // Step 10
     QuickEditMerge,                                   // Step 11
-    int(IndexedSequenceListModel::Item::RunMode),     // Step 12
-    int(IndexedSequenceListModel::Item::ResetMeasure), // Step 13
-    QuickEditNone,
+    QuickEditSetFirst,                                // Step 12
+    int(IndexedSequenceListModel::Item::RunMode),     // Step 13
+    int(IndexedSequenceListModel::Item::ResetMeasure), // Step 14
     QuickEditNone,
     QuickEditNone
 };
@@ -417,9 +418,18 @@ void IndexedSequenceEditPage::encoder(EncoderEvent &event) {
             event.consume();
             return;
         }
-        _swapQuickEditOffset = clamp(_swapQuickEditOffset + event.value(), 0, maxOffset);
+        int nextOffset = _swapQuickEditOffset;
+        if (_swapQuickEditOffset == 0 && event.value() > 0 && _swapQuickEditPreferredOffset > 0) {
+            nextOffset = _swapQuickEditPreferredOffset;
+        } else {
+            nextOffset += event.value();
+        }
+        _swapQuickEditOffset = clamp(nextOffset, 0, maxOffset);
         if (_swapQuickEditOffset == 0) {
             showMessage("NO SWAP");
+        } else if (_swapQuickEditPreferredOffset > 0 &&
+                   _swapQuickEditOffset == _swapQuickEditPreferredOffset) {
+            showMessage("SELECTED");
         } else {
             FixedStringBuilder<16> msg("SWAP +%d", _swapQuickEditOffset);
             showMessage(msg);
@@ -805,6 +815,23 @@ void IndexedSequenceEditPage::quickEdit(int index) {
     case QuickEditMerge:
         mergeStepWithNext();
         return;
+    case QuickEditSetFirst: {
+        if (!_stepSelection.any()) {
+            showMessage("NO STEP");
+            return;
+        }
+        int stepIndex = _stepSelection.first();
+        if (stepIndex < 0) {
+            stepIndex = _stepSelection.firstSetIndex();
+        }
+        if (stepIndex < 0) {
+            showMessage("NO STEP");
+            return;
+        }
+        _project.selectedIndexedSequence().setFirstStep(stepIndex);
+        showMessage("FIRST STEP");
+        return;
+    }
     case QuickEditNone:
         return;
     default:
@@ -820,9 +847,28 @@ void IndexedSequenceEditPage::startSwapQuickEdit() {
         return;
     }
 
-    int stepIndex = _stepSelection.first();
+    int stepIndex = -1;
+    int preferredOffset = 0;
+    if (_stepSelection.count() == 2) {
+        int first = _stepSelection.firstSetIndex();
+        int second = -1;
+        for (int i = first + 1; i < int(_stepSelection.size()); ++i) {
+            if (_stepSelection[i]) {
+                second = i;
+                break;
+            }
+        }
+        if (first >= 0 && second >= 0) {
+            stepIndex = first;
+            preferredOffset = second - first;
+        }
+    }
+
     if (stepIndex < 0) {
-        stepIndex = _stepSelection.firstSetIndex();
+        stepIndex = _stepSelection.first();
+        if (stepIndex < 0) {
+            stepIndex = _stepSelection.firstSetIndex();
+        }
     }
     if (stepIndex < 0) {
         showMessage("NO STEP");
@@ -838,6 +884,7 @@ void IndexedSequenceEditPage::startSwapQuickEdit() {
     _swapQuickEditActive = true;
     _swapQuickEditBaseIndex = stepIndex;
     _swapQuickEditOffset = 0;
+    _swapQuickEditPreferredOffset = clamp(preferredOffset, 0, maxOffset);
     showMessage("NO SWAP");
 }
 

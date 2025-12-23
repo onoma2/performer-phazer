@@ -78,4 +78,5 @@ private:
     bool _swapQuickEditActive = false;
     int _swapQuickEditBaseIndex = -1;
     int _swapQuickEditOffset = 0;
+    int _swapQuickEditPreferredOffset = 0;
 };

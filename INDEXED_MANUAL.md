@@ -308,7 +308,15 @@ The Indexed track uses accumulator-based timing:
 - **Page+S3**: Jump to track settings page
 - **Context Menu**: Long press on context key for options
 
-### 9.2 Editing Tips
+### 9.2 Quick Edit (Page+Steps 9-16)
+
+- **Page+Step 9**: Split (requires step selection)
+- **Page+Step 10**: Swap (requires step selection, hold + rotate to choose offset)
+- **Page+Step 11**: Merge with next (first selected step only)
+- **Page+Step 12**: Run Mode
+- **Page+Step 13**: Reset Measure
+
+### 9.3 Editing Tips
 
 - Use Shift+encoder for fine duration adjustments
 - Split function is great for subdividing longer steps
@@ -316,7 +324,7 @@ The Indexed track uses accumulator-based timing:
 - Group modulation allows for complex interactions
 - Trigger mode creates precise short pulses
 
-### 9.3 Performance Considerations
+### 9.4 Performance Considerations
 
 - Duration calculations use minimal CPU resources
 - Group-based modulation adds some processing overhead
