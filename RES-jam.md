@@ -9,9 +9,9 @@ Yes, feasible.
   3. Root Note +
   4. Divisor ↑ (straight/even only)
   5. Divisor ↑ (triplet only)
-  6. Divisor ×2
+  6. Divisor ÷2 (faster)
   7. Mask Parameter +
-  8. RUN momentary OFF (press = stop)
+  8. Loop Length +
 
   Bottom row (Steps 9–16)
   9. Octave −
@@ -19,12 +19,18 @@ Yes, feasible.
   11. Root Note −
   12. Divisor ↓ (straight/even only)
   13. Divisor ↓ (triplet only)
-  14. Divisor ÷2
+  14. Divisor ×2 (slower)
   15. Mask Parameter −
-  16. Mute momentary (press = mute)
+  16. Loop Length −
+
+  Shift modifiers
+
+  - Shift+Step 8: RUN momentary OFF (press = stop)
+  - Shift+Step 16: Mute momentary (press = mute)
 
   Notes on behavior:
 
+  - Top row moves "up" (faster/greater), bottom row moves "down" (slower/less); for divisors, smaller = faster.
   - “Divisor ↑/↓ (straight)” can walk only known divisors with type '\0' in KnownDivisor (1/64 … 4).
   - “Divisor ↑/↓ (triplet)” can walk only known divisors with type 'T'.
   - ×2/÷2 just multiplies/divides the raw divisor and clamps 1..768.
@@ -34,7 +40,3 @@ Yes, feasible.
 
   - RUN: on press set Track::setRunGate(false), on release restore previous run state.
   - Mute: on press PlayState::muteTrack(track, Immediate), on release restore previous mute state.
-
-  Confirm: should momentary release restore the previous state even if it was already muted/stopped? And if run/mute are routed, do you want the jam override
-  to force it anyway, or is it OK if routing wins?
-

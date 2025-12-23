@@ -301,7 +301,22 @@ The Algo track uses mathematical algorithms to generate:
 - Use Gate Length to control note overlap
 - Try different scales for harmonic variety
 
-### 9.3 Performance Considerations
+### 9.3 Jam Surface (Step Buttons)
+
+| Step | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Top | Octave + | Transpose + | Root Note + | Div up (straight) | Div up (triplet) | Div /2 (faster) | Mask + | Loop +<br>Shift: Run momentary |
+| Bottom | Octave - | Transpose - | Root Note - | Div down (straight) | Div down (triplet) | Div x2 (slower) | Mask - | Loop -<br>Shift: Mute momentary |
+
+Shift modifiers:
+- Shift+Step 8: Run momentary (press = stop)
+- Shift+Step 16: Mute momentary (press = mute)
+
+Behavior notes:
+- Top row moves "up" (faster/greater), bottom row moves "down" (slower/less); for divisors, smaller = faster.
+- Divisor up/down only walks known divisors for straight or triplet types.
+
+### 9.4 Performance Considerations
 
 - Algorithm processing uses moderate CPU resources
 - Complex algorithms may have slightly higher load

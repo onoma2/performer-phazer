@@ -74,6 +74,18 @@ The step editing page shows three rows per step:
 - **Duration Row**: Edit step duration in clock ticks (±1 tick, Shift=±divisor)
 - **Gate Row**: Edit gate length percentage or trigger mode (±10%, Shift=±1%)
 
+**Function Keys (Step Edit)**:
+- **F1**: Note edit mode
+- **F2**: Duration edit mode; press again to toggle **DUR-TR** (duration transfer)
+- **F3**: Gate edit mode
+- **F4**: Context cycle **SEQ → STEP → GROUPS**
+- **F5**: Math page
+- **Shift+F5**: Routes page
+
+**Groups Context**:
+- **F1-F4**: Toggle group A-D for selected steps
+- **F5**: Back to edit context
+
 ### 3.3 Footer Controls (Function Keys)
 
 **F1 - Clock Settings**:

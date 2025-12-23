@@ -597,7 +597,7 @@ void TuesdayEditPage::handleStepKeyPress(int step, bool shift) {
         return;
     }
 
-    if (step == 15 && shift) {
+    if ((step == 7 && shift) || (step == 15 && shift)) {
         return;
     }
 
@@ -637,7 +637,8 @@ void TuesdayEditPage::handleStepKeyPress(int step, bool shift) {
     case 6: // Mask up
         sequence.editMaskParameter(1, false);
         break;
-    case 7: // Run momentary (handled in keyDown)
+    case 7: // Loop length up (run momentary handled in keyDown)
+        sequence.editLoopLength(1, false);
         break;
     case 8: // Octave down
         sequence.editOctave(-1, false);
@@ -672,18 +673,16 @@ void TuesdayEditPage::handleStepKeyPress(int step, bool shift) {
     case 14: // Mask down
         sequence.editMaskParameter(-1, false);
         break;
-    case 15: { // Reset
-        auto &engine = const_cast<TuesdayTrackEngine &>(trackEngine());
-        engine.reset();
+    case 15: // Loop length down
+        sequence.editLoopLength(-1, false);
         break;
-    }
     default:
         break;
     }
 }
 
 void TuesdayEditPage::handleStepKeyDown(int step, bool shift) {
-    if (step == 7 && !_jamRunHeld) {
+    if (step == 7 && shift && !_jamRunHeld) {
         _jamRunHeld = true;
         _jamRunTrack = _project.selectedTrackIndex();
         auto &track = _project.track(_jamRunTrack);
@@ -701,7 +700,7 @@ void TuesdayEditPage::handleStepKeyDown(int step, bool shift) {
 }
 
 void TuesdayEditPage::handleStepKeyUp(int step, bool shift) {
-    if (step == 7 && _jamRunHeld) {
+    if (step == 7 && shift && _jamRunHeld) {
         _jamRunHeld = false;
         if (_jamRunTrack >= 0) {
             _project.track(_jamRunTrack).setRunGate(_jamPrevRunGate);

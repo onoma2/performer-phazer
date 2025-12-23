@@ -121,7 +121,46 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
     }
 
     // 2. Bottom Section: Info & Edit (F1, F2, F3) or Group Indicators (F1-F4)
-    if (_stepSelection.any()) {
+    if (_functionMode == FunctionMode::Groups) {
+        const int y = 40;
+        canvas.setFont(Font::Small);
+        canvas.setBlendMode(BlendMode::Set);
+        canvas.setColor(Color::Bright);
+
+        uint8_t groupMask = 0;
+        if (_stepSelection.any()) {
+            int stepIndex = _stepSelection.first();
+            groupMask = sequence.step(stepIndex).groupMask();
+        }
+
+        int groupCounts[4] = {0, 0, 0, 0};
+        int activeLength = sequence.activeLength();
+        for (int i = 0; i < activeLength; ++i) {
+            uint8_t mask = sequence.step(i).groupMask();
+            for (int g = 0; g < 4; ++g) {
+                if (mask & (1 << g)) {
+                    groupCounts[g]++;
+                }
+            }
+        }
+
+        // F1-F4: Groups A-D
+        const char* groupLabels[] = {"A", "B", "C", "D"};
+        for (int i = 0; i < 4; ++i) {
+            bool inGroup = (groupMask & (1 << i)) != 0;
+            canvas.setColor(Color::Medium);
+            FixedStringBuilder<6> countText;
+            countText("%d", groupCounts[i]);
+            canvas.drawTextCentered(i * 51, y - 8, 51, 8, countText);
+            FixedStringBuilder<4> groupText;
+            if (inGroup) {
+                groupText("[%s]", groupLabels[i]);
+            } else {
+                groupText("[-]");
+            }
+            canvas.drawTextCentered(i * 51, y, 51, 16, groupText);
+        }
+    } else if (_stepSelection.any()) {
         // Step selected: Show bars/deltas on row 1, selected step values on row 2
         const auto &timeSig = _project.timeSignature();
         uint32_t measureTicks = timeSig.measureDivisor();
@@ -157,74 +196,39 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
         canvas.setBlendMode(BlendMode::Set);
         canvas.setColor(Color::Bright);
 
-        if (_functionMode == FunctionMode::Groups) {
-            // Group editing mode: Show group membership for selected steps
-            // Display vertically centered above F buttons (F1-F4 = Groups A-D)
-            int stepIndex = _stepSelection.first();
-            const auto &step = sequence.step(stepIndex);
-            uint8_t groupMask = step.groupMask();
-            int groupCounts[4] = {0, 0, 0, 0};
-            int activeLength = sequence.activeLength();
-            for (int i = 0; i < activeLength; ++i) {
-                uint8_t mask = sequence.step(i).groupMask();
-                for (int g = 0; g < 4; ++g) {
-                    if (mask & (1 << g)) {
-                        groupCounts[g]++;
-                    }
-                }
-            }
+        // Edit mode: Show note/duration/gate values
+        int stepIndex = _stepSelection.first();
+        const auto &step = sequence.step(stepIndex);
 
-            // F1-F4: Groups A-D
-            const char* groupLabels[] = {"A", "B", "C", "D"};
-            for (int i = 0; i < 4; ++i) {
-                bool inGroup = (groupMask & (1 << i)) != 0;
-                canvas.setColor(Color::Medium);
-                FixedStringBuilder<6> countText;
-                countText("%d", groupCounts[i]);
-                canvas.drawTextCentered(i * 51, y - 8, 51, 8, countText);
-                FixedStringBuilder<4> groupText;
-                if (inGroup) {
-                    groupText("[%s]", groupLabels[i]);
-                } else {
-                    groupText("[-]");
-                }
-                canvas.drawTextCentered(i * 51, y, 51, 16, groupText);
-            }
-        } else {
-            // Edit mode: Show note/duration/gate values
-            int stepIndex = _stepSelection.first();
-            const auto &step = sequence.step(stepIndex);
-
-            // F1: Note
-            FixedStringBuilder<8> noteName;
-            const auto &scale = sequence.selectedScale(_project.selectedScale());
-            int rootNote = sequence.rootNote() < 0 ? _project.rootNote() : sequence.rootNote();
-            const auto &track = _project.selectedTrack().indexedTrack();
-            int shift = track.octave() * scale.notesPerOctave() + track.transpose();
-            int noteIndex = step.noteIndex() + shift;
-            scale.noteName(noteName, noteIndex, rootNote, Scale::Format::Short1);
-            float volts = scale.noteToVolts(noteIndex);
-            if (scale.isChromatic()) {
-                volts += rootNote * (1.f / 12.f);
-            }
-            FixedStringBuilder<24> noteStr;
-            noteStr("%.2f %s", volts, static_cast<const char *>(noteName));
-            canvas.drawTextCentered(0, y, 51, 16, noteStr);
-
-            // F2: Duration
-            FixedStringBuilder<16> durStr;
-            durStr("%d", step.duration());
-            canvas.drawTextCentered(51, y, 51, 16, durStr);
-
-            // F3: Gate
-            FixedStringBuilder<16> gateStr;
-            if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
-                gateStr("T");
-            } else {
-                gateStr("%d%%", step.gateLength());
-            }
-            canvas.drawTextCentered(102, y, 51, 16, gateStr);
+        // F1: Note
+        FixedStringBuilder<8> noteName;
+        const auto &scale = sequence.selectedScale(_project.selectedScale());
+        int rootNote = sequence.rootNote() < 0 ? _project.rootNote() : sequence.rootNote();
+        const auto &track = _project.selectedTrack().indexedTrack();
+        int shift = track.octave() * scale.notesPerOctave() + track.transpose();
+        int noteIndex = step.noteIndex() + shift;
+        scale.noteName(noteName, noteIndex, rootNote, Scale::Format::Short1);
+        float volts = scale.noteToVolts(noteIndex);
+        if (scale.isChromatic()) {
+            volts += rootNote * (1.f / 12.f);
         }
+        FixedStringBuilder<24> noteStr;
+        noteStr("%.2f %s", volts, static_cast<const char *>(noteName));
+        canvas.drawTextCentered(0, y, 51, 16, noteStr);
+
+        // F2: Duration
+        FixedStringBuilder<16> durStr;
+        durStr("%d", step.duration());
+        canvas.drawTextCentered(51, y, 51, 16, durStr);
+
+        // F3: Gate
+        FixedStringBuilder<16> gateStr;
+        if (step.gateLength() == IndexedSequence::GateLengthTrigger) {
+            gateStr("T");
+        } else {
+            gateStr("%d%%", step.gateLength());
+        }
+        canvas.drawTextCentered(102, y, 51, 16, gateStr);
     } else {
         // No step selected: Show "STEP N/N" with playing step info on row 1
         int currentStep = trackEngine.currentStep() + 1;
@@ -275,7 +279,7 @@ void IndexedSequenceEditPage::draw(Canvas &canvas) {
         footerLabels[0] = "NOTE";
         footerLabels[1] = _durationTransfer ? "DUR-TR" : "DUR";
         footerLabels[2] = "GATE";
-        footerLabels[3] = shift ? "GROUPS" : ((_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP");
+        footerLabels[3] = (_contextMode == ContextMode::Sequence) ? "SEQ" : "STEP";
         footerLabels[4] = shift ? "ROUTES" : "MATH";
     }
     WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), (_functionMode == FunctionMode::Groups) ? -1 : (int)_editMode);
@@ -331,15 +335,14 @@ void IndexedSequenceEditPage::keyPress(KeyPressEvent &event) {
         bool shift = globalKeyState()[Key::Shift];
 
         if (fn == 3) {
-            // F4: Toggle Function Mode (SHIFT) or Context Mode (no SHIFT)
-            if (shift) {
-                // SHIFT+F4: Toggle between Edit and Groups function modes
-                _functionMode = (_functionMode == FunctionMode::Edit) ? FunctionMode::Groups : FunctionMode::Edit;
+            // F4: Cycle contexts Sequence -> Step -> Groups -> Sequence
+            if (_functionMode == FunctionMode::Groups) {
+                _functionMode = FunctionMode::Edit;
+                _contextMode = ContextMode::Sequence;
+            } else if (_contextMode == ContextMode::Sequence) {
+                _contextMode = ContextMode::Step;
             } else {
-                // F4: Toggle Context Mode (only in Edit mode)
-                if (_functionMode == FunctionMode::Edit) {
-                    _contextMode = (_contextMode == ContextMode::Sequence) ? ContextMode::Step : ContextMode::Sequence;
-                }
+                _functionMode = FunctionMode::Groups;
             }
         }
 
@@ -461,10 +464,10 @@ void IndexedSequenceEditPage::keyDown(KeyEvent &event) {
                 _durationTransfer = false;
             }
             if (fn == 1) {
-                _editMode = EditMode::Duration;
-                if (key.shiftModifier()) {
+                if (_editMode == EditMode::Duration) {
                     _durationTransfer = !_durationTransfer;
                 } else {
+                    _editMode = EditMode::Duration;
                     _durationTransfer = false;
                 }
             }

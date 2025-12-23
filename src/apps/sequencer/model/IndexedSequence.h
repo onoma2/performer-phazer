@@ -403,7 +403,7 @@ public:
     void clear() {
         _divisor = 12;  // 1/16 note at 192 PPQN
         _loop = true;
-        _activeLength = 8;
+        _activeLength = 3;
         _scale = -1;  // Use project scale
         _rootNote.clear();
         _firstStep.clear();
@@ -417,9 +417,9 @@ public:
         for (int i = 0; i < MaxSteps; ++i) {
             auto &s = _steps[i];
             s.clear();
-            if (i < 8) {
-                s.setDuration(12);       // 1/16 note at 192 PPQN
-                s.setGateLength(0);      // default off
+            if (i < 3) {
+                s.setDuration(256);      // 3 steps over 4 bars (768 ticks total)
+                s.setGateLength(10);     // 10%
                 s.setNoteIndex(0);       // Root note
             } else {
                 s.setDuration(0);        // Silent/skip by default
