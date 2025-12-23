@@ -4,10 +4,13 @@
 
 #include "ui/painters/WindowPainter.h"
 
+#include "core/utils/Random.h"
 #include "core/utils/StringBuilder.h"
 
 #include "model/KnownDivisor.h"
 #include "model/ModelUtils.h"
+
+static Random rng;
 
 enum class ContextAction {
     Init,
@@ -18,6 +21,24 @@ enum class ContextAction {
 static const ContextMenuModel::Item contextMenuItems[] = {
     { "INIT" },
     { "RESEED" },
+};
+
+enum {
+    QuickEditNone = -1,
+    QuickEditCopy = -2,
+    QuickEditPaste = -3,
+    QuickEditRandomize = -4,
+};
+
+static const int quickEditItems[8] = {
+    QuickEditCopy,       // Step 9
+    QuickEditPaste,      // Step 10
+    QuickEditNone,
+    QuickEditNone,
+    QuickEditNone,
+    QuickEditNone,
+    QuickEditRandomize,  // Step 15
+    QuickEditNone,
 };
 
 TuesdayEditPage::TuesdayEditPage(PageManager &manager, PageContext &context) :
@@ -123,6 +144,15 @@ void TuesdayEditPage::updateLeds(Leds &leds) {
 
     setTop(6, maskUp);
     setBottom(14, maskDown);
+
+    if (globalKeyState()[Key::Page] && !globalKeyState()[Key::Shift]) {
+        for (int i = 0; i < 8; ++i) {
+            int index = MatrixMap::fromStep(i + 8);
+            leds.unmask(index);
+            leds.set(index, false, quickEditItems[i] != QuickEditNone);
+            leds.mask(index);
+        }
+    }
 }
 
 void TuesdayEditPage::keyDown(KeyEvent &event) {
@@ -159,6 +189,25 @@ void TuesdayEditPage::keyPress(KeyPressEvent &event) {
             [&] (int index) { contextAction(index); },
             [&] (int index) { return true; }
         ));
+        event.consume();
+        return;
+    }
+
+    if (key.isQuickEdit() && !key.shiftModifier()) {
+        switch (quickEditItems[key.quickEdit()]) {
+        case QuickEditCopy:
+            copySequenceParams();
+            break;
+        case QuickEditPaste:
+            pasteSequenceParams();
+            break;
+        case QuickEditRandomize: {
+            randomizeSequence();
+            break;
+        }
+        default:
+            break;
+        }
         event.consume();
         return;
     }
@@ -720,6 +769,77 @@ void TuesdayEditPage::handleStepKeyUp(int step, bool shift) {
         }
         _jamMuteTrack = -1;
     }
+}
+
+void TuesdayEditPage::randomizeSequence() {
+    auto &sequence = _project.selectedTuesdaySequence();
+
+    static const int algorithms[] = {0, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 18, 19, 20};
+    static const int algorithmCount = int(sizeof(algorithms) / sizeof(algorithms[0]));
+
+    sequence.setAlgorithm(algorithms[rng.nextRange(algorithmCount)]);
+    sequence.setFlow(rng.nextRange(17));
+    sequence.setOrnament(rng.nextRange(17));
+    sequence.setPower(rng.nextRange(17));
+
+    int loopLength = rng.nextRange(30);
+    sequence.setLoopLength(loopLength);
+    if (loopLength > 0) {
+        int maxRot = loopLength - 1;
+        int rotate = rng.nextRange(maxRot * 2 + 1) - maxRot;
+        sequence.setRotate(rotate);
+    } else {
+        sequence.setRotate(0);
+    }
+    sequence.setGlide(rng.nextRange(101));
+    sequence.setSkew(rng.nextRange(17) - 8);
+
+    sequence.setGateLength(30 + rng.nextRange(41));
+    sequence.setGateOffset(rng.nextRange(101));
+    sequence.setStepTrill(rng.nextRange(101));
+    sequence.setStart(rng.nextRange(17));
+
+    showMessage("SEQUENCE RANDOM");
+}
+
+void TuesdayEditPage::copySequenceParams() {
+    const auto &sequence = _project.selectedTuesdaySequence();
+    _sequenceClipboard.valid = true;
+    _sequenceClipboard.algorithm = sequence.algorithm();
+    _sequenceClipboard.flow = sequence.flow();
+    _sequenceClipboard.ornament = sequence.ornament();
+    _sequenceClipboard.power = sequence.power();
+    _sequenceClipboard.loopLength = sequence.loopLength();
+    _sequenceClipboard.rotate = sequence.rotate();
+    _sequenceClipboard.glide = sequence.glide();
+    _sequenceClipboard.skew = sequence.skew();
+    _sequenceClipboard.gateLength = sequence.gateLength();
+    _sequenceClipboard.gateOffset = sequence.gateOffset();
+    _sequenceClipboard.stepTrill = sequence.stepTrill();
+    _sequenceClipboard.start = sequence.start();
+    showMessage("COPIED");
+}
+
+void TuesdayEditPage::pasteSequenceParams() {
+    if (!_sequenceClipboard.valid) {
+        showMessage("NO CLIP");
+        return;
+    }
+
+    auto &sequence = _project.selectedTuesdaySequence();
+    sequence.setAlgorithm(_sequenceClipboard.algorithm);
+    sequence.setFlow(_sequenceClipboard.flow);
+    sequence.setOrnament(_sequenceClipboard.ornament);
+    sequence.setPower(_sequenceClipboard.power);
+    sequence.setLoopLength(_sequenceClipboard.loopLength);
+    sequence.setRotate(_sequenceClipboard.rotate);
+    sequence.setGlide(_sequenceClipboard.glide);
+    sequence.setSkew(_sequenceClipboard.skew);
+    sequence.setGateLength(_sequenceClipboard.gateLength);
+    sequence.setGateOffset(_sequenceClipboard.gateOffset);
+    sequence.setStepTrill(_sequenceClipboard.stepTrill);
+    sequence.setStart(_sequenceClipboard.start);
+    showMessage("PASTED");
 }
 
 const TuesdayTrackEngine &TuesdayEditPage::trackEngine() const {

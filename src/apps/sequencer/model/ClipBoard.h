@@ -31,6 +31,7 @@ public:
     void copyIndexedSequence(const IndexedSequence &sequence);
     void copyIndexedSequenceSteps(const IndexedSequence &sequence, const SelectedSteps &selectedSteps);
     void copyDiscreteMapSequence(const DiscreteMapSequence &sequence);
+    void copyTuesdaySequence(const TuesdaySequence &sequence);
     void copyPattern(int patternIndex);
     void copyUserScale(const UserScale &userScale);
 
@@ -42,6 +43,7 @@ public:
     void pasteIndexedSequence(IndexedSequence &sequence) const;
     void pasteIndexedSequenceSteps(IndexedSequence &sequence, const SelectedSteps &selectedSteps) const;
     void pasteDiscreteMapSequence(DiscreteMapSequence &sequence) const;
+    void pasteTuesdaySequence(TuesdaySequence &sequence) const;
     void pastePattern(int patternIndex) const;
     void pasteUserScale(UserScale &userScale) const;
 
@@ -53,6 +55,7 @@ public:
     bool canPasteIndexedSequence() const;
     bool canPasteIndexedSequenceSteps() const;
     bool canPasteDiscreteMapSequence() const;
+    bool canPasteTuesdaySequence() const;
     bool canPastePattern() const;
     bool canPasteUserScale() const;
 
@@ -67,6 +70,7 @@ private:
         IndexedSequence,
         IndexedSequenceSteps,
         DiscreteMapSequence,
+        TuesdaySequence,
         Pattern,
         UserScale,
     };
@@ -101,5 +105,5 @@ private:
 
     Project &_project;
     Type _type = Type::None;
-    Container<Track, NoteSequence, NoteSequenceSteps, CurveSequence, CurveSequenceSteps, IndexedSequence, IndexedSequenceSteps, DiscreteMapSequence, Pattern, UserScale> _container;
+    Container<Track, NoteSequence, NoteSequenceSteps, CurveSequence, CurveSequenceSteps, IndexedSequence, IndexedSequenceSteps, DiscreteMapSequence, TuesdaySequence, Pattern, UserScale> _container;
 };

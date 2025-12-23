@@ -60,6 +60,11 @@ void ClipBoard::copyDiscreteMapSequence(const DiscreteMapSequence &sequence) {
     _container.as<DiscreteMapSequence>() = sequence;
 }
 
+void ClipBoard::copyTuesdaySequence(const TuesdaySequence &sequence) {
+    _type = Type::TuesdaySequence;
+    _container.as<TuesdaySequence>() = sequence;
+}
+
 void ClipBoard::copyPattern(int patternIndex) {
     _type = Type::Pattern;
     auto &pattern = _container.as<Pattern>();
@@ -208,6 +213,13 @@ void ClipBoard::pasteDiscreteMapSequence(DiscreteMapSequence &sequence) const {
     }
 }
 
+void ClipBoard::pasteTuesdaySequence(TuesdaySequence &sequence) const {
+    if (canPasteTuesdaySequence()) {
+        Model::WriteLock lock;
+        sequence = _container.as<TuesdaySequence>();
+    }
+}
+
 void ClipBoard::pastePattern(int patternIndex) const {
     if (canPastePattern()) {
         Model::WriteLock lock;
@@ -275,6 +287,10 @@ bool ClipBoard::canPasteIndexedSequenceSteps() const {
 
 bool ClipBoard::canPasteDiscreteMapSequence() const {
     return _type == Type::DiscreteMapSequence;
+}
+
+bool ClipBoard::canPasteTuesdaySequence() const {
+    return _type == Type::TuesdaySequence;
 }
 
 bool ClipBoard::canPastePattern() const {

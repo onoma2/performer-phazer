@@ -62,6 +62,9 @@ private:
     void handleStepKeyPress(int step, bool shift);
     void handleStepKeyDown(int step, bool shift);
     void handleStepKeyUp(int step, bool shift);
+    void randomizeSequence();
+    void copySequenceParams();
+    void pasteSequenceParams();
 
     const TuesdayTrackEngine &trackEngine() const;
     TuesdayTrack &tuesdayTrack();
@@ -75,4 +78,22 @@ private:
     bool _jamMuteHeld = false;
     bool _jamPrevMute = false;
     int _jamMuteTrack = -1;
+
+    struct SequenceClipboard {
+        bool valid = false;
+        int algorithm = 0;
+        int flow = 0;
+        int ornament = 0;
+        int power = 0;
+        int loopLength = 0;
+        int rotate = 0;
+        int glide = 0;
+        int skew = 0;
+        int gateLength = 0;
+        int gateOffset = 0;
+        int stepTrill = 0;
+        int start = 0;
+    };
+
+    SequenceClipboard _sequenceClipboard;
 };
