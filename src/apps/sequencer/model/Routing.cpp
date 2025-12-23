@@ -231,7 +231,7 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
                     continue;
                 }
                 if (target == Target::Run) {
-                    track.setRunGate(floatValue > 0.7f, true);
+                    track.setRunGate(floatValue > 0.55f, true);
                     continue;
                 }
 
