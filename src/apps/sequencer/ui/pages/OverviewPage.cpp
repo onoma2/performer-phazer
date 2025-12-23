@@ -4,6 +4,10 @@
 #include "model/TuesdayTrack.h"
 #include "model/TuesdaySequence.h"
 #include "engine/TuesdayTrackEngine.h"
+#include "model/IndexedTrack.h"
+#include "engine/IndexedTrackEngine.h"
+#include "model/DiscreteMapTrack.h"
+#include "engine/DiscreteMapTrackEngine.h"
 
 #include "ui/painters/WindowPainter.h"
 
@@ -126,6 +130,121 @@ static void drawTuesdayTrack(Canvas &canvas, int trackIndex, const TuesdayTrackE
     }
 }
 
+static void drawIndexedTrack(Canvas &canvas, int trackIndex, const IndexedTrackEngine &trackEngine, const IndexedSequence &sequence) {
+    canvas.setBlendMode(BlendMode::Set);
+
+    int stepOffset = (std::max(0, trackEngine.currentStep()) / 16) * 16;
+    int y = trackIndex * 8;
+
+    for (int i = 0; i < 16; ++i) {
+        int stepIndex = stepOffset + i;
+        if (stepIndex >= sequence.activeLength()) {
+            // Don't draw beyond active length
+            break;
+        }
+
+        const auto &step = sequence.step(stepIndex);
+
+        int x = 64 + i * 8;
+
+        // Determine if step is currently active
+        bool isCurrentStep = (trackEngine.currentStep() == stepIndex);
+
+        // Determine gate state and set color accordingly
+        bool hasNote = step.noteIndex() != 0 || step.duration() > 0; // Non-zero note or non-zero duration
+        uint16_t gateLength = step.gateLength();
+
+        // Calculate the height of the gate based on gateLength percentage
+        int gateHeight = 6; // Maximum height
+        if (gateLength < IndexedSequence::GateLengthTrigger) {
+            gateHeight = (gateLength * 6) / 100; // Scale to 0-6 based on percentage
+        } else {
+            // Special case for trigger (show as thin line)
+            gateHeight = 1;
+        }
+
+        if (isCurrentStep) {
+            // Highlight current step
+            canvas.setColor(hasNote ? Color::Bright : Color::MediumBright);
+            canvas.fillRect(x + 1, y + 1, 6, 6);
+
+            // Draw gate length indicator inside the step
+            if (gateLength < IndexedSequence::GateLengthTrigger) {
+                canvas.setColor(Color::Low);
+                canvas.fillRect(x + 1, y + 1 + (6 - gateHeight), 6, gateHeight);
+            } else {
+                // For trigger, draw a small indicator
+                canvas.setColor(Color::Low);
+                canvas.fillRect(x + 3, y + 3, 2, 2);
+            }
+        } else {
+            // Regular step
+            canvas.setColor(hasNote ? Color::Medium : Color::Low);
+            canvas.fillRect(x + 1, y + 1, 6, 6);
+
+            // Draw gate length indicator inside the step
+            if (hasNote && gateLength < IndexedSequence::GateLengthTrigger) {
+                canvas.setColor(Color::Low);
+                canvas.fillRect(x + 1, y + 1 + (6 - gateHeight), 6, gateHeight);
+            } else if (hasNote && gateLength >= IndexedSequence::GateLengthTrigger) {
+                // For trigger, draw a small indicator
+                canvas.setColor(Color::Low);
+                canvas.fillRect(x + 3, y + 3, 2, 2);
+            }
+        }
+    }
+}
+
+static void drawDiscreteMapTrack(Canvas &canvas, int trackIndex, const DiscreteMapTrackEngine &trackEngine, const DiscreteMapSequence &sequence) {
+    canvas.setBlendMode(BlendMode::Set);
+
+    int y = trackIndex * 8;
+
+    // Draw threshold levels as stepped line
+    // Map all 32 stages to 16 positions by sampling every other stage (0,2,4,...,30)
+    for (int i = 0; i < 16; ++i) {
+        int stageIndex = i * 2; // Even indices: 0,2,4,6,...,30
+        if (stageIndex >= DiscreteMapSequence::StageCount) break; // Don't exceed available stages
+
+        const auto &stage = sequence.stage(stageIndex);
+        int x = 64 + i * 8;
+
+        // Convert threshold (-100 to 100) to Y position (0 to 6)
+        // Invert so that higher thresholds are lower on screen (like voltage)
+        int thresholdY = y + 1 + (int)((1.0f - (stage.threshold() / 100.0f)) * 5.0f);
+        thresholdY = clamp(thresholdY, y + 1, y + 6);
+
+        // Draw the threshold as a single pixel
+        canvas.setColor(Color::Medium);
+        canvas.fillRect(x + 3, thresholdY, 1, 1); // Center the pixel in the step
+        canvas.fillRect(x + 4, thresholdY, 1, 1);
+    }
+
+    // Highlight the active stage if any
+    int activeStage = trackEngine.activeStage();
+    if (activeStage >= 0) {
+        // Map the actual active stage to the displayed position
+        int displayedPosition = activeStage / 2;
+        if (displayedPosition < 16) { // Only if it's within our display range
+            int x = 64 + displayedPosition * 8;
+            canvas.setColor(Color::Bright);
+            // Draw a rectangle around the active stage
+            canvas.drawRect(x + 1, y + 1, 6, 6);
+        }
+    }
+
+    // Draw a cursor showing current input voltage position
+    float currentInput = trackEngine.currentInput();
+    // Map input voltage (-5V to 5V) to position in the 16-step display
+    float inputPosition = (currentInput + 5.0f) / 10.0f; // Normalize to 0-1
+    int cursorX = 64 + (int)(inputPosition * 128); // 128 = 16 * 8 pixels width
+
+    if (cursorX >= 64 && cursorX <= 192) {
+        canvas.setColor(Color::Low);
+        canvas.vline(cursorX, y, 8);
+    }
+}
+
 
 OverviewPage::OverviewPage(PageManager &manager, PageContext &context) :
     BasePage(manager, context)
@@ -186,10 +305,10 @@ void OverviewPage::draw(Canvas &canvas) {
             drawTuesdayTrack(canvas, trackIndex, trackEngine.as<TuesdayTrackEngine>(), track.tuesdayTrack().sequence(trackState.pattern()));
             break;
         case Track::TrackMode::DiscreteMap:
-            // TODO: add DiscreteMap visualization
+            drawDiscreteMapTrack(canvas, trackIndex, trackEngine.as<DiscreteMapTrackEngine>(), track.discreteMapTrack().sequence(trackState.pattern()));
             break;
         case Track::TrackMode::Indexed:
-            // TODO: add Indexed visualization
+            drawIndexedTrack(canvas, trackIndex, trackEngine.as<IndexedTrackEngine>(), track.indexedTrack().sequence(trackState.pattern()));
             break;
         case Track::TrackMode::Last:
             break;

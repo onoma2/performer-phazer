@@ -5,6 +5,14 @@
 #include <algorithm>
 #include <cmath>
 
+constexpr float DiscreteMapTrackEngine::kInternalRampMin;
+constexpr float DiscreteMapTrackEngine::kInternalRampMax;
+constexpr float DiscreteMapTrackEngine::kPrevInputInit;
+constexpr float DiscreteMapTrackEngine::kMinSpanAbs;
+constexpr float DiscreteMapTrackEngine::kArmTolerancePct;
+constexpr float DiscreteMapTrackEngine::kCoveragePct;
+constexpr float DiscreteMapTrackEngine::kRangeEpsilon;
+
 void DiscreteMapTrackEngine::reset() {
     _sequence = &_discreteMapTrack.sequence(pattern());
 
