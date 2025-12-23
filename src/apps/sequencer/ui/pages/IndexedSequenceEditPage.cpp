@@ -57,7 +57,7 @@ static const int quickEditItems[8] = {
     QuickEditSwap,                                    // Step 10
     QuickEditMerge,                                   // Step 11
     int(IndexedSequenceListModel::Item::RunMode),     // Step 12
-    QuickEditNone,
+    int(IndexedSequenceListModel::Item::ResetMeasure), // Step 13
     QuickEditNone,
     QuickEditNone,
     QuickEditNone
