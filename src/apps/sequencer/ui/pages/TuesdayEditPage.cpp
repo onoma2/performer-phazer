@@ -31,8 +31,6 @@ void TuesdayEditPage::draw(Canvas &canvas) {
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "STEPS");
 
-    const auto &track = tuesdayTrack();
-
     // Draw 4 parameters for current page
     // Use 51px columns to match F-key spacing (256/5 ≈ 51)
     const int colWidth = 51;
@@ -421,8 +419,6 @@ void TuesdayEditPage::drawStatusBox(Canvas &canvas) {
     canvas.setFont(Font::Tiny);
 
     const auto &engine = trackEngine();
-    const auto &sequence = _project.selectedTuesdaySequence();
-
     // Line 1: Note name + gate indicator
     int noteY = boxY + 7;
 

@@ -426,7 +426,6 @@ void DiscreteMapSequencePage::handleTopRowKey(int idx) {
         return;
     }
 
-    bool wasSelected = (_selectionMask & (1U << idx)) != 0;
     // Check if any OTHER selection key (0-7) is held
     // idx is logical index. Physical index is idx % 8.
     int physicalIdx = idx % 8;

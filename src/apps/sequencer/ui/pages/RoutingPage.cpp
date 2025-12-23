@@ -7,6 +7,9 @@
 #include "core/math/Math.h"
 #include "core/utils/Random.h"
 
+#include <algorithm>
+#include <cstring>
+
 enum class Function {
     Prev    = 0,
     Next    = 1,
@@ -475,12 +478,21 @@ void RoutingPage::drawBiasOverlay(Canvas &canvas) {
         }
 
         if (foundSpace) {
-            strncpy(line1, nameBuf, splitIdx);
-            strncpy(line2, nameBuf + splitIdx + 1, 7); // Skip space
+            int copy1 = std::min(splitIdx, 7);
+            std::memcpy(line1, nameBuf, copy1);
+            line1[copy1] = '\0';
+
+            int copy2 = std::min(7, static_cast<int>(len) - splitIdx - 1);
+            if (copy2 > 0) {
+                std::memcpy(line2, nameBuf + splitIdx + 1, copy2); // Skip space
+            }
+            line2[std::max(0, copy2)] = '\0';
         } else {
             // Hard split
-            strncpy(line1, nameBuf, 7);
-            strncpy(line2, nameBuf + 7, 7);
+            std::memcpy(line1, nameBuf, 7);
+            line1[7] = '\0';
+            std::memcpy(line2, nameBuf + 7, 7);
+            line2[7] = '\0';
         }
 
         int w1 = canvas.textWidth(line1);

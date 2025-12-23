@@ -55,7 +55,8 @@ void IndexedRouteConfigPage::draw(Canvas &canvas) {
     drawMixConfig(canvas, _combineModeStaged, 46, _activeRoute == ActiveRoute::Mix);
 
     // Footer: F1-F4 for parameter selection, F5 to exit
-    const char *footerLabels[] = { "ENABLE", "GROUPS", "TARGET", "AMOUNT", stagedChanged() ? "COMMIT" : "BACK" };
+    bool shift = pageKeyState()[Key::Shift];
+    const char *footerLabels[] = { "ENABLE", "GROUPS", "TARGET", "AMOUNT", shift ? "BACK" : (stagedChanged() ? "COMMIT" : "BACK") };
     int highlight = (_activeRoute == ActiveRoute::Mix) ? -1 : (int)_editParam;
     WindowPainter::drawFooter(canvas, footerLabels, pageKeyState(), highlight);
 }
@@ -189,9 +190,11 @@ void IndexedRouteConfigPage::keyPress(KeyPressEvent &event) {
             _editParam = static_cast<EditParam>(fn);
         }
 
-        // F5: Commit changes (if any) or go back
+        // F5: Commit changes (if any) or go back, SHIFT+F5 to cancel
         if (fn == 4) {
-            if (stagedChanged()) {
+            if (key.shiftModifier()) {
+                _manager.pop();
+            } else if (stagedChanged()) {
                 auto &sequence = _project.selectedIndexedSequence();
                 sequence.setRouteA(_routeAStaged);
                 sequence.setRouteB(_routeBStaged);

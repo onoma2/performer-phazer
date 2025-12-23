@@ -188,6 +188,9 @@ void OverviewPage::draw(Canvas &canvas) {
         case Track::TrackMode::DiscreteMap:
             // TODO: add DiscreteMap visualization
             break;
+        case Track::TrackMode::Indexed:
+            // TODO: add Indexed visualization
+            break;
         case Track::TrackMode::Last:
             break;
         }

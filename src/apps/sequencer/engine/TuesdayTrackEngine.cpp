@@ -547,7 +547,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateTest(const Gen
     result.velocity = 255;
     result.gateRatio = 75;
 
-    if (_rng.nextRange(100) < sequence.glide()) {
+    if (int(_rng.nextRange(100)) < sequence.glide()) {
         result.slide = true;
     }
 
@@ -579,7 +579,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateTritrance(cons
     else result.gateRatio = 200 + (_rng.nextRange(9) * 25);
 
     // Slide Logic
-    if (_rng.nextRange(100) < sequence.glide()) {
+    if (int(_rng.nextRange(100)) < sequence.glide()) {
         result.slide = true;
     }
 
@@ -692,7 +692,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateWobble(const G
 
     // PercChance(R, seed2). seed2=ornament.
     // Map ornament 0-16 to 0-255 threshold
-    if (_rng.nextRange(256) >= (sequence.ornament() * 16)) {
+    if (int(_rng.nextRange(256)) >= (sequence.ornament() * 16)) {
         // Use Phase 2
         // FIX: Wrap 5-bit phase (0-31) to scale degrees and overflow to octaves
         int rawPhase = (_algoState.wobble.phase2 >> 27) & 0x1F;
@@ -823,7 +823,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStomper(const 
         // Calculate velocity
         result.velocity = (_extraRng.nextRange(256) / 4) + veloffset;
         // Accent logic: PercChance(50 + accentoffs)
-        if (_rng.nextRange(256) >= (50 + accentoffs)) {
+        if (int(_rng.nextRange(256)) >= (50 + accentoffs)) {
              result.accent = true;
         }
 
@@ -1096,7 +1096,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStepwave(const
         int downwardProbability = (16 - flow) * 6;  // Flow 0: ~96%, Flow 8: ~48%, Flow 16: ~0%
         downwardProbability = clamp(downwardProbability, 10, 90); // Ensure some randomness at extremes
 
-        if (_rng.nextRange(100) < downwardProbability) {
+        if (int(_rng.nextRange(100)) < downwardProbability) {
             _algoState.stepwave.direction = -1; // Downward
         } else {
             _algoState.stepwave.direction = 1;  // Upward
@@ -1119,7 +1119,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStepwave(const
     int downwardProbability = (16 - flow) * 6;  // Flow 0: ~96%, Flow 8: ~48%, Flow 16: ~0%
     downwardProbability = clamp(downwardProbability, 10, 90); // Ensure some randomness at extremes
 
-    if (_rng.nextRange(100) < downwardProbability) {
+    if (int(_rng.nextRange(100)) < downwardProbability) {
         dir = -1; // Downward
     } else {
         dir = 1;  // Upward
@@ -1132,7 +1132,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStepwave(const
 
     // Always generate velocity (NO MASKING)
     result.velocity = 200;
-    if (_rng.nextRange(100) < (20 + flow * 3)) {
+    if (int(_rng.nextRange(100)) < (20 + flow * 3)) {
         result.octave = 2;
         result.velocity = 255;
         result.accent = true;
@@ -1140,7 +1140,7 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateStepwave(const
         result.octave = 0;
     }
 
-    if (_rng.nextRange(100) < sequence.glide()) {
+    if (int(_rng.nextRange(100)) < sequence.glide()) {
         result.slide = true;
         result.gateRatio = 100;
     } else {
@@ -1312,9 +1312,9 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateMinimal(const 
             int glideProb = sequence.glide() / 5;  // Max 20%
             int trillProb = sequence.stepTrill() / 10;  // Max 10%
 
-            result.slide = (_extraRng.next() % 100) < glideProb;
+            result.slide = int(_extraRng.next() % 100) < glideProb;
 
-            if ((_extraRng.next() % 100) < trillProb) {
+            if (int(_extraRng.next() % 100) < trillProb) {
                 result.trillCount = 2 + (_extraRng.next() % 3);  // 2-4
             } else {
                 result.trillCount = 1;
@@ -1338,7 +1338,6 @@ TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateMinimal(const 
 }
 
 TuesdayTrackEngine::TuesdayTickResult TuesdayTrackEngine::generateWindow(const GenerationContext &ctx) {
-    const auto &sequence = tuesdayTrack().sequence(pattern());
     TuesdayTickResult result;
 
     auto &state = _algoState.window;
@@ -1800,8 +1799,6 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
         effectiveParam = MASK_VALUES[_currentMaskArrayIndex % MASK_COUNT];
 
         // Store the current counter value to detect cycle completion
-        int previousCounter = _primeMaskCounter;
-
         // Apply timing mode logic using the selected mask value
         if (timeMode == 0) {  // FREE mode - toggle based on mask value duration
             _primeMaskCounter++;
@@ -1823,8 +1820,8 @@ TrackEngine::TickResult TuesdayTrackEngine::tick(uint32_t tick) {
 
             tickAllowed = (_primeMaskState == 1); // Allow if in allow state
         } else {  // GRID-SYNCED modes
-            uint32_t quarterNoteTicks = 192;  // 1 quarter note = 192 ticks
-            uint32_t targetDuration;
+            const int quarterNoteTicks = 192;  // 1 quarter note = 192 ticks
+            int targetDuration = 0;
 
             switch (timeMode) {
                 case 1: // QRT: mask for mask value, allow for (quarter note - mask value)

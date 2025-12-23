@@ -442,6 +442,7 @@ int IndexedMathPage::valueMin(const MathConfig &cfg) const {
     default:
         return 0;
     }
+    return 0;
 }
 
 int IndexedMathPage::valueMax(const MathConfig &cfg) const {
