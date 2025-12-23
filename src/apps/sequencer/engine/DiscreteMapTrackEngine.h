@@ -24,7 +24,7 @@ public:
 
     virtual void changePattern() override;
 
-    virtual bool activity() const override { return _activity; }
+    virtual bool activity() const override { return _activityTimer > 0; }
     virtual bool gateOutput(int index) const override { return !mute() && _gateTimer > 0 && _activeStage >= 0; }
     virtual float cvOutput(int index) const override {
         // When muted and in Gate mode, output should be 0
@@ -57,6 +57,7 @@ private:
     static constexpr float kArmTolerancePct = 0.05f;
     static constexpr float kCoveragePct = 0.90f;
     static constexpr float kRangeEpsilon = 1e-6f;
+    static constexpr uint32_t kActivityPulseTicks = 12;
 
     void updateRamp(uint32_t tick);
     float getRoutedInput();
@@ -113,6 +114,7 @@ private:
 
     // === Activity ===
     bool _activity = false;
+    uint32_t _activityTimer = 0;
 
     // === External ONCE sweep tracking ===
     bool _extOnceArmed = false;

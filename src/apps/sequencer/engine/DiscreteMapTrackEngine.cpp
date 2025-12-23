@@ -34,6 +34,7 @@ void DiscreteMapTrackEngine::reset() {
     _running = true;
     _thresholdsDirty = true;
     _activity = false;
+    _activityTimer = 0;
     _lastScannerSegment = -1;
     _prevRangeHigh = _sequence ? _sequence->rangeHigh() : 0.0f;
     _prevRangeLow = _sequence ? _sequence->rangeLow() : 0.0f;
@@ -57,6 +58,7 @@ void DiscreteMapTrackEngine::changePattern() {
     _extMinSeen = 0.f;
     _extMaxSeen = 0.f;
     _lastScannerSegment = -1;
+    _activityTimer = 0;
 }
 
 void DiscreteMapTrackEngine::restart() {
@@ -73,6 +75,7 @@ void DiscreteMapTrackEngine::restart() {
     _extMinSeen = 0.f;
     _extMaxSeen = 0.f;
     _lastScannerSegment = -1;
+    _activityTimer = 0;
 }
 
 TrackEngine::TickResult DiscreteMapTrackEngine::tick(uint32_t tick) {
@@ -179,8 +182,15 @@ TrackEngine::TickResult DiscreteMapTrackEngine::tick(uint32_t tick) {
     // 3. Find active stage from threshold crossings
     int newStage = extOnceFreeze ? _activeStage : findActiveStage(_currentInput, _prevInput);
 
-    // Activity detection: true if stage changed
-    _activity = (newStage != _activeStage && newStage >= 0);
+    if (_activityTimer > 0) {
+        --_activityTimer;
+    }
+
+    bool stageChanged = (newStage != _activeStage && newStage >= 0);
+    if (stageChanged) {
+        _activityTimer = kActivityPulseTicks;
+    }
+    _activity = (_activityTimer > 0);
 
     float prevCv = _cvOutput;
     bool prevGate = _gateTimer > 0;

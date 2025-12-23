@@ -25,7 +25,7 @@ public:
 
     virtual void changePattern() override;
 
-    virtual bool activity() const override { return _activity; }
+    virtual bool activity() const override { return gateOutput(0); }
     virtual bool gateOutput(int index) const override;
     virtual float cvOutput(int index) const override { return _cvOutput; }
     virtual float sequenceProgress() const override;
